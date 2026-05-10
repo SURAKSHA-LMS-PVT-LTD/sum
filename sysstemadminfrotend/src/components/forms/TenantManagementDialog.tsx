@@ -96,7 +96,7 @@ export function TenantManagementDialog({ open, onOpenChange, onSuccess, institut
   const handleBrandingFileUpload = async (file: File, fieldName: string) => {
     setUploadingField(fieldName);
     try {
-      const result = await uploadFile(file, "institute-images");
+      const result = await uploadFile(file, "institute-branding");
       // Always store the relative path — resolveUrl() handles display
       setBrandingForm(prev => ({ ...prev, [fieldName]: result.relativePath }));
       // Create local blob preview so user sees the image immediately
