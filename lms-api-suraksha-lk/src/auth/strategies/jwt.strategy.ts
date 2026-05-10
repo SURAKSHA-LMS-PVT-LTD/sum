@@ -6,12 +6,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../../modules/user/entities/user.entity';
 import { BookhireOwnerEntity } from '../../modules/private-transportation/entities/bookhire-owner.entity';
-import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { JwtPayload, fromCompactUserType } from '../interfaces/jwt-payload.interface';
 import { 
   EnhancedInstituteAccessEntry, 
   EnhancedJwtPayload, 
-  GLOBAL_INSTITUTE_ACCESS_FLAG,
-  COMPACT_TO_USER_TYPE
+  GLOBAL_INSTITUTE_ACCESS_FLAG
 } from '../interfaces/enhanced-jwt-payload.interface';
 
 @Injectable()
@@ -45,10 +44,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload | EnhancedJwtPayload) {
-    const isEnhanced = this.isEnhancedPayload(payload);
-    const userId = isEnhanced ? (payload as EnhancedJwtPayload).s : (payload as JwtPayload).sub;
-    const userTypeShort = isEnhanced ? (payload as EnhancedJwtPayload).t : undefined;
-    const userType = userTypeShort ? COMPACT_TO_USER_TYPE[userTypeShort] : (payload as JwtPayload).type;
+    const userId = payload.s;
+    const userType = fromCompactUserType(payload.ut);
 
     if (!userId) {
       throw new UnauthorizedException('Invalid token payload');
@@ -75,6 +72,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User account is inactive');
     }
 
+    const isEnhanced = this.isEnhancedPayload(payload);
     const enhancedClaims = isEnhanced ? this.extractEnhancedClaims(payload as EnhancedJwtPayload) : null;
 
     // Normalize the user object to a consistent shape
@@ -99,8 +97,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   private isEnhancedPayload(payload: any): payload is EnhancedJwtPayload {
-    // 's' is for subject (user ID) and is a required field in the enhanced payload
-    return payload && typeof payload.s === 'string';
+    // Check for 'i' (institute access) or 'c' (children access) to identify enhanced payload
+    return payload && (payload.i !== undefined || payload.c !== undefined);
   }
 
   private extractEnhancedClaims(
@@ -110,7 +108,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     instituteAccess?: EnhancedInstituteAccessEntry[];
     childrenAccess?: string[];
   } | null {
-    if (!payload || (payload.i === undefined && payload.c === undefined)) {
+    if (!payload) {
       return null;
     }
 
