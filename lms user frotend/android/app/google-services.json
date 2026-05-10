@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "701726387829",
+    "project_id": "suraksha-ab3c0",
+    "storage_bucket": "suraksha-ab3c0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:701726387829:android:d01761e6a286c5f458d23c",
+        "android_client_info": {
+          "package_name": "lk.suraksha.lms"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA8-bs6QKh68evrW7QUW6_Azc64SAUnnYY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

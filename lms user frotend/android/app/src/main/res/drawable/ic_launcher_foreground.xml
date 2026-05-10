@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportHeight="108"
+    android:viewportWidth="108">
+
+    <!-- Suraksha Logo - White figure on blue background (adaptive icon) -->
+
+    <!-- Head (circle) - centered at (54, 32), radius 11 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,21C60.08,21 65,25.92 65,32C65,38.08 60.08,43 54,43C47.92,43 43,38.08 43,32C43,25.92 47.92,21 54,21Z" />
+
+    <!-- Body swoosh (crescent) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,50C18,70 28,90 56,88C84,86 92,54 78,30C86,52 78,78 56,80C34,80 24,62 36,50Z" />
+</vector>

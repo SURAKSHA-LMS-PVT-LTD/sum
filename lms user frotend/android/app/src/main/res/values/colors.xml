@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary brand color -->
+    <color name="colorPrimary">#0039B3</color>
+    <color name="colorPrimaryDark">#002D8F</color>
+    <color name="colorAccent">#0039B3</color>
+    
+    <!-- Status bar color -->
+    <color name="colorStatusBar">#0039B3</color>
+    
+    <!-- Background colors -->
+    <color name="colorBackgroundMistBlue">#F0F6FF</color>
+    <color name="colorBackgroundWhite">#FFFFFF</color>
+    <color name="colorBackgroundDark">#FFFFFF</color>
+    
+    <!-- Push notification colors -->
+    <color name="notification_color">#0039B3</color>
+</resources>

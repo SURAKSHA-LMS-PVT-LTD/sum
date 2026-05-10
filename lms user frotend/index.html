@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual" />
+    
+    <!-- SEO & Meta Tags -->
+    <title>Suraksha LMS Login | Online Learning Management System Login Portal</title>
+    <meta name="description" content="Login to Suraksha LMS - Complete online learning management system for educational institutions. Secure student login, teacher dashboard, attendance tracking, exam management, and homework submission at lms.suraksha.lk" />
+    <meta name="keywords" content="Suraksha LMS login, LMS login portal, online education login, school management system, student login, teacher login, LMS dashboard, attendance system, exam management, learning management, Suraksha education platform, LMS system, online classroom, digital education" />
+    <meta name="author" content="SurakshaLMS" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://lms.suraksha.lk/" />
+    <meta name="language" content="English" />
+    <meta name="revisit-after" content="7 days" />
+    
+    <!-- Theme color for status bar on mobile -->
+    <meta name="theme-color" content="#f9fafb" id="theme-color-meta" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Suraksha LMS" />
+    
+    <!-- Favicons - served from same origin to avoid CORS issues on custom domains -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Suraksha LMS Login - Educational Learning Management System" />
+    <meta property="og:description" content="Secure login to Suraksha LMS. Complete learning management platform with student portal, teacher dashboard, attendance, exams, and more." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lms.suraksha.lk/" />
+    <meta property="og:site_name" content="Suraksha LMS" />
+    <meta property="og:image" content="https://suraksha.lk/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Suraksha LMS Login Portal" />
+    <meta name="twitter:description" content="Login to Suraksha LMS - Complete Learning Management System for educational institutions. Student login, teacher dashboard, attendance, exams." />
+    <meta name="twitter:image" content="https://suraksha.lk/twitter-image.png" />
+    <meta name="twitter:creator" content="@SurakshaLMS" />
+
+    <!-- Schema.org Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Suraksha LMS",
+      "description": "Complete Learning Management System for educational institutions",
+      "url": "https://lms.suraksha.lk",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Android, iOS, Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "LKR"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "Suraksha LMS",
+        "url": "https://suraksha.lk"
+      }
+    }
+    </script>
+
+    <!-- Fonts are bundled locally via @fontsource/inter (imported in main.tsx) -->
+
+    <script>
+      (function() {
+        var root = document.documentElement;
+        var stored;
+        try { stored = localStorage.getItem('theme'); } catch (e) {}
+        var theme = stored || 'light';
+        if (theme === 'system') {
+          theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        }
+        root.classList.remove('light', 'dark');
+        root.classList.add(theme);
+        // Update theme-color meta for native status bar
+        var meta = document.getElementById('theme-color-meta');
+        if (meta) {
+          var isDark = theme === 'dark';
+          var bg = isDark ? '#14171f' : '#f9fafb';
+          meta.setAttribute('content', bg);
+        }
+      })();
+    </script>
+  </head>
+
+  <body style="margin:0">
+    <div id="google_translate_element" style="position:absolute;top:-9999px;left:-9999px;visibility:hidden;"></div>
+    <div id="root" class="notranslate"></div>
+    <div id="portal-root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <script>
+      // Google Translate init — sets up the hidden widget
+      function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+          pageLanguage: 'en',
+          includedLanguages: 'en,si,ta',
+          layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+          autoDisplay: false,
+        }, 'google_translate_element');
+        // Signal to React that GT is ready
+        window.__GT_READY = true;
+        window.dispatchEvent(new Event('gt-ready'));
+      }
+    </script>
+    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+  </body>
+</html>
+

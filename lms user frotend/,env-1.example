@@ -1,0 +1,33 @@
+# Backend API URLs
+# Main LMS Backend API
+VITE_LMS_BASE_URL=https://dev-lms-api-suraksha-lk-244494971729.us-central1.run.app
+
+# Attendance API URL (optional, defaults to main backend)
+VITE_ATTENDANCE_BASE_URL=https://dev-lms-api-suraksha-lk-244494971729.us-central1.run.app
+
+# ============================================
+# Firebase Configuration (for Web Push Notifications)
+# ============================================
+# Get these values from Firebase Console:
+# 1. Go to https://console.firebase.google.com
+# 2. Select your project > Project Settings > General
+# 3. Scroll to "Your apps" > Web app > Firebase SDK snippet
+#
+# Note: These are PUBLIC keys, safe for client-side use.
+# Firebase security is handled through Firebase Security Rules.
+# ============================================
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_MEASUREMENT_ID=
+
+# Firebase Cloud Messaging VAPID Key (for Web Push)
+# Get from: Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
+# Click "Generate key pair" if none exists
+VITE_FIREBASE_VAPID_KEY=
+
+# Special API Key (for public OTP verification & user registration - no login required)
+VITE_SPECIAL_API_KEY=

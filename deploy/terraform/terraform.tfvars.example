@@ -1,0 +1,16 @@
+# Copy this to terraform.tfvars and fill in your values
+# terraform.tfvars is in .gitignore — never commit it
+
+project_id     = "your-gcp-project-id"
+region         = "us-central1"
+zone           = "us-central1-a"
+machine_type   = "e2-small"          # VM: ~$12/mo
+disk_size_gb   = 30
+data_disk_size_gb = 10               # Redis AOF persistence only
+admin_cidr     = "YOUR_HOME_IP/32"   # get it: curl ifconfig.me
+ssh_user       = "ubuntu"
+ssh_public_key = "ssh-rsa AAAA..."   # paste output of: cat ~/.ssh/id_rsa.pub
+
+# Cloud SQL
+db_tier     = "db-f1-micro"          # cheapest: shared CPU, 0.6 GB RAM, ~$7/mo
+db_password = "GENERATE_ME"          # openssl rand -base64 32 | tr -dc A-Za-z0-9 | head -c 32

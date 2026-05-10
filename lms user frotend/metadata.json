@@ -1,0 +1,5 @@
+{
+  "name": "Suraksha LMS",
+  "description": "Learning Management System built with React, TypeScript, Vite, Tailwind CSS, and Capacitor.",
+  "requestFramePermissions": []
+}

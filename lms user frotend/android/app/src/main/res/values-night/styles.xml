@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Dark mode overrides — status bar and navigation bar use the same dark surface colour
+         as the app's dark theme (#14171f), keeping both bars flush with the web UI. -->
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+        <item name="android:statusBarColor">#14171f</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">#14171f</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/colorBackgroundDark</item>
+        <item name="android:statusBarColor">#14171f</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">#14171f</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+</resources>

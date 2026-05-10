@@ -1,0 +1,8 @@
+terraform/terraform.tfvars
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+env/*.env
+!env/backend.env
+!env/frontend.env

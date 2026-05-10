@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep *)",
+      "Bash(find \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\src\\\\\" -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" -o -name \"*.jsx\" -o -name \"*.js\" \\\\\\) | head -50)",
+      "Bash(grep -r \"\\\\.query\\\\s*\\\\\\(\\\\s*\\\\`\" \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms-api-suraksha-lk\\\\src\" --include=\"*.ts\")",
+      "Bash(npx tsc *)",
+      "Bash(node scripts/seed-mock-data.js)",
+      "Bash(node scripts/describe-tables.js institutes users institute_user institute_classes subjects institute_class_subjects institute_class_students institute_class_subject_students attendance_records students parents)",
+      "Bash(node scripts/describe-tables.js institutes)",
+      "Bash(node scripts/verify-mock.js)",
+      "Bash(node scripts/check-attendance.js)",
+      "Bash(timeout 15 node -e ' *)",
+      "Bash(xargs head *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\src\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(node -e ' *)",
+      "Bash(Get-ChildItem -Recurse \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\src\\\\pages\" -Filter \"*attendance*\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName)",
+      "PowerShell($assets = \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\dist\\\\assets\"; if \\(Test-Path $assets\\) { $count = \\(Get-ChildItem $assets -File\\).Count; Write-Host \"Files in dist/assets: $count\" } else { Write-Host \"dist/assets does not exist - build may have failed\" }; $distPath = \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\dist\"; Get-ChildItem $distPath -ErrorAction SilentlyContinue | Select-Object Name)",
+      "Bash(node --input-type=module --eval \"import\\('./src/modules/attendance/services/attendance-notification.service.ts'\\)\")"
+    ]
+  }
+}

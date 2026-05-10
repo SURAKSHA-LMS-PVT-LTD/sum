@@ -1,0 +1,28 @@
+{
+  "appId": "lk.suraksha.lms",
+  "appName": "Suraksha LMS",
+  "webDir": "dist",
+  "android": {
+    "buildOptions": {
+      "keystorePath": null,
+      "keystoreAlias": null
+    }
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "launchAutoHide": true,
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  },
+  "server": {
+    "androidScheme": "https",
+    "url": "https://lms.suraksha.lk",
+    "cleartext": false,
+    "allowNavigation": ["lms.suraksha.lk", "*.suraksha.lk"]
+  }
+}
