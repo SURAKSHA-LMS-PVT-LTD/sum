@@ -138,7 +138,7 @@ export class InstituteClassSubjectLecturesController {
     @Body() updateDto: UpdateInstituteClassSubjectLectureDto,
     @Request() req: any
   ): Promise<InstituteClassSubjectLecture> {
-    return await this.lecturesService..update(id, updateDto, req.user);
+    return await this.lecturesService.update(id, updateDto, req.user);
   }
 
   @Delete(':id')

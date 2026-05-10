@@ -620,7 +620,7 @@ export class AuthController {
       platform: session.platform as 'web' | 'android' | 'ios',
       deviceId: session.deviceId,
       deviceName: session.deviceName,
-      ipAddress:.ipAddress,
+      ipAddress: session.ipAddress,
       userAgent: session.userAgent,
       createdAt: session.createdAt,
       expiresAt: session.expiresAt,
