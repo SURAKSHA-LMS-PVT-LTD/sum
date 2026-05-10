@@ -5,12 +5,12 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../../modules/user/entities/user.entity';
-import { BookhireOwnerEntity } from '../../modules/private-transportation/entities/bookhire-owner.entity';
 import { JwtPayload, fromCompactUserType } from '../interfaces/jwt-payload.interface';
 import { 
   EnhancedInstituteAccessEntry, 
   EnhancedJwtPayload, 
-  GLOBAL_INSTITUTE_ACCESS_FLAG
+  GLOBAL_INSTITUTE_ACCESS_FLAG,
+  COMPACT_TO_USER_TYPE
 } from '../interfaces/enhanced-jwt-payload.interface';
 
 @Injectable()
@@ -21,8 +21,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private configService: ConfigService,
     @InjectRepository(UserEntity)
     private userRepository: Repository<UserEntity>,
-    @InjectRepository(BookhireOwnerEntity)
-    private bookhireOwnerRepository: Repository<BookhireOwnerEntity>
   ) {
     const jwtSecret = configService.get<string>('JWT_SECRET');
     if (!jwtSecret) {
@@ -45,22 +43,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload | EnhancedJwtPayload) {
     const userId = payload.s;
-    const userType = fromCompactUserType(payload.ut);
+    const userType = this.isEnhancedPayload(payload) ? COMPACT_TO_USER_TYPE[(payload as EnhancedJwtPayload).u] : fromCompactUserType((payload as JwtPayload).ut);
 
     if (!userId) {
       throw new UnauthorizedException('Invalid token payload');
     }
 
-    let user: any;
-
-    if (userType === 'bookhire-owner') {
-      user = await this.bookhireOwnerRepository.findOne({ where: { id: userId } });
-    } else {
-      user = await this.userRepository.findOne({ 
-        where: { id: userId },
-        select: ['id', 'email', 'firstName', 'lastName', 'isActive', 'userType', 'imageUrl']
-      });
-    }
+    const user = await this.userRepository.findOne({ 
+      where: { id: userId },
+      select: ['id', 'email', 'firstName', 'lastName', 'isActive', 'userType', 'imageUrl']
+    });
 
     if (!user) {
       this.logger.error(`User not found for ID: ${userId} and type: ${userType}`);
@@ -83,9 +75,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       s: user.id,
       email: user.email,
       userType: user.userType,
-      firstName: user.firstName || user.name, // Use name from BookhireOwner
+      firstName: user.firstName,
       lastName: user.lastName,
-      imageUrl: user.imageUrl || user.profileImage, // Use profileImage from BookhireOwner
+      imageUrl: user.imageUrl,
       jwtPayload: payload,
       ...payload,
       hasGlobalInstituteAccess: enhancedClaims?.hasGlobalAccess ?? false,
@@ -97,8 +89,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   private isEnhancedPayload(payload: any): payload is EnhancedJwtPayload {
-    // Check for 'i' (institute access) or 'c' (children access) to identify enhanced payload
-    return payload && (payload.i !== undefined || payload.c !== undefined);
+    // Check for 'u' (user type as number) to identify enhanced payload
+    return payload && typeof payload.u === 'number';
   }
 
   private extractEnhancedClaims(
