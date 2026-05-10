@@ -272,26 +272,6 @@ export class AuthController {
     return await this.authService.changePasswordWithJWT(changePasswordDto, authorization);
   }
 
-  @Get('debug-user/:email')
-  @UseGuards(JwtAuthGuard, FlexibleAccessGuard)
-  @RequireAnyOfRoles({ global: [UserType.SUPERADMIN] })
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Debug user existence (SUPERADMIN only - development)' })
-  async debugUser(@Param('email') email: string) {
-    // 🔒 SECURITY: Only allow in non-production environments
-    if (process.env.NODE_ENV === 'production') {
-      throw new UnauthorizedException('Debug endpoints disabled in production');
-    }
-    
-    const user = await this.authService.findUserByEmail(email);
-    return {
-      exists: !!user,
-      email: user?.email,
-      hasPassword: !!user?.password,
-      isActive: user?.isActive,
-      userType: user?.userType
-    };
-  }
 
   // =================== PASSWORD RESET (SIMPLE 2-STEP FLOW) ===================
 
@@ -640,7 +620,7 @@ export class AuthController {
       platform: session.platform as 'web' | 'android' | 'ios',
       deviceId: session.deviceId,
       deviceName: session.deviceName,
-      ipAddress: session.ipAddress,
+      ipAddress:.ipAddress,
       userAgent: session.userAgent,
       createdAt: session.createdAt,
       expiresAt: session.expiresAt,

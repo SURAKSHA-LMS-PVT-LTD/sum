@@ -175,6 +175,7 @@ export class CompletePasswordChangeDto {
   confirmPassword: string;
 }
 
+@ApiTags('Authentication')
 @Controller('auth/password')
 export class PasswordResetController {
   constructor(private readonly passwordResetService: PasswordResetService) {}
@@ -183,7 +184,7 @@ export class PasswordResetController {
    * Initiate password reset process for users who forgot their password
    */
   @Post('reset/initiate')
-  @Public() // Unauthenticated users need to initiate password reset
+  @Public()
   @Throttle({ default: { limit: 3, ttl: 900000 } }) // 🔒 SECURITY: 3 password reset requests per 15 minutes
   @HttpCode(HttpStatus.OK)
   async initiatePasswordReset(
@@ -216,7 +217,7 @@ export class PasswordResetController {
    * Verify the OTP sent for password reset
    */
   @Post('reset/verify-otp')
-  @Public() // Unauthenticated users need to verify OTP for password reset
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 900000 } }) // 🔒 SECURITY: 5 OTP verification attempts per 15 minutes
   @HttpCode(HttpStatus.OK)
   async verifyPasswordResetOtp(
@@ -245,7 +246,7 @@ export class PasswordResetController {
    * Complete password reset with new password
    */
   @Post('reset/complete')
-  @Public() // Unauthenticated users need to complete password reset
+  @Public()
   @Throttle({ default: { limit: 3, ttl: 900000 } }) // 🔒 SECURITY: 3 password reset completion attempts per 15 minutes
   @HttpCode(HttpStatus.OK)
   async resetPassword(

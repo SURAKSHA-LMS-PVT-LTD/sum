@@ -206,4 +206,3 @@ export class BookhireOwnerAdminController {
     return { message: 'Bookhire owner activated successfully' };
   }
 }
-

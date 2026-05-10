@@ -43,6 +43,7 @@ import { AsyncEmailService } from '../common/services/async-email.service';
 import { EnhancedEmailService } from '../common/services/enhanced-email.service';
 import { InstantSmsModule } from '../modules/sms/instant-sms.module';
 import { TenantModule } from '../modules/tenant/tenant.module';
+import { BookhireOwnerEntity } from '../modules/private-transportation/entities/bookhire-owner.entity';
 
 @Module({
   imports: [
@@ -103,6 +104,7 @@ import { TenantModule } from '../modules/tenant/tenant.module';
       ParentEntity,
       UserOtpEntity,
       InstituteLoginSessionEntity,
+      BookhireOwnerEntity
     ]),
   ],
   controllers: [AuthController, AuthV2Controller, AuthMobileController, InstituteSelectionController, FirstLoginController, InstituteAuthController],
