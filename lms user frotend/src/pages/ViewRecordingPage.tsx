@@ -28,6 +28,8 @@ type RecordingTab = 'login' | 'welcome' | 'playing';
 
 const FLUSH_INTERVAL_MS = 30_000;
 const FLUSH_THRESHOLD = 20;
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const INACTIVITY_PROMPT_TIMEOUT_MS = 30 * 1000; // 30 seconds
 
 function extractYouTubeId(url: string): string | null {
   try {
@@ -127,6 +129,11 @@ export default function ViewRecordingPage() {
     : '';
   const [typedWelcome, setTypedWelcome] = useState('');
   const hasSpokeRef = useRef(false); // guard: prevent double-speak on re-renders
+
+  // Inactivity
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inactivityPromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showInactivityPrompt, setShowInactivityPrompt] = useState(false);
 
   // ── Effective branding (placed AFTER all state so no TDZ issue) ──────────
   // Guest / Student tabs → institute identity; Suraksha tab → SurakshaLMS
@@ -240,6 +247,49 @@ export default function ViewRecordingPage() {
     });
     if (activitiesRef.current.length >= FLUSH_THRESHOLD) flushActivities();
   }, [flushActivities]);
+
+  // ── Inactivity tracking ──────────────────────────────────────────────────
+
+  const handleInactivityPrompt = useCallback(() => {
+    setShowInactivityPrompt(true);
+    videoRef.current?.pause();
+    ytPlayerRef.current?.pauseVideo?.();
+    inactivityPromptTimerRef.current = setTimeout(() => {
+      endSession();
+      setShowInactivityPrompt(false);
+    }, INACTIVITY_PROMPT_TIMEOUT_MS);
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (inactivityPromptTimerRef.current) clearTimeout(inactivityPromptTimerRef.current);
+    setShowInactivityPrompt(false);
+    inactivityTimerRef.current = setTimeout(handleInactivityPrompt, INACTIVITY_TIMEOUT_MS);
+  }, [handleInactivityPrompt]);
+
+  const handleUserActivity = useCallback(() => {
+    resetInactivityTimer();
+  }, [resetInactivityTimer]);
+
+  const handleStay = () => {
+    resetInactivityTimer();
+    videoRef.current?.play();
+    ytPlayerRef.current?.playVideo?.();
+  };
+
+  useEffect(() => {
+    if (phase === 'playing') {
+      resetInactivityTimer();
+      window.addEventListener('mousemove', handleUserActivity);
+      window.addEventListener('keydown', handleUserActivity);
+      return () => {
+        if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+        if (inactivityPromptTimerRef.current) clearTimeout(inactivityPromptTimerRef.current);
+        window.removeEventListener('mousemove', handleUserActivity);
+        window.removeEventListener('keydown', handleUserActivity);
+      };
+    }
+  }, [phase, resetInactivityTimer, handleUserActivity]);
 
   // ── Cleanup / session end ────────────────────────────────────────────────
 
@@ -544,7 +594,7 @@ export default function ViewRecordingPage() {
               [...localActivities].reverse().slice(0, 15).map((act, i) => (
                 <div key={i} className="flex items-center justify-between p-2 rounded-md border border-border/50 bg-muted/20">
                   <div className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full ${act.type === 'PLAY' ? 'bg-emerald-500' : act.type === 'PAUSE' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                    <span className={`w-1.5 h-1.5 rounded-full ${act.type === 'PLAY' ? 'bg-emerald-500' : act.type === 'PAUSE' ? 'bg-amber-500' : act.type === 'RATE_CHANGE' ? 'bg-purple-500' : 'bg-blue-500'}`} />
                     <span className="text-xs font-medium text-foreground">{act.type}</span>
                   </div>
                   <span className="text-[10px] font-mono text-muted-foreground">{formatDuration(act.videoTimestamp)}</span>
@@ -586,6 +636,12 @@ export default function ViewRecordingPage() {
         <div className="flex-1 flex flex-col sm:flex-row overflow-hidden min-h-0">
           <div className="flex-1 p-2 sm:p-3 min-h-0 relative">
             <div className="w-full h-full relative rounded-lg overflow-hidden bg-black flex items-center justify-center">
+              {showInactivityPrompt && (
+                <div className="absolute inset-0 z-50 bg-black/80 flex flex-col items-center justify-center gap-4">
+                  <p className="text-white text-lg">Are you still there?</p>
+                  <button onClick={handleStay} className="px-6 py-2 rounded-lg bg-blue-600 text-white font-bold">I'm here</button>
+                </div>
+              )}
               {info.platform === 'SYSTEM' && info.recordingUrl && (
                 <video
                   ref={videoRef}
@@ -596,6 +652,7 @@ export default function ViewRecordingPage() {
                   onPlay={() => queueActivity('PLAY', Math.floor(videoRef.current?.currentTime ?? 0))}
                   onPause={() => queueActivity('PAUSE', Math.floor(videoRef.current?.currentTime ?? 0))}
                   onSeeked={() => queueActivity('SEEK', Math.floor(videoRef.current?.currentTime ?? 0))}
+                  onRateChange={() => queueActivity('RATE_CHANGE', Math.floor(videoRef.current?.currentTime ?? 0))}
                 />
               )}
               {info.platform === 'YOUTUBE' && (
