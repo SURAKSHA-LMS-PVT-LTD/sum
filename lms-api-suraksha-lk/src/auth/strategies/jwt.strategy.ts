@@ -45,27 +45,28 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload | EnhancedJwtPayload) {
-    if (!payload || !payload.sub) {
+    const isEnhanced = this.isEnhancedPayload(payload);
+    const userId = isEnhanced ? (payload as EnhancedJwtPayload).s : (payload as JwtPayload).sub;
+    const userTypeShort = isEnhanced ? (payload as EnhancedJwtPayload).t : undefined;
+    const userType = userTypeShort ? COMPACT_TO_USER_TYPE[userTypeShort] : (payload as JwtPayload).type;
+
+    if (!userId) {
       throw new UnauthorizedException('Invalid token payload');
     }
 
-    const userId = payload.sub.toString();
     let user: any;
-    let userType: string;
 
-    if (payload.type === 'bookhire-owner') {
+    if (userType === 'bookhire-owner') {
       user = await this.bookhireOwnerRepository.findOne({ where: { id: userId } });
-      userType = 'bookhire-owner';
     } else {
       user = await this.userRepository.findOne({ 
         where: { id: userId },
         select: ['id', 'email', 'firstName', 'lastName', 'isActive', 'userType', 'imageUrl']
       });
-      userType = user?.userType;
     }
 
     if (!user) {
-      this.logger.error(`User not found for ID: ${userId} and type: ${payload.type}`);
+      this.logger.error(`User not found for ID: ${userId} and type: ${userType}`);
       throw new UnauthorizedException('User not found');
     }
 
@@ -74,7 +75,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User account is inactive');
     }
 
-    const isEnhanced = this.isEnhancedPayload(payload);
     const enhancedClaims = isEnhanced ? this.extractEnhancedClaims(payload as EnhancedJwtPayload) : null;
 
     // Normalize the user object to a consistent shape
@@ -84,7 +84,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       sub: user.id,
       s: user.id,
       email: user.email,
-      userType: userType,
+      userType: user.userType,
       firstName: user.firstName || user.name, // Use name from BookhireOwner
       lastName: user.lastName,
       imageUrl: user.imageUrl || user.profileImage, // Use profileImage from BookhireOwner
@@ -99,7 +99,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   private isEnhancedPayload(payload: any): payload is EnhancedJwtPayload {
-    return payload && typeof payload.u === 'number';
+    // 's' is for subject (user ID) and is a required field in the enhanced payload
+    return payload && typeof payload.s === 'string';
   }
 
   private extractEnhancedClaims(
