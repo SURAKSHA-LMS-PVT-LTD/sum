@@ -42,32 +42,40 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload | EnhancedJwtPayload) {
-    const userId = payload.s;
-    const userType = this.isEnhancedPayload(payload) ? COMPACT_TO_USER_TYPE[(payload as EnhancedJwtPayload).u] : fromCompactUserType((payload as JwtPayload).ut);
+    const isEnhanced = this.isEnhancedPayload(payload);
+    const userId = isEnhanced ? (payload as EnhancedJwtPayload).s : (payload as JwtPayload).sub;
+    const rawUserType = isEnhanced ? (payload as EnhancedJwtPayload).u : (payload as JwtPayload).ut;
 
-    if (!userId) {
-      throw new UnauthorizedException('Invalid token payload');
+    if (!payload || !userId) {
+      throw new UnauthorizedException('Invalid token payload: Missing user identifier');
+    }
+
+    const userIdStr = userId.toString();
+    let resolvedUserType: string;
+
+    if (isEnhanced) {
+      resolvedUserType = COMPACT_TO_USER_TYPE[rawUserType as number];
+    } else {
+      resolvedUserType = fromCompactUserType(rawUserType as string);
     }
 
     const user = await this.userRepository.findOne({ 
-      where: { id: userId },
+      where: { id: userIdStr },
       select: ['id', 'email', 'firstName', 'lastName', 'isActive', 'userType', 'imageUrl']
     });
 
     if (!user) {
-      this.logger.error(`User not found for ID: ${userId} and type: ${userType}`);
+      this.logger.error(`User not found for ID: ${userIdStr} and type: ${resolvedUserType}`);
       throw new UnauthorizedException('User not found');
     }
 
     if (!user.isActive) {
-      this.logger.error(`Inactive user attempted login: ${userId}`);
+      this.logger.error(`Inactive user attempted login: ${userIdStr}`);
       throw new UnauthorizedException('User account is inactive');
     }
 
-    const isEnhanced = this.isEnhancedPayload(payload);
     const enhancedClaims = isEnhanced ? this.extractEnhancedClaims(payload as EnhancedJwtPayload) : null;
 
-    // Normalize the user object to a consistent shape
     const normalizedUser = {
       id: user.id,
       userId: user.id,

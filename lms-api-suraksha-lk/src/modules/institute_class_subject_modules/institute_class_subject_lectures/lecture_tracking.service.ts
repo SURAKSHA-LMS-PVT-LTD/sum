@@ -355,16 +355,6 @@ export class LectureTrackingService {
     const lecture = await this.lectureRepo.findOne({ where: { id: lectureId } });
     if (!lecture) throw new NotFoundException('Lecture not found');
 
-    // Idempotent for authenticated users: resume an existing active join instead of creating a duplicate
-    if (userId) {
-      const existing = await this.liveAttRepo.findOne({
-        where: { lectureId, userId, leaveTime: null as any },
-      });
-      if (existing) {
-        return { attendanceId: existing.id, lectureId, joinTime: existing.joinTime };
-      }
-    }
-
     const record = this.liveAttRepo.create({
       lectureId,
       instituteId: lecture.instituteId,
