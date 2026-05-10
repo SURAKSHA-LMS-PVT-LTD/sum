@@ -151,7 +151,11 @@ export class ParentAccessGuard implements CanActivate {
   private extractStudentId(request: Request, paramName: string): string | null {
     // Try request parameters first (path parameters)
     if (request.params && request.params[paramName]) {
-      return request.params[paramName];
+      const param = request.params[paramName];
+      if (Array.isArray(param)) {
+        return param[0] ?? null;
+      }
+      return param;
     }
 
     // Try query parameters

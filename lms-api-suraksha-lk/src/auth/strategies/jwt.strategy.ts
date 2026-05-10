@@ -5,8 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../../modules/user/entities/user.entity';
-import { BookhireOwnerEntity } from '../../modules/private-transportation/entities/bookhire-owner.entity';
-import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { JwtPayload, fromCompactUserType } from '../interfaces/jwt-payload.interface';
 import { 
   EnhancedInstituteAccessEntry, 
   EnhancedJwtPayload, 
@@ -22,8 +21,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private configService: ConfigService,
     @InjectRepository(UserEntity)
     private userRepository: Repository<UserEntity>,
-    @InjectRepository(BookhireOwnerEntity)
-    private bookhireOwnerRepository: Repository<BookhireOwnerEntity>
   ) {
     const jwtSecret = configService.get<string>('JWT_SECRET');
     if (!jwtSecret) {
@@ -45,49 +42,50 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload | EnhancedJwtPayload) {
-    if (!payload || !payload.sub) {
-      throw new UnauthorizedException('Invalid token payload');
+    const isEnhanced = this.isEnhancedPayload(payload);
+    const userId = isEnhanced ? (payload as EnhancedJwtPayload).s : (payload as JwtPayload).sub;
+    const rawUserType = isEnhanced ? (payload as EnhancedJwtPayload).u : (payload as JwtPayload).ut;
+
+    if (!payload || !userId) {
+      throw new UnauthorizedException('Invalid token payload: Missing user identifier');
     }
 
-    const userId = payload.sub.toString();
-    let user: any;
-    let userType: string;
+    const userIdStr = userId.toString();
+    let resolvedUserType: string;
 
-    if (payload.type === 'bookhire-owner') {
-      user = await this.bookhireOwnerRepository.findOne({ where: { id: userId } });
-      userType = 'bookhire-owner';
+    if (isEnhanced) {
+      resolvedUserType = COMPACT_TO_USER_TYPE[rawUserType as number];
     } else {
-      user = await this.userRepository.findOne({ 
-        where: { id: userId },
-        select: ['id', 'email', 'firstName', 'lastName', 'isActive', 'userType', 'imageUrl']
-      });
-      userType = user?.userType;
+      resolvedUserType = fromCompactUserType(rawUserType as string);
     }
+
+    const user = await this.userRepository.findOne({ 
+      where: { id: userIdStr },
+      select: ['id', 'email', 'firstName', 'lastName', 'isActive', 'userType', 'imageUrl']
+    });
 
     if (!user) {
-      this.logger.error(`User not found for ID: ${userId} and type: ${payload.type}`);
+      this.logger.error(`User not found for ID: ${userIdStr} and type: ${resolvedUserType}`);
       throw new UnauthorizedException('User not found');
     }
 
     if (!user.isActive) {
-      this.logger.error(`Inactive user attempted login: ${userId}`);
+      this.logger.error(`Inactive user attempted login: ${userIdStr}`);
       throw new UnauthorizedException('User account is inactive');
     }
 
-    const isEnhanced = this.isEnhancedPayload(payload);
     const enhancedClaims = isEnhanced ? this.extractEnhancedClaims(payload as EnhancedJwtPayload) : null;
 
-    // Normalize the user object to a consistent shape
     const normalizedUser = {
       id: user.id,
       userId: user.id,
       sub: user.id,
       s: user.id,
       email: user.email,
-      userType: userType,
-      firstName: user.firstName || user.name, // Use name from BookhireOwner
+      userType: user.userType,
+      firstName: user.firstName,
       lastName: user.lastName,
-      imageUrl: user.imageUrl || user.profileImage, // Use profileImage from BookhireOwner
+      imageUrl: user.imageUrl,
       jwtPayload: payload,
       ...payload,
       hasGlobalInstituteAccess: enhancedClaims?.hasGlobalAccess ?? false,
@@ -99,6 +97,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   private isEnhancedPayload(payload: any): payload is EnhancedJwtPayload {
+    // Check for 'u' (user type as number) to identify enhanced payload
     return payload && typeof payload.u === 'number';
   }
 
@@ -109,7 +108,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     instituteAccess?: EnhancedInstituteAccessEntry[];
     childrenAccess?: string[];
   } | null {
-    if (!payload || (payload.i === undefined && payload.c === undefined)) {
+    if (!payload) {
       return null;
     }
 
