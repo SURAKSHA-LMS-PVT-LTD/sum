@@ -43,7 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload | EnhancedJwtPayload) {
     const isEnhanced = this.isEnhancedPayload(payload);
-    const userId = isEnhanced ? (payload as EnhancedJwtPayload).s : (payload as JwtPayload).sub;
+    const userId = payload.s;
     const rawUserType = isEnhanced ? (payload as EnhancedJwtPayload).u : (payload as JwtPayload).ut;
 
     if (!payload || !userId) {
