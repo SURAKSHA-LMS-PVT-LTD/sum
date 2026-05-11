@@ -565,9 +565,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             { id: 'students', label: 'Students', icon: GraduationCap, alwaysShow: true },
             { id: 'unverified-students', label: 'Pending Students', icon: UserCheck, alwaysShow: true },
           ] : []),
+          ...(!selectedClass ? [{ id: 'verify-image', label: 'Verify Photos', icon: ShieldCheck, alwaysShow: true }] : []),
         ];
         groups.push({ id: 'manage-users', label: 'Manage Users', icon: UserCog,
-          defaultOpen: hasActiveInGroup(['institute-users','parents','students','unverified-students'], activePage),
+          defaultOpen: hasActiveInGroup(['institute-users','parents','students','unverified-students','verify-image'], activePage),
           items: manageUserItems });
 
         // Academics
@@ -604,6 +605,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         ] : [
           { id: 'select-attendance-mark-type', label: 'Mark Attendance', icon: QrCode, alwaysShow: true },
           { id: 'daily-attendance', label: attendanceItemLabel, icon: ClipboardList, alwaysShow: true },
+          { id: 'lecture-live-attendance', label: 'Live Attendance', icon: BarChart3, alwaysShow: true },
+          { id: 'lecture-recording-attendance', label: 'Recording Attendance', icon: BarChart3, alwaysShow: true },
           { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, alwaysShow: true },
           { id: 'admin-attendance', label: 'Advanced Attendance', icon: BarChart3, alwaysShow: true },
         ];
@@ -666,6 +669,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       ];
       if (selectedInstitute) {
         accountItems.push({ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true });
+        accountItems.push({ id: 'device-management', label: 'Device Management', icon: Wifi, alwaysShow: true });
       }
       accountItems.push({ id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true });
       // Consolidated Communication
@@ -675,7 +679,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       }
       if (selectedInstitute) {
         if (!selectedClass) {
-          commItems.push({ id: 'sms', label: 'SMS', icon: MessageSquare, alwaysShow: true });
+          commItems.push({ id: 'sms', label: 'Send SMS', icon: MessageSquare, alwaysShow: true });
+          commItems.push({ id: 'sms-history', label: 'SMS History', icon: ListChecks, alwaysShow: true });
         }
         if (isTenantLogin) {
           commItems.push({ id: 'institute-notifications', label: 'Notifications', icon: Bell, alwaysShow: true, badge: unreadNotifCount });
@@ -835,6 +840,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         { id: 'students', label: 'Students', icon: GraduationCap },
         ...(!selectedSubject ? [{ id: 'parents', label: 'Parents', icon: Users }] : []),
         ...(user?.role !== 'SystemAdmin' ? [{ id: 'teachers', label: 'Teachers', icon: UserCheck }] : []),
+        { id: 'verify-image', label: 'Verify Photos', icon: ShieldCheck },
       ]});
 
       groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
