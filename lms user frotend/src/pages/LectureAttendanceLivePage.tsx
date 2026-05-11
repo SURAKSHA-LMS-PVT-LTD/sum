@@ -59,13 +59,13 @@ export default function LectureAttendanceLivePage() {
 
   // ─── Data Fetching ────────────────────────────────────────────────────────┘
 
-  const fetchLectures = useCallback(async () => {
+  const fetchLectures = useCallback(async (forceRefresh = false) => {
     if (!currentInstituteId || !currentClassId) return;
     setLoadingLectures(true);
     try {
       const lectures = currentSubjectId
-        ? (await lectureApi.getLectures({ instituteId: currentInstituteId, classId: currentClassId, subjectId: currentSubjectId })).data
-        : (await lectureApi.getLectures({ classId: currentClassId, instituteId: currentInstituteId })).data;
+        ? (await lectureApi.getLectures({ instituteId: currentInstituteId, classId: currentClassId, subjectId: currentSubjectId }, forceRefresh)).data
+        : (await lectureApi.getLectures({ classId: currentClassId, instituteId: currentInstituteId }, forceRefresh)).data;
       setClassLectures(currentSubjectId ? [] : lectures || []);
       setSubjectLectures(currentSubjectId ? lectures || [] : []);
     } catch {
@@ -122,7 +122,7 @@ export default function LectureAttendanceLivePage() {
 
   useEffect(() => { fetchStudentDirectory(); }, [fetchStudentDirectory]);
 
-  const loadGridForView = useCallback(async () => {
+  const loadGridForView = useCallback(async (forceRefresh = false) => {
     if (viewMode !== 'grid' || viewLectureIds.length === 0 || !currentInstituteId || !currentClassId) {
       setViewGrid(null);
       return;
@@ -134,7 +134,7 @@ export default function LectureAttendanceLivePage() {
         classId: currentClassId,
         instituteId: currentInstituteId,
         includeSubjectLectures: !!currentSubjectId,
-      });
+      }, forceRefresh);
       setViewGrid(grid);
     } catch {
       setViewGrid(null);
@@ -174,11 +174,11 @@ export default function LectureAttendanceLivePage() {
     setSearchParam('view', 'grid');
   };
 
-  const openReportingForLecture = async (lecture: Lecture) => {
+  const openReportingForLecture = async (lecture: Lecture, forceRefresh = false) => {
     if (!currentInstituteId || !currentClassId) return;
     setLoadingReportLectureId(lecture.id);
     try {
-      const grid = await lectureTrackingApi.getAttendanceGrid({ lectureIds: [lecture.id], classId: currentClassId, instituteId: currentInstituteId, includeSubjectLectures: !!currentSubjectId });
+      const grid = await lectureTrackingApi.getAttendanceGrid({ lectureIds: [lecture.id], classId: currentClassId, instituteId: currentInstituteId, includeSubjectLectures: !!currentSubjectId }, forceRefresh);
       setReportGrid(grid);
       setReportLectures([lecture]);
       setReportOpen(true);
@@ -281,7 +281,7 @@ export default function LectureAttendanceLivePage() {
               <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">Attendance Overview</h1>
               <p className="text-sm text-muted-foreground mt-1">{selectedLectures.length} lectures • {selectedClass.name}{selectedSubject ? ` • ${selectedSubject.name}` : ''}</p>
             </div>
-            {selectedLectures.length > 0 && <Button variant="outline" size="sm" className="h-9 gap-2 hover:bg-primary/10" onClick={openGridReport}><FileDown className="h-4 w-4" /><span className="text-xs">Export Report</span></Button>}
+            {selectedLectures.length > 0 && <Button variant="outline" size="sm" className="h-9 gap-2 hover:bg-primary/10" onClick={() => openGridReport(true)}><FileDown className="h-4 w-4" /><span className="text-xs">Export Report</span></Button>}
           </div>
 
           <LiveAttendanceReportingDialog open={reportOpen} onOpenChange={setReportOpen} grid={reportGrid} selectedLectures={reportLectures} className={selectedClass.name} studentDirectoryById={studentDirectoryById} />
@@ -348,7 +348,7 @@ export default function LectureAttendanceLivePage() {
               <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">Live Session Attendance</h1>
               <p className="text-sm text-muted-foreground mt-2">Track attendance for {selectedClass.name}{selectedSubject ? ` • ${selectedSubject.name}` : ''}</p>
             </div>
-            <Button variant="outline" size="sm" className="h-9 gap-2 hover:bg-primary/10" onClick={fetchLectures} disabled={loadingLectures}><RefreshCw className={`h-4 w-4 ${loadingLectures ? 'animate-spin' : ''}`} /><span className="hidden sm:inline text-xs">Refresh</span></Button>
+            <Button variant="outline" size="sm" className="h-9 gap-2 hover:bg-primary/10" onClick={() => fetchLectures(true)} disabled={loadingLectures}><RefreshCw className={`h-4 w-4 ${loadingLectures ? 'animate-spin' : ''}`} /><span className="hidden sm:inline text-xs">Refresh</span></Button>
           </div>
         </div>
 
@@ -390,7 +390,7 @@ export default function LectureAttendanceLivePage() {
                             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-slate-50 dark:bg-slate-800/50 px-3 py-2 rounded-lg shrink-0"><Clock className="h-3.5 w-3.5" /><span>{lecture.startTime ? new Date(lecture.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'No time'}</span></div>
                             <div className="flex items-center gap-2 shrink-0">
                               <Button size="sm" variant="ghost" className="h-8 text-xs gap-1" onClick={e => { e.stopPropagation(); openGridView(lecture.id); }}><Users className="h-3.5 w-3.5" />View</Button>
-                              <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={e => { e.stopPropagation(); openReportingForLecture(lecture); }} disabled={loadingReportLectureId === lecture.id}>{loadingReportLectureId === lecture.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><FileDown className="h-3.5 w-3.5" />Export</>}</Button>
+                              <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={e => { e.stopPropagation(); openReportingForLecture(lecture, true); }} disabled={loadingReportLectureId === lecture.id}>{loadingReportLectureId === lecture.id ? <Loader2 className="h-3.5 w-3.s h-3.5 w-3.5 animate-spin" /> : <><FileDown className="h-3.5 w-3.5" />Export</>}</Button>
                             </div>
                           </div>
                         </CardContent>

@@ -186,8 +186,9 @@ export default function LiveAttendanceReportingDialog({
 
     ws['!cols'] = headers.map(h => ({ wch: h.includes('Status') || h.includes('Time') ? 14 : 22 }));
 
-    XLSX.utils.book_append_sheet(XLSX.utils.book_new(), ws, 'Attendance Report');
-    XLSX.writeFile(XLSX.utils.book_new(), `Live_Attendance_${className.replace(/[^a-z0-9]/gi, '_')}.xlsx`);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Attendance Report');
+    XLSX.writeFile(wb, `Live_Attendance_${className.replace(/[^a-z0-9]/gi, '_')}.xlsx`);
     toast.success('Excel report generated!');
   };
 

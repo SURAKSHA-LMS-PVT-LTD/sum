@@ -152,6 +152,7 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
   withAuth = false,
+  forceRefresh = false
 ): Promise<T> {
   const base = (getBaseUrl() ?? '').replace(/\/$/, '');
   const url = `${base}${path}`;
@@ -160,22 +161,16 @@ async function request<T>(
   if (withAuth) {
     const authHeaders = await getApiHeadersAsync();
     Object.assign(headers, authHeaders);
-  } else {
-    // Still send the token if available (OptionalJwtAuthGuard on backend)
-    try {
-      const authHeaders = await getApiHeadersAsync();
-      if (authHeaders['Authorization']) {
-        headers['Authorization'] = authHeaders['Authorization'];
-      }
-    } catch {
-      // No token — fine, backend allows unauthenticated
-    }
+  }
+  if (forceRefresh) {
+    headers['Cache-Control'] = 'no-cache';
   }
 
   const res = await fetch(url, {
     ...options,
     headers: { ...headers, ...(options.headers as Record<string, string> ?? {}) },
     credentials: getCredentialsMode(),
+    cache: forceRefresh ? 'reload' : 'default'
   });
 
   if (!res.ok) {
@@ -254,7 +249,7 @@ class LectureTrackingApi {
     classId: string;
     instituteId: string;
     includeSubjectLectures?: boolean;
-  }): Promise<AttendanceGridResult> {
+  }, forceRefresh = false): Promise<AttendanceGridResult> {
     // ✅ Validate inputs — return empty grid instead of firing a bad request
     const validIds = (params.lectureIds ?? [])
       .map(id => String(id).trim())
@@ -274,6 +269,7 @@ class LectureTrackingApi {
       `/lecture-tracking/attendance-grid?${qs}`,
       {},
       true,
+      forceRefresh
     );
   }
 
