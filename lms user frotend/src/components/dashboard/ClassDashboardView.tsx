@@ -61,14 +61,20 @@ const ClassDashboardView = () => {
   };
   const getRecordingUrl = (lec: any) => pickString(lec.recordingUrl, lec.recording_url, lec.recordingLink, lec.recording_link);
 
-  const fetchLectures = useCallback(async () => {
+  const fetchLectures = useCallback(async (forceRefresh = false) => {
     if (!selectedInstitute?.id || !selectedClass?.id) return;
     setLecturesLoading(true);
     try {
       // Use same endpoint as ClassLecturesPage to get all class lectures with thumbnails
       const res = await cachedApiClient.get('/institute-class-subject-lectures',
         { instituteId: selectedInstitute.id, classId: selectedClass.id, limit: 100 },
-        { ttl: 10, useStaleWhileRevalidate: true, instituteId: selectedInstitute.id, classId: selectedClass.id }
+        {
+          ttl: 10,
+          useStaleWhileRevalidate: true,
+          instituteId: selectedInstitute.id,
+          classId: selectedClass.id,
+          forceRefresh
+        }
       );
       console.log('📚 Raw response from /institute-class-subject-lectures:', res);
       const data = res;
@@ -225,7 +231,7 @@ const ClassDashboardView = () => {
             >
               View all
             </Button>
-            <button onClick={fetchLectures} disabled={lecturesLoading} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <button onClick={() => fetchLectures(true)} disabled={lecturesLoading} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
               <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${lecturesLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
