@@ -6,7 +6,7 @@
 
 import { getBaseUrl } from '@/contexts/utils/auth.api';
 import { parseApiError } from '@/api/apiError';
-import { DISTRICTS, PROVINCES, DISTRICT_TO_PROVINCE } from '@/lib/constants';
+export { DISTRICTS, PROVINCES, DISTRICT_TO_PROVINCE } from '@/lib/constants';
 
 // ============= TYPES =============
 
