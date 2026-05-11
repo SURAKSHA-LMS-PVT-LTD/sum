@@ -220,15 +220,23 @@ export default function LectureAttendanceLivePage() {
     if (!viewGrid) return [];
     return enrolledStudentsForView.map(student => {
       const cells = selectedLectures.map(lecture => {
-        const studentAttendance = viewGrid.grid?.[student.id]?.[lecture.id];
-        const sessions = studentAttendance ? (Array.isArray(studentAttendance) ? studentAttendance : [studentAttendance]) : [];
+        const cell = viewGrid.grid?.[student.id]?.[lecture.id];
+        const sessionList = Array.isArray(cell?.sessions) ? cell.sessions : [];
+        const fallbackSessions = cell && sessionList.length === 0 ? [cell] : [];
+        const sessions = sessionList.length > 0 ? sessionList : fallbackSessions;
+        const sortedSessions = [...sessions].sort((a, b) => (a.joinTime || '').localeCompare(b.joinTime || ''));
+        const attended = !!cell?.attended || sortedSessions.length > 0;
+        const joinTime = cell?.joinTime ?? sortedSessions[0]?.joinTime;
+        const durationSum = sortedSessions.reduce((acc, s) => acc + (s.durationMinutes || 0), 0);
+        const durationMinutes = cell?.durationMinutes ?? durationSum;
+        const joinCount = cell?.joinCount ?? sortedSessions.length;
         return {
           lectureId: lecture.id,
-          attended: sessions.length > 0,
-          joinTime: sessions[0]?.joinTime,
-          durationMinutes: sessions.reduce((acc, s) => acc + (s.durationMinutes || 0), 0),
-          sessions,
-          joinCount: sessions.length,
+          attended,
+          joinTime,
+          durationMinutes,
+          sessions: sortedSessions,
+          joinCount,
         };
       });
       const presentCount = cells.filter(c => c.attended).length;

@@ -596,10 +596,21 @@ export class LectureTrackingService {
       }
 
       // Build a map: studentId → lectureId → attendance entry
-      const grid: Record<
-        string,
-        Record<string, { attended: boolean; joinTime?: string; leaveTime?: string; durationMinutes?: number }>
-      > = {};
+      type AttendanceSession = {
+        joinTime?: string;
+        leaveTime?: string;
+        durationMinutes?: number;
+      };
+      type AttendanceCell = {
+        attended: boolean;
+        joinTime?: string;
+        leaveTime?: string;
+        durationMinutes?: number;
+        joinCount?: number;
+        sessions?: AttendanceSession[];
+      };
+
+      const grid: Record<string, Record<string, AttendanceCell>> = {};
 
       for (const s of classStudents) {
         const sid = s.studentUserId;
@@ -619,7 +630,14 @@ export class LectureTrackingService {
             ? Math.round((leave.getTime() - join.getTime()) / 60000)
             : 0;
 
-          const existing = grid[sid][row.lectureId];
+          const existing = grid[sid][row.lectureId] ?? { attended: false };
+          const sessions = Array.isArray(existing.sessions) ? [...existing.sessions] : [];
+          sessions.push({
+            joinTime: join?.toISOString() || undefined,
+            leaveTime: leave?.toISOString() || undefined,
+            durationMinutes: durationMinutes > 0 ? durationMinutes : undefined,
+          });
+
           const existingJoin = existing?.joinTime ? new Date(existing.joinTime) : null;
           const existingLeave = existing?.leaveTime ? new Date(existing.leaveTime) : null;
 
@@ -637,6 +655,8 @@ export class LectureTrackingService {
             joinTime: nextJoin?.toISOString() || undefined,
             leaveTime: nextLeave?.toISOString() || undefined,
             durationMinutes: accumulatedDuration > 0 ? accumulatedDuration : undefined,
+            joinCount: sessions.length,
+            sessions,
           };
         } catch (timeError) {
           console.error('❌ Error processing attendance row times:', timeError);

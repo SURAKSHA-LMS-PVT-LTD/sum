@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { School, ChevronLeft, ChevronRight, Building2, Video, ExternalLink, RefreshCw, ChevronDown, Loader2, Cloud, HardDrive, Link2, Clock, MapPin, ImageIcon } from 'lucide-react';
@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cachedApiClient } from '@/api/cachedClient';
 import VideoPreviewDialog from '@/components/VideoPreviewDialog';
 import { getImageUrl } from '@/utils/imageUrlHelper';
+import { buildSidebarUrl } from '@/utils/pageNavigation';
 
 const ClassDashboardView = () => {
   const { user, selectedInstitute, selectedClass, setSelectedClass } = useAuth();
@@ -27,19 +28,55 @@ const ClassDashboardView = () => {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
+  const firstDefined = (...values: any[]) => values.find(v => v !== undefined && v !== null);
+  const pickString = (...values: any[]) => {
+    for (const value of values) {
+      if (typeof value === 'string' && value.trim().length > 0) return value;
+    }
+    return undefined;
+  };
+  const normalizeStatus = (value: any) => (value ?? '').toString().toLowerCase();
+  const getLectureStatus = (lec: any) => normalizeStatus(firstDefined(lec.status, lec.lectureStatus, lec.lecture_status));
+  const getLectureStart = (lec: any) => pickString(lec.startTime, lec.start_time);
+  const getLectureEnd = (lec: any) => pickString(lec.endTime, lec.end_time);
+  const getMeetingLink = (lec: any) => pickString(lec.meetingLink, lec.meeting_link, lec.meetingUrl, lec.meeting_url);
+  const getLiveJoinUrl = (lec: any) => {
+    const direct = pickString(lec.liveJoinUrl, lec.live_join_url, lec.customLiveUrl, lec.custom_live_url);
+    if (direct) return direct;
+    const urlId = pickString(lec.liveUrlId, lec.live_url_id, lec.live_urlID, lec.liveUrlID);
+    return urlId ? `${window.location.origin}/live-lecture/${urlId}` : '';
+  };
+  const getRecordingJoinUrl = (lec: any) => {
+    const direct = pickString(
+      lec.recordingJoinUrl,
+      lec.recording_join_url,
+      lec.recJoinUrl,
+      lec.rec_join_url,
+      lec.customRecordingUrl,
+      lec.custom_recording_url
+    );
+    if (direct) return direct;
+    const urlId = pickString(lec.recUrlId, lec.rec_url_id, lec.recordingUrlId, lec.recording_url_id);
+    return urlId ? `${window.location.origin}/view-recording/${urlId}` : '';
+  };
+  const getRecordingUrl = (lec: any) => pickString(lec.recordingUrl, lec.recording_url, lec.recordingLink, lec.recording_link);
+
   const fetchLectures = useCallback(async () => {
     if (!selectedInstitute?.id || !selectedClass?.id) return;
     setLecturesLoading(true);
     try {
-      // Fetch from class-level lectures endpoint (shows all class members, not subject-filtered)
-      const res = await cachedApiClient.get('/institute-class-lectures',
-        { instituteId: selectedInstitute.id, classId: selectedClass.id, limit: 20 },
+      // Use same endpoint as ClassLecturesPage to get all class lectures with thumbnails
+      const res = await cachedApiClient.get('/institute-class-subject-lectures',
+        { instituteId: selectedInstitute.id, classId: selectedClass.id, limit: 100 },
         { ttl: 10, useStaleWhileRevalidate: true, instituteId: selectedInstitute.id, classId: selectedClass.id }
       );
+      console.log('📚 Raw response from /institute-class-subject-lectures:', res);
       const data = res;
       const arr = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.lectures) ? data.lectures : [];
+      console.log('📚 Parsed lectures array:', arr, { length: arr.length, isArray: Array.isArray(arr) });
       setLectures(arr);
-    } catch {
+    } catch (err) {
+      console.error('❌ Error fetching lectures:', err);
       setLectures([]);
     } finally {
       setLecturesLoading(false);
@@ -47,6 +84,35 @@ const ClassDashboardView = () => {
   }, [selectedInstitute?.id, selectedClass?.id]);
 
   useEffect(() => { fetchLectures(); }, [fetchLectures]);
+
+  const orderedLectures = useMemo(() => {
+    const rank = (status: string) => {
+      if (status === 'ongoing' || status === 'live') return 0;
+      if (status === 'scheduled') return 1;
+      if (status === 'postponed') return 2;
+      if (status === 'completed' || status === 'cancelled') return 3;
+      return 4;
+    };
+
+    const getTime = (lec: any) => {
+      const raw = getLectureStart(lec);
+      const time = raw ? new Date(raw).getTime() : 0;
+      return Number.isFinite(time) ? time : 0;
+    };
+
+    return [...lectures].sort((a, b) => {
+      const statusA = getLectureStatus(a);
+      const statusB = getLectureStatus(b);
+      const rankA = rank(statusA);
+      const rankB = rank(statusB);
+      if (rankA !== rankB) return rankA - rankB;
+
+      const timeA = getTime(a);
+      const timeB = getTime(b);
+      if (rankA === 1) return timeA - timeB;
+      return timeB - timeA;
+    });
+  }, [lectures]);
 
   const lectureScrollRef = useRef<HTMLDivElement>(null);
   const scrollLectures = (dir: 'left' | 'right') => {
@@ -56,19 +122,24 @@ const ClassDashboardView = () => {
   };
 
   const handleRecording = (lec: any) => {
-    const url = lec.recordingUrl || lec.recording_url;
-    if (!url) return;
-    const recAttEnabled = lec.recAttendanceEnabled || lec.rec_attendance_enabled;
-    const recUrlId = lec.recUrlId || lec.rec_url_id;
-
-    if (recAttEnabled && recUrlId) {
-      window.open(`${window.location.origin}/view-recording/${recUrlId}`, '_blank');
+    const joinUrl = getRecordingJoinUrl(lec);
+    if (joinUrl) {
+      window.open(joinUrl, '_blank');
       return;
     }
+
+    const url = getRecordingUrl(lec);
+    if (!url) return;
 
     if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('drive.google.com')) {
       setVideoPreviewUrl(url); setVideoPreviewTitle(lec.title);
     } else { window.open(url, '_blank'); }
+  };
+
+  const handleJoinLecture = (lec: any) => {
+    const joinUrl = getLiveJoinUrl(lec) || getMeetingLink(lec);
+    if (!joinUrl) return;
+    window.open(joinUrl, '_blank');
   };
 
   const handleBackToInstitute = () => {
@@ -145,9 +216,19 @@ const ClassDashboardView = () => {
             Class Lectures
             {lectures.length > 0 && <span className="text-xs font-normal text-muted-foreground">({lectures.length})</span>}
           </h3>
-          <button onClick={fetchLectures} disabled={lecturesLoading} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${lecturesLoading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => navigate(buildSidebarUrl('class-lectures', { instituteId: selectedInstitute.id, classId: selectedClass.id }))}
+            >
+              View all
+            </Button>
+            <button onClick={fetchLectures} disabled={lecturesLoading} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${lecturesLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
         <div className="px-4 pb-4">
           {lecturesLoading ? (
@@ -170,12 +251,44 @@ const ClassDashboardView = () => {
                 </>
               )}
               <div ref={lectureScrollRef} className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {lectures.map((lec: any) => {
+              {orderedLectures.map((lec: any) => {
                 const isOpen = expandedLecture === lec.id;
-                const recUrl = lec.recordingUrl || lec.recording_url;
-                const thumbSrc = lec.thumbnailUrl ? getImageUrl(lec.thumbnailUrl) : '';
+                const status = getLectureStatus(lec);
+                const isLive = status === 'ongoing' || status === 'live';
+                const isJoinClosed = status === 'completed' || status === 'cancelled' || status === 'postponed';
+                const joinUrl = getLiveJoinUrl(lec) || getMeetingLink(lec);
+                const canJoin = !!joinUrl && !isJoinClosed;
+                const recUrl = getRecordingJoinUrl(lec) || getRecordingUrl(lec);
+
+                const rawThumb = pickString(
+                  lec.thumbnailUrl,
+                  lec.thumbnail_url,
+                  lec.thumbnail,
+                  lec.coverImageUrl,
+                  lec.cover_image_url,
+                  lec.imageUrl,
+                  lec.image_url
+                );
+                const thumbSrc = rawThumb ? getImageUrl(rawThumb) : '';
+
+                const statusLabel = isLive
+                  ? 'Live'
+                  : status
+                    ? `${status.charAt(0).toUpperCase()}${status.slice(1)}`
+                    : 'Scheduled';
+
+                const cardStateClass = isOpen
+                  ? 'ring-2 ring-primary shadow-lg'
+                  : isLive
+                    ? 'ring-2 ring-red-500/50 shadow-lg shadow-red-500/20'
+                    : 'hover:shadow-md';
+
+                const startTime = getLectureStart(lec);
+                const endTime = getLectureEnd(lec);
+                const subjectLabel = pickString(lec.subject, lec.subjectName, lec.subject_name)
+                  || (lec.subjectId ? String(lec.subjectId) : '');
                 return (
-                  <Card key={lec.id} className={`overflow-hidden transition-all duration-200 flex flex-col cursor-pointer w-[260px] sm:w-[280px] shrink-0 snap-start ${isOpen ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'}`} onClick={() => setExpandedLecture(isOpen ? null : lec.id)}>
+                  <Card key={lec.id} className={`overflow-hidden transition-all duration-200 flex flex-col cursor-pointer w-[260px] sm:w-[280px] shrink-0 snap-start ${cardStateClass}`} onClick={() => setExpandedLecture(isOpen ? null : lec.id)}>
                     {/* Thumbnail */}
                     <div className="relative aspect-video bg-muted group">
                       {thumbSrc ? (
@@ -187,7 +300,12 @@ const ClassDashboardView = () => {
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                      <Badge variant={lec.status === 'scheduled' ? 'default' : lec.status === 'completed' ? 'secondary' : 'destructive'} className="absolute top-2 left-2 text-[10px] px-1.5 py-0 backdrop-blur-sm bg-background/80">{lec.status}</Badge>
+                      <Badge
+                        variant={status === 'scheduled' ? 'default' : status === 'completed' ? 'secondary' : 'destructive'}
+                        className={`absolute top-2 left-2 text-[10px] px-1.5 py-0 backdrop-blur-sm ${isLive ? 'bg-red-600/90 text-white border-red-600/80 animate-pulse' : 'bg-background/80'}`}
+                      >
+                        {statusLabel}
+                      </Badge>
                       <div className="absolute bottom-0 left-0 right-0 p-2.5">
                         <p className="font-semibold text-sm text-white line-clamp-2 drop-shadow-md">{lec.title}</p>
                       </div>
@@ -196,8 +314,8 @@ const ClassDashboardView = () => {
                     <div className="p-2.5 flex flex-col gap-1.5">
                       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                         <Clock className="h-3 w-3 shrink-0" />
-                        <span>{lec.startTime ? new Date(lec.startTime).toLocaleDateString() : 'No date'}</span>
-                        {lec.subject && <span className="text-primary font-medium">· {lec.subject || lec.subjectId}</span>}
+                        <span>{startTime ? new Date(startTime).toLocaleDateString() : 'No date'}</span>
+                        {subjectLabel && <span className="text-primary font-medium">· {subjectLabel}</span>}
                       </div>
                       {lec.venue && (
                         <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -205,9 +323,13 @@ const ClassDashboardView = () => {
                         </span>
                       )}
                       <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/50">
-                        {lec.meetingLink && (
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs rounded-lg gap-1" onClick={(e) => { e.stopPropagation(); window.open(lec.meetingLink, '_blank'); }}>
-                            <ExternalLink className="h-3 w-3" />Join
+                        {canJoin && (
+                          <Button
+                            size="sm"
+                            className={`${isLive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white h-7 text-xs rounded-lg gap-1`}
+                            onClick={(e) => { e.stopPropagation(); handleJoinLecture(lec); }}
+                          >
+                            <ExternalLink className="h-3 w-3" />{isLive ? 'Live' : 'Join'}
                           </Button>
                         )}
                         {recUrl && (
@@ -227,12 +349,12 @@ const ClassDashboardView = () => {
                         <div className="grid grid-cols-2 gap-1.5 pt-1">
                           <div className="flex flex-col gap-0.5 p-2 rounded-lg bg-background border border-border/50">
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Start</span>
-                            <span className="text-xs font-medium">{lec.startTime ? new Date(lec.startTime).toLocaleString() : 'N/A'}</span>
+                            <span className="text-xs font-medium">{startTime ? new Date(startTime).toLocaleString() : 'N/A'}</span>
                           </div>
-                          {lec.endTime && (
+                          {endTime && (
                             <div className="flex flex-col gap-0.5 p-2 rounded-lg bg-background border border-border/50">
                               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">End</span>
-                              <span className="text-xs font-medium">{new Date(lec.endTime).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+                              <span className="text-xs font-medium">{new Date(endTime).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
                             </div>
                           )}
                         </div>
