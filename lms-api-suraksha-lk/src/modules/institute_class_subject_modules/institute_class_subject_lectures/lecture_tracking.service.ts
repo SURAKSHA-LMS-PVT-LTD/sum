@@ -673,6 +673,7 @@ export class LectureTrackingService {
             id: s.studentUserId,
             name,
             imageUrl: student?.imageUrl ?? null,
+            isGuest: false,
           };
         } catch (err) {
           console.error('❌ Error mapping student:', err);
@@ -680,9 +681,30 @@ export class LectureTrackingService {
             id: s.studentUserId,
             name: s.studentUserId,
             imageUrl: null,
+            isGuest: false,
           };
         }
       });
+
+      // Add guests to studentList if they attended any lecture
+      const guestMap = new Map<string, { id: string; name: string; email?: string; phone?: string; school?: string; imageUrl: null; isGuest: true }>();
+      for (const row of attRows) {
+        if (!row.userId && row.guestName) {
+          const guestId = `guest-${row.id}`;
+          if (!guestMap.has(guestId)) {
+            guestMap.set(guestId, {
+              id: guestId,
+              name: row.guestName,
+              email: row.guestEmail,
+              phone: row.guestPhone,
+              school: row.guestSchool,
+              imageUrl: null,
+              isGuest: true,
+            });
+          }
+        }
+      }
+      const guestList = Array.from(guestMap.values());
 
       const lectureList = lectures.map(l => ({
         id: l.id,
@@ -690,9 +712,10 @@ export class LectureTrackingService {
         startTime: l.startTime,
         subjectId: l.subjectId ?? null,
         status: l.status,
+        liveAccessLevel: l.liveAccessLevel,
       }));
 
-      return { lectures: lectureList, students: studentList, grid };
+      return { lectures: lectureList, students: studentList.concat(guestList), grid };
     } catch (error) {
       console.error('❌ Unexpected error in getAttendanceGrid:', error);
       throw error;

@@ -50,6 +50,7 @@ export default function LectureAttendanceLivePage() {
   const [selectedSessions, setSelectedSessions] = useState<{ joinTime?: string }[]>([]);
   const [selectedStudentName, setSelectedStudentName] = useState('');
   const [selectedLectureTitle, setSelectedLectureTitle] = useState('');
+  const [attendanceTab, setAttendanceTab] = useState<'live' | 'recording'>('live');
 
   // ─── URL Params & Derived State ───────────────────────────────────────────┘
 
@@ -212,13 +213,27 @@ export default function LectureAttendanceLivePage() {
 
   const enrolledStudentsForView = useMemo(() => {
     return Object.values(studentDirectoryById)
-      .map(student => ({ id: student.id, name: student.name, instituteUserId: student.userIdByInstitute || student.id, imageUrl: student.imageUrl || '' }))
+      .filter(s => !(s as any).isGuest)
+      .map(student => ({ id: student.id, name: student.name, instituteUserId: student.userIdByInstitute || student.id, imageUrl: student.imageUrl || '', isGuest: false }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [studentDirectoryById]);
 
+  const guestStudentsForView = useMemo(() => {
+    return Object.values(studentDirectoryById)
+      .filter(s => (s as any).isGuest)
+      .map(student => ({ id: student.id, name: student.name, email: (student as any).email, phone: (student as any).phone, school: (student as any).school, imageUrl: student.imageUrl || '', isGuest: true }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [studentDirectoryById]);
+
+  const shouldShowGuestSection = useMemo(() => {
+    if (selectedLectures.length === 0) return false;
+    return selectedLectures.some((l: any) => l.liveAccessLevel === 'ANYONE');
+  }, [selectedLectures]);
+
   const attendanceRows = useMemo(() => {
     if (!viewGrid) return [];
-    return enrolledStudentsForView.map(student => {
+    const allStudents = [...enrolledStudentsForView, ...(shouldShowGuestSection ? guestStudentsForView : [])];
+    return allStudents.map(student => {
       const cells = selectedLectures.map(lecture => {
         const cell = viewGrid.grid?.[student.id]?.[lecture.id];
         const sessionList = Array.isArray(cell?.sessions) ? cell.sessions : [];
@@ -244,7 +259,7 @@ export default function LectureAttendanceLivePage() {
       const percentage = total > 0 ? Math.round((presentCount / total) * 100) : 0;
       return { ...student, cells, summary: { present: presentCount, absent: total - presentCount, total, percentage } };
     });
-  }, [enrolledStudentsForView, selectedLectures, viewGrid]);
+  }, [enrolledStudentsForView, guestStudentsForView, shouldShowGuestSection, selectedLectures, viewGrid]);
 
   // ─── Render Logic ───────────────────────────────────────────────────────────┘
 
@@ -295,40 +310,95 @@ export default function LectureAttendanceLivePage() {
 
           <Card className="overflow-hidden border-0 shadow-md">
             <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b pb-4">
-              <CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5 text-primary" />Student Attendance Details</CardTitle>
-              <CardDescription className="text-xs mt-2">{attendanceRows.length} students across {selectedLectures.length} lectures</CardDescription>
+              <CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5 text-primary" />Attendance Details</CardTitle>
+              <CardDescription className="text-xs mt-2">
+                {enrolledStudentsForView.length} enrolled student{enrolledStudentsForView.length !== 1 ? 's' : ''}{shouldShowGuestSection && ` • ${guestStudentsForView.length} guest${guestStudentsForView.length !== 1 ? 's' : ''}`} across {selectedLectures.length} lectures
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              {loadingViewGrid ? <div className="space-y-2 p-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div> : attendanceRows.length === 0 ? <div className="py-12 px-4 text-center"><Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" /><p className="text-sm text-muted-foreground">No enrolled students found.</p></div> : (
+              {loadingViewGrid ? <div className="space-y-2 p-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div> : attendanceRows.length === 0 ? <div className="py-12 px-4 text-center"><Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" /><p className="text-sm text-muted-foreground">No attendance records found.</p></div> : (
                 <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader><TableRow className="bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-50"><TableHead className="sticky left-0 bg-slate-50 dark:bg-slate-900/50 z-10 w-[280px]">Student</TableHead><TableHead className="w-[180px]">Summary</TableHead>{selectedLectures.map(lecture => <TableHead key={lecture.id} className="text-center min-w-[140px]"><div className="truncate max-w-[130px] mx-auto font-semibold" title={lecture.title}>{lecture.title}</div>{lecture.startTime && <div className="text-[10px] text-muted-foreground/70 font-normal mt-0.5">{new Date(lecture.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>}</TableHead>)}</TableRow></TableHeader>
-                    <TableBody>
-                      {attendanceRows.map((row, idx) => (
-                        <TableRow key={row.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/30 ${idx % 2 === 0 ? 'bg-white dark:bg-slate-900/10' : ''}`}>
-                          <TableCell className="sticky left-0 z-10 font-medium text-xs bg-white dark:bg-slate-900/30"><div className="flex items-center gap-3"><Avatar className="h-8 w-8 ring-2 ring-primary/20"><AvatarImage src={getImageUrl(row.imageUrl)} alt={row.name} /><AvatarFallback className="text-[10px]">{row.name.split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><div className="truncate font-semibold text-foreground">{row.name}</div><div className="text-[10px] text-muted-foreground/60 truncate">ID: {row.id.slice(0, 8)}</div></div></div></TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="flex-1">
-                                <div className="flex justify-between items-center mb-1">
-                                  <span className="text-xs font-semibold">{row.summary.percentage}%</span>
-                                  <span className="text-[10px] text-muted-foreground">P: {row.summary.present} / A: {row.summary.absent}</span>
-                                </div>
-                                <Progress value={row.summary.percentage} className={`h-1.5 ${getProgressColor(row.summary.percentage)}`} />
-                              </div>
-                            </div>
-                          </TableCell>
-                          {row.cells.map((cell, cellIdx) => (
-                            <TableCell key={cell.lectureId} className="text-center p-2" onClick={() => cell.attended && openSessionViewer(cell.sessions, row.name, selectedLectures[cellIdx].title)}>
-                              <div className={`inline-flex flex-col items-center justify-center gap-1 min-h-[50px] px-2 py-1 rounded-lg w-[100px] transition-all ${cell.attended ? 'bg-green-500/15 border border-green-500/30' : 'bg-red-500/10 border border-red-500/20'}`}>
-                                {cell.attended ? <><CheckCircle2 className="h-4 w-4 text-green-600" /><span className="text-[10px] font-semibold text-green-700">{cell.joinTime ? new Date(cell.joinTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Present'}</span>{cell.joinCount > 1 && <Badge variant="secondary" className="mt-1">{cell.joinCount} joins</Badge>}</> : <><XCircle className="h-4 w-4 text-red-500" /><span className="text-[10px] font-semibold text-red-600">Absent</span></>}
-                              </div>
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <div>
+                    {/* Enrolled Students Section */}
+                    <div>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 sticky top-0 z-20 border-b">
+                        <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">ENROLLED STUDENTS ({enrolledStudentsForView.length})</p>
+                      </div>
+                      {enrolledStudentsForView.length > 0 ? (
+                        <Table>
+                          <TableHeader><TableRow className="bg-slate-50 dark:bg-slate-900/50"><TableHead className="sticky left-0 bg-slate-50 dark:bg-slate-900/50 z-10 w-[280px]">Student</TableHead><TableHead className="w-[180px]">Summary</TableHead>{selectedLectures.map(lecture => <TableHead key={lecture.id} className="text-center min-w-[140px]"><div className="truncate max-w-[130px] mx-auto font-semibold" title={lecture.title}>{lecture.title}</div>{lecture.startTime && <div className="text-[10px] text-muted-foreground/70 font-normal mt-0.5">{new Date(lecture.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>}</TableHead>)}</TableRow></TableHeader>
+                          <TableBody>
+                            {attendanceRows.filter(r => !r.isGuest).map((row, idx) => (
+                              <TableRow key={row.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/30 ${idx % 2 === 0 ? 'bg-white dark:bg-slate-900/10' : ''}`}>
+                                <TableCell className="sticky left-0 z-10 font-medium text-xs bg-white dark:bg-slate-900/30"><div className="flex items-center gap-3"><Avatar className="h-8 w-8 ring-2 ring-primary/20"><AvatarImage src={getImageUrl(row.imageUrl)} alt={row.name} /><AvatarFallback className="text-[10px]">{(row.name ?? '').split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || 'U'}</AvatarFallback></Avatar><div className="min-w-0"><div className="truncate font-semibold text-foreground text-xs">{row.name}</div><div className="text-[10px] text-muted-foreground/60 truncate">ID: {row.id}</div></div></div></TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                      <div className="flex justify-between items-center mb-1">
+                                        <span className="text-xs font-semibold">{row.summary.percentage}%</span>
+                                        <span className="text-[10px] text-muted-foreground">P: {row.summary.present} / A: {row.summary.absent}</span>
+                                      </div>
+                                      <Progress value={row.summary.percentage} className={`h-1.5 ${getProgressColor(row.summary.percentage)}`} />
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                {row.cells.map((cell, cellIdx) => (
+                                  <TableCell key={cell.lectureId} className="text-center p-2" onClick={() => cell.attended && openSessionViewer(cell.sessions, row.name, selectedLectures[cellIdx].title)}>
+                                    <div className={`inline-flex flex-col items-center justify-center gap-1 min-h-[50px] px-2 py-1 rounded-lg w-[100px] transition-all ${cell.attended ? 'bg-green-500/15 border border-green-500/30 cursor-pointer' : 'bg-red-500/10 border border-red-500/20'}`}>
+                                      {cell.attended ? <><CheckCircle2 className="h-4 w-4 text-green-600" /><span className="text-[10px] font-semibold text-green-700">{cell.joinTime ? new Date(cell.joinTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Present'}</span>{cell.joinCount > 1 && <Badge variant="secondary" className="mt-1 text-[8px]">{cell.joinCount} joins</Badge>}</> : <><XCircle className="h-4 w-4 text-red-500" /><span className="text-[10px] font-semibold text-red-600">Absent</span></>}
+                                    </div>
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="py-8 px-4 text-center bg-white dark:bg-slate-900/10"><p className="text-sm text-muted-foreground">No enrolled students in attendance.</p></div>
+                      )}
+                    </div>
+
+                    {/* Guests Section - Only show if access level is ANYONE */}
+                    {shouldShowGuestSection && (
+                      <div>
+                        <div className="bg-amber-50 dark:bg-amber-900/20 px-4 py-2 sticky top-0 z-20 border-b border-t">
+                          <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">GUESTS ({guestStudentsForView.length})</p>
+                        </div>
+                        {guestStudentsForView.length > 0 ? (
+                          <Table>
+                            <TableHeader><TableRow className="bg-slate-50 dark:bg-slate-900/50"><TableHead className="sticky left-0 bg-slate-50 dark:bg-slate-900/50 z-10 w-[280px]">Guest</TableHead><TableHead className="w-[180px]">Summary</TableHead>{selectedLectures.map(lecture => <TableHead key={lecture.id} className="text-center min-w-[140px]"><div className="truncate max-w-[130px] mx-auto font-semibold" title={lecture.title}>{lecture.title}</div>{lecture.startTime && <div className="text-[10px] text-muted-foreground/70 font-normal mt-0.5">{new Date(lecture.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>}</TableHead>)}</TableRow></TableHeader>
+                            <TableBody>
+                              {attendanceRows.filter(r => r.isGuest).map((row, idx) => (
+                                <TableRow key={row.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/30 ${idx % 2 === 0 ? 'bg-white dark:bg-slate-900/10' : ''}`}>
+                                  <TableCell className="sticky left-0 z-10 font-medium text-xs bg-white dark:bg-slate-900/30"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-600 font-bold text-[10px]">G</div><div className="min-w-0"><div className="truncate font-semibold text-foreground">{row.name}</div><div className="text-[10px] text-muted-foreground/60 truncate">{(row as any).email || 'Guest'}</div></div></div></TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex-1">
+                                        <div className="flex justify-between items-center mb-1">
+                                          <span className="text-xs font-semibold">{row.summary.percentage}%</span>
+                                          <span className="text-[10px] text-muted-foreground">P: {row.summary.present} / A: {row.summary.absent}</span>
+                                        </div>
+                                        <Progress value={row.summary.percentage} className={`h-1.5 ${getProgressColor(row.summary.percentage)}`} />
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  {row.cells.map((cell, cellIdx) => (
+                                    <TableCell key={cell.lectureId} className="text-center p-2" onClick={() => cell.attended && openSessionViewer(cell.sessions, row.name, selectedLectures[cellIdx].title)}>
+                                      <div className={`inline-flex flex-col items-center justify-center gap-1 min-h-[50px] px-2 py-1 rounded-lg w-[100px] transition-all ${cell.attended ? 'bg-green-500/15 border border-green-500/30 cursor-pointer' : 'bg-red-500/10 border border-red-500/20'}`}>
+                                        {cell.attended ? <><CheckCircle2 className="h-4 w-4 text-green-600" /><span className="text-[10px] font-semibold text-green-700">{cell.joinTime ? new Date(cell.joinTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Present'}</span>{cell.joinCount > 1 && <Badge variant="secondary" className="mt-1 text-[8px]">{cell.joinCount} joins</Badge>}</> : <><XCircle className="h-4 w-4 text-red-500" /><span className="text-[10px] font-semibold text-red-600">Absent</span></>}
+                                      </div>
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        ) : (
+                          <div className="py-8 px-4 text-center bg-white dark:bg-slate-900/10"><p className="text-sm text-muted-foreground">No guest attendance recorded.</p></div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
