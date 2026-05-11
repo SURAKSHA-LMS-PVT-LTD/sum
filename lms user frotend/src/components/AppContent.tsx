@@ -643,6 +643,9 @@ const AppContent = ({ initialPage }: AppContentProps) => {
   const renderComponent = () => {
     // Helper: case-insensitive check for tuition_institute type
     const isNotTuitionInstitute = (selectedInstitute?.type || '').toLowerCase() !== 'tuition_institute';
+    if (isTenantLogin && !selectedInstitute) {
+        return <AppLoadingScreen message="Loading institute..." iconUrl={branding?.logoUrl} />;
+    }
 
     // On tenant domains (subdomain or custom domain), institute selection is forbidden —
     // the correct institute is auto-selected. Show loading while that completes.
@@ -863,8 +866,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <InstituteLectures />;
         case 'profile':
           return <Profile />;
-        case 'select-institute':
-          return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
+        // case 'select-institute':
+        //   return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
         case 'appearance':
           return <Appearance />;
         case 'institute-profile':
@@ -989,8 +992,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <CalendarMonthView />;
         case 'today-dashboard':
           return <TodayDashboard />;
-        case 'select-institute':
-          return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector useChildId={true} />;
+        // case 'select-institute':
+        //   return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector useChildId={true} />;
         case 'select-class':
           return <ClassSelector />;
         case 'select-subject':
@@ -1056,8 +1059,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <InstituteSubjects />;
         case 'class-subjects':
           return <ClassSubjects />;
-        case 'select-institute':
-          return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
+        // case 'select-institute':
+        //   return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
         case 'grading':
         case 'grades-table':
         case 'create-grade':
@@ -1206,8 +1209,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <InstituteMarkAttendance />;
         case 'profile':
           return <Profile />;
-        case 'select-institute':
-          return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
+        // case 'select-institute':
+        //   return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
         case 'select-class':
           return <ClassSelector />;
         case 'appearance':
@@ -1343,8 +1346,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         return <Institutes />;
       case 'institute-organizations':
         return <InstituteOrganizations />;
-      case 'select-institute':
-        return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
+      // case 'select-institute':
+      //   return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
       case 'grading':
       case 'grades-table':
       case 'create-grade':
