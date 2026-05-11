@@ -23,6 +23,7 @@ import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useNotificationStore, refreshContextCount } from '@/stores/useNotificationStore';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
 import ProfileSwitcherSheet from './ProfileSwitcherSheet';
+import ProfileSwitcherDropdown from './ProfileSwitcherDropdown'; // Import the new component
 import { useTenant } from '@/contexts/TenantContext';
 import { cn } from '@/lib/utils';
 
@@ -431,27 +432,7 @@ const Header = ({ onMenuClick }: HeaderProps) => {
                 {selectedInstitute?.shortName || selectedInstitute?.name || 'SurakshaLMS'}
               </p>
             </div>
-            <button
-              onClick={() => setProfileSwitcherOpen(true)}
-              className="focus:outline-none rounded-full active:scale-95 transition-transform shrink-0 relative"
-              aria-label="Switch profile"
-            >
-              <Avatar className="h-12 w-12 border-2 border-border shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
-                {avatarImageUrl && (
-                  <AvatarImage 
-                    src={avatarImageUrl}
-                    alt={user?.name}
-                    className="object-cover"
-                  />
-                )}
-                <AvatarFallback className="bg-muted">
-                  <User className="h-5 w-5 text-muted-foreground" />
-                </AvatarFallback>
-              </Avatar>
-              {isViewingAsParent && selectedChild && (
-                <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full bg-orange-500 border-2 border-background shadow-sm" />
-              )}
-            </button>
+            <ProfileSwitcherDropdown />
           </div>
 
           {/* Profile / Account Switcher Avatar (Mobile only) */}
