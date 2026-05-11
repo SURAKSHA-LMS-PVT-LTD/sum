@@ -6,6 +6,7 @@
 
 import { getBaseUrl } from '@/contexts/utils/auth.api';
 import { parseApiError } from '@/api/apiError';
+import { DISTRICTS, PROVINCES, DISTRICT_TO_PROVINCE } from '@/lib/constants';
 
 // ============= TYPES =============
 
@@ -94,35 +95,6 @@ export interface RegistrationResponse {
 }
 
 // ============= ENUMS =============
-
-export const DISTRICTS = [
-  'COLOMBO', 'GAMPAHA', 'KALUTARA',
-  'KANDY', 'MATALE', 'NUWARA_ELIYA',
-  'GALLE', 'MATARA', 'HAMBANTOTA',
-  'JAFFNA', 'KILINOCHCHI', 'MANNAR', 'MULLAITIVU', 'VAVUNIYA',
-  'TRINCOMALEE', 'BATTICALOA', 'AMPARA',
-  'KURUNEGALA', 'PUTTALAM',
-  'ANURADHAPURA', 'POLONNARUWA',
-  'BADULLA', 'MONARAGALA',
-  'RATNAPURA', 'KEGALLE',
-] as const;
-
-export const PROVINCES = [
-  'WESTERN', 'CENTRAL', 'SOUTHERN', 'NORTHERN', 'EASTERN',
-  'NORTH_WESTERN', 'NORTH_CENTRAL', 'UVA', 'SABARAGAMUWA',
-] as const;
-
-export const DISTRICT_TO_PROVINCE: Record<string, string> = {
-  COLOMBO: 'WESTERN', GAMPAHA: 'WESTERN', KALUTARA: 'WESTERN',
-  KANDY: 'CENTRAL', MATALE: 'CENTRAL', NUWARA_ELIYA: 'CENTRAL',
-  GALLE: 'SOUTHERN', MATARA: 'SOUTHERN', HAMBANTOTA: 'SOUTHERN',
-  JAFFNA: 'NORTHERN', KILINOCHCHI: 'NORTHERN', MANNAR: 'NORTHERN', MULLAITIVU: 'NORTHERN', VAVUNIYA: 'NORTHERN',
-  TRINCOMALEE: 'EASTERN', BATTICALOA: 'EASTERN', AMPARA: 'EASTERN',
-  KURUNEGALA: 'NORTH_WESTERN', PUTTALAM: 'NORTH_WESTERN',
-  ANURADHAPURA: 'NORTH_CENTRAL', POLONNARUWA: 'NORTH_CENTRAL',
-  BADULLA: 'UVA', MONARAGALA: 'UVA',
-  RATNAPURA: 'SABARAGAMUWA', KEGALLE: 'SABARAGAMUWA',
-};
 
 export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 

@@ -16,27 +16,7 @@ import {
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const DISTRICTS = [
-  'COLOMBO', 'GAMPAHA', 'KALUTARA',
-  'KANDY', 'MATALE', 'NUWARA_ELIYA',
-  'GALLE', 'MATARA', 'HAMBANTOTA',
-  'JAFFNA', 'KILINOCHCHI', 'MANNAR', 'MULLAITIVU', 'VAVUNIYA',
-  'TRINCOMALEE', 'BATTICALOA', 'AMPARA',
-  'KURUNEGALA', 'PUTTALAM',
-  'ANURADHAPURA', 'POLONNARUWA',
-  'BADULLA', 'MONARAGALA',
-  'RATNAPURA', 'KEGALLE',
-] as const;
-
-const PROVINCES = [
-  'WESTERN', 'CENTRAL', 'SOUTHERN', 'NORTHERN', 'EASTERN',
-  'NORTH_WESTERN', 'NORTH_CENTRAL', 'UVA', 'SABARAGAMUWA',
-] as const;
-
-function formatEnumLabel(val: string) {
-  return val.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
+import { DISTRICTS, PROVINCES, formatEnumLabel } from '@/lib/constants';
 import { getErrorMessage } from '@/api/apiError';
 
 const InstituteSettingsTab = () => {
