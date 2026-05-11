@@ -162,15 +162,11 @@ async function request<T>(
     const authHeaders = await getApiHeadersAsync();
     Object.assign(headers, authHeaders);
   }
-  if (forceRefresh) {
-    headers['Cache-Control'] = 'no-cache';
-  }
 
   const res = await fetch(url, {
     ...options,
     headers: { ...headers, ...(options.headers as Record<string, string> ?? {}) },
     credentials: getCredentialsMode(),
-    cache: forceRefresh ? 'reload' : 'default'
   });
 
   if (!res.ok) {
