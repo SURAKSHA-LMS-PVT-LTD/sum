@@ -232,8 +232,13 @@ const InstituteSelector = ({
         }
       }
       
-    } catch (error: any) { 
+    } catch (error: any) {
       console.error('Error loading institutes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load institutes",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }

@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense } from "react";
+import React, { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { NotificationToast } from "@/components/notifications/NotificationToast";
@@ -15,7 +15,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 const NavigationBar = registerPlugin<{ setColor(opts: { color: string; darkButtons: boolean }): Promise<void> }>('NavigationBar');
 import { useCapacitorConnection } from "@/hooks/useCapacitorConnection";
 import CapacitorConnectionError from "@/components/CapacitorConnectionError";
-import PageLoader from "@/components/PageLoader";
+import AppLoadingScreen from "@/components/AppLoadingScreen";
 import Index from "./pages/Index";
 import QRAttendance from "@/components/QRAttendance";
 import RfidAttendance from "@/pages/RFIDAttendance";
@@ -270,7 +270,6 @@ const App = () => {
           <BrowserRouter>
             <TenantProvider>
             <AuthProvider>
-            <Suspense fallback={<PageLoader />}>
               {showConnectionError ? (
                 <CapacitorConnectionError onRetry={retry} />
               ) : (
@@ -426,7 +425,6 @@ const App = () => {
                   </Routes>
                 </>
               )}
-              </Suspense>
             </AuthProvider>
             </TenantProvider>
           </BrowserRouter>

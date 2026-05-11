@@ -187,10 +187,10 @@ export class InstituteSessionService {
       throw new ForbiddenException('Cannot revoke another user\'s session');
     }
 
-    await this.sessionRepo.manager.query(
-        'UPDATE institute_login_session SET is_active = 0, deactivated_reason = ? WHERE id = ?',
-        [reason, sessionId]
-    );
+    await this.sessionRepo.update(sessionId, {
+      isActive: false,
+      deactivatedReason: reason,
+    });
 
     this.logger.log(`✅ Session ${sessionId} deactivated (reason=${reason}) by user=${requestingUserId}`);
   }
@@ -212,10 +212,9 @@ export class InstituteSessionService {
 
     if (oldest.length === 0) return 0;
 
-    const ids = oldest.map(s => s.id);
-    await this.sessionRepo.manager.query(
-      'UPDATE institute_login_session SET is_active = 0, deactivated_reason = ? WHERE id IN (?)',
-      ['REPLACED_BY_NEW_SESSION', ids]
+    await this.sessionRepo.update(
+      oldest.map(s => s.id),
+      { isActive: false, deactivatedReason: 'REPLACED_BY_NEW_SESSION' },
     );
 
     this.logger.log(`🔄 Deactivated ${oldest.length} old session(s) for user=${userId}, institute=${instituteId}`);
@@ -230,12 +229,14 @@ export class InstituteSessionService {
     userId: string,
     reason = 'ADMIN_FORCED_LOGOUT',
   ): Promise<number> {
-    const result = await this.sessionRepo.manager.query(
-      'UPDATE institute_login_session SET is_active = 0, deactivated_reason = ? WHERE institute_id = ? AND user_id = ? AND is_active = 1',
-      [reason, instituteId, userId]
-    );
+    const result = await this.sessionRepo
+      .createQueryBuilder()
+      .update(InstituteLoginSessionEntity)
+      .set({ isActive: false, deactivatedReason: reason })
+      .where('institute_id = :instituteId AND user_id = :userId AND is_active = 1', { instituteId, userId })
+      .execute();
 
-    const count = result.affectedRows ?? 0;
+    const count = result.affected ?? 0;
     this.logger.log(`🔄 Deactivated ${count} session(s) for user=${userId}, institute=${instituteId} (reason=${reason})`);
     return count;
   }
@@ -260,10 +261,7 @@ export class InstituteSessionService {
    * Call this on any authenticated request.
    */
   async touchSession(tokenHash: string): Promise<void> {
-    await this.sessionRepo.manager.query(
-      'UPDATE institute_login_session SET last_active_at = ? WHERE token_hash = ?',
-      [new Date(), tokenHash]
-    );
+    await this.sessionRepo.update({ tokenHash }, { lastActiveAt: new Date() });
   }
 
   // ── Admin / listing ─────────────────────────────────────────────────────────
@@ -324,9 +322,9 @@ export class InstituteSessionService {
 
   /** Set or clear the per-user device limit for a user in an institute. */
   async setDeviceLimit(instituteId: string, userId: string, maxDevices: number | null): Promise<void> {
-    await this.instituteUserRepo.manager.query(
-      'UPDATE institute_user SET max_devices_per_user = ? WHERE institute_id = ? AND user_id = ?',
-      [maxDevices, instituteId, userId]
+    await this.instituteUserRepo.update(
+      { instituteId, userId },
+      { maxDevicesPerUser: maxDevices } as any,
     );
     this.logger.log(`⚙️ Device limit set to ${maxDevices ?? 'unlimited'} for user=${userId}, institute=${instituteId}`);
   }
@@ -335,18 +333,14 @@ export class InstituteSessionService {
 
   /** Mark expired sessions inactive. Called on login and can be run as cron. */
   async expireStale(instituteId?: string, userId?: string): Promise<void> {
-    let query = 'UPDATE institute_login_session SET is_active = 0, deactivated_reason = ? WHERE expires_at < NOW() AND is_active = 1';
-    const params = ['EXPIRED'];
+    const qb = this.sessionRepo.createQueryBuilder()
+      .update(InstituteLoginSessionEntity)
+      .set({ isActive: false, deactivatedReason: 'EXPIRED' })
+      .where('expires_at < NOW() AND is_active = 1');
 
-    if (instituteId) {
-      query += ' AND institute_id = ?';
-      params.push(instituteId);
-    }
-    if (userId) {
-      query += ' AND user_id = ?';
-      params.push(userId);
-    }
+    if (instituteId) qb.andWhere('institute_id = :instituteId', { instituteId });
+    if (userId)      qb.andWhere('user_id = :userId',      { userId });
 
-    await this.sessionRepo.manager.query(query, params);
+    await qb.execute();
   }
 }

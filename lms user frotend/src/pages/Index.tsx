@@ -1,8 +1,8 @@
 import React from 'react';
-import PageLoader from '@/components/PageLoader';
+import AppContent from '@/components/AppContent';
 
 const Index = () => {
-  return <PageLoader />;
+  return <AppContent />;
 };
 
 export default Index;

@@ -10,8 +10,7 @@
       ]
     },
     "skipLibCheck": true,
-    "strictNullChecks": false,
-    "types": ["vite-plugin-svgr/client"]
+    "strictNullChecks": false
   },
   "files": [],
   "references": [

@@ -16,8 +16,6 @@ import PassportImageCropUpload from '@/components/common/PassportImageCropUpload
 import { getErrorMessage } from '@/api/apiError';
 import { parentsApi, type InstituteParent } from '@/api/parents.api';
 import { useAuth } from '@/contexts/AuthContext';
-import { DISTRICTS, PROVINCES, OCCUPATIONS, formatEnumLabel, DISTRICT_TO_PROVINCE } from '@/lib/constants';
-import { Checkbox } from '@/components/ui/checkbox';
 
 interface CreateComprehensiveUserFormProps {
   onSubmit: (data: any) => void;
@@ -36,6 +34,229 @@ interface ParentLinkFieldProps {
 
 type UserType = 'USER' | 'USER_WITHOUT_PARENT' | 'USER_WITHOUT_STUDENT';
 type BloodGroup = 'A_POSITIVE' | 'A_NEGATIVE' | 'B_POSITIVE' | 'B_NEGATIVE' | 'O_POSITIVE' | 'O_NEGATIVE' | 'AB_POSITIVE' | 'AB_NEGATIVE';
+
+enum Occupation {
+  TEACHER = 'TEACHER',
+  LECTURER = 'LECTURER',
+  PRINCIPAL = 'PRINCIPAL',
+  TUITION_TEACHER = 'TUITION_TEACHER',
+  SCHOOL_COUNSELOR = 'SCHOOL_COUNSELOR',
+  TUITION_INSTITUTE_OWNER = 'TUITION_INSTITUTE_OWNER',
+  LIBRARIAN = 'LIBRARIAN',
+  NURSE = 'NURSE',
+  DOCTOR = 'DOCTOR',
+  PHARMACIST = 'PHARMACIST',
+  LABORATORY_TECHNICIAN = 'LABORATORY_TECHNICIAN',
+  MIDWIFE = 'MIDWIFE',
+  DENTIST = 'DENTIST',
+  VETERINARY_DOCTOR = 'VETERINARY_DOCTOR',
+  PHARMACIST_ASSISTANT = 'PHARMACIST_ASSISTANT',
+  MEDICAL_REPRESENTATIVE = 'MEDICAL_REPRESENTATIVE',
+  ENGINEER = 'ENGINEER',
+  CIVIL_ENGINEER = 'CIVIL_ENGINEER',
+  ARCHITECT = 'ARCHITECT',
+  QUANTITY_SURVEYOR = 'QUANTITY_SURVEYOR',
+  SURVEYOR = 'SURVEYOR',
+  DRAFTSMAN = 'DRAFTSMAN',
+  TECHNICIAN = 'TECHNICIAN',
+  AIR_CONDITIONING_TECHNICIAN = 'AIR_CONDITIONING_TECHNICIAN',
+  AUTO_ELECTRICIAN = 'AUTO_ELECTRICIAN',
+  MOBILE_TECHNICIAN = 'MOBILE_TECHNICIAN',
+  COMPUTER_TECHNICIAN = 'COMPUTER_TECHNICIAN',
+  CCTV_INSTALLER = 'CCTV_INSTALLER',
+  IT_OFFICER = 'IT_OFFICER',
+  SOFTWARE_DEVELOPER = 'SOFTWARE_DEVELOPER',
+  WEB_DEVELOPER = 'WEB_DEVELOPER',
+  GRAPHIC_DESIGNER = 'GRAPHIC_DESIGNER',
+  CONTENT_CREATOR = 'CONTENT_CREATOR',
+  YOUTUBER = 'YOUTUBER',
+  DATA_ENTRY_OPERATOR = 'DATA_ENTRY_OPERATOR',
+  SOCIAL_MEDIA_MARKETER = 'SOCIAL_MEDIA_MARKETER',
+  ACCOUNTANT = 'ACCOUNTANT',
+  BANK_OFFICER = 'BANK_OFFICER',
+  INSURANCE_AGENT = 'INSURANCE_AGENT',
+  MARKETING_EXECUTIVE = 'MARKETING_EXECUTIVE',
+  ENTREPRENEUR = 'ENTREPRENEUR',
+  BUSINESS_OWNER = 'BUSINESS_OWNER',
+  SHOP_OWNER = 'SHOP_OWNER',
+  BOUTIQUE_OWNER = 'BOUTIQUE_OWNER',
+  GROCERY_SHOP_OWNER = 'GROCERY_SHOP_OWNER',
+  TAILORING_SHOP_OWNER = 'TAILORING_SHOP_OWNER',
+  BEAUTY_SALON_OWNER = 'BEAUTY_SALON_OWNER',
+  BARBER_SHOP_OWNER = 'BARBER_SHOP_OWNER',
+  CONSULTANT = 'CONSULTANT',
+  MANAGER = 'MANAGER',
+  SUPERVISOR = 'SUPERVISOR',
+  HR_OFFICER = 'HR_OFFICER',
+  HR_EXECUTIVE = 'HR_EXECUTIVE',
+  PROCUREMENT_OFFICER = 'PROCUREMENT_OFFICER',
+  CLERK = 'CLERK',
+  CASHIER = 'CASHIER',
+  RECEPTIONIST = 'RECEPTIONIST',
+  CASH_COLLECTOR = 'CASH_COLLECTOR',
+  STORE_KEEPER = 'STORE_KEEPER',
+  STORE_MANAGER = 'STORE_MANAGER',
+  WAREHOUSE_ASSISTANT = 'WAREHOUSE_ASSISTANT',
+  SALES_EXECUTIVE = 'SALES_EXECUTIVE',
+  SALESMAN = 'SALESMAN',
+  SHOP_ASSISTANT = 'SHOP_ASSISTANT',
+  CALL_CENTER_AGENT = 'CALL_CENTER_AGENT',
+  CALL_CENTER_SUPERVISOR = 'CALL_CENTER_SUPERVISOR',
+  DRIVER = 'DRIVER',
+  BUS_DRIVER = 'BUS_DRIVER',
+  TUK_TUK_DRIVER = 'TUK_TUK_DRIVER',
+  TAXI_DRIVER = 'TAXI_DRIVER',
+  HEAVY_VEHICLE_DRIVER = 'HEAVY_VEHICLE_DRIVER',
+  DELIVERY_RIDER = 'DELIVERY_RIDER',
+  DELIVERY_PARTNER = 'DELIVERY_PARTNER',
+  DELIVERY_HELPER = 'DELIVERY_HELPER',
+  DELIVERY_DISPATCHER = 'DELIVERY_DISPATCHER',
+  BUS_CONDUCTOR = 'BUS_CONDUCTOR',
+  DRIVER_ASSISTANT = 'DRIVER_ASSISTANT',
+  CRANE_OPERATOR = 'CRANE_OPERATOR',
+  FORKLIFT_OPERATOR = 'FORKLIFT_OPERATOR',
+  BUS_OWNER = 'BUS_OWNER',
+  VEHICLE_INSPECTOR = 'VEHICLE_INSPECTOR',
+  BOATMAN = 'BOATMAN',
+  FERRY_OPERATOR = 'FERRY_OPERATOR',
+  FARMER = 'FARMER',
+  TEA_ESTATE_WORKER = 'TEA_ESTATE_WORKER',
+  RUBBER_TAPPER = 'RUBBER_TAPPER',
+  COCONUT_FARMER = 'COCONUT_FARMER',
+  PADDY_FARMER = 'PADDY_FARMER',
+  SPICE_CULTIVATOR = 'SPICE_CULTIVATOR',
+  VEGETABLE_CULTIVATOR = 'VEGETABLE_CULTIVATOR',
+  POULTRY_FARMER = 'POULTRY_FARMER',
+  LIVESTOCK_FARMER = 'LIVESTOCK_FARMER',
+  DAIRY_FARMER = 'DAIRY_FARMER',
+  FISHERMAN = 'FISHERMAN',
+  FISHER = 'FISHER',
+  NET_REPAIRER = 'NET_REPAIRER',
+  FISH_SELLER = 'FISH_SELLER',
+  POLICE_OFFICER = 'POLICE_OFFICER',
+  SOLDIER = 'SOLDIER',
+  NAVY = 'NAVY',
+  AIR_FORCE = 'AIR_FORCE',
+  SECURITY_GUARD = 'SECURITY_GUARD',
+  SECURITY_SUPERVISOR = 'SECURITY_SUPERVISOR',
+  WATCHMAN = 'WATCHMAN',
+  MECHANIC = 'MECHANIC',
+  BUS_MECHANIC = 'BUS_MECHANIC',
+  LIGHT_VEHICLE_MECHANIC = 'LIGHT_VEHICLE_MECHANIC',
+  ELECTRICIAN = 'ELECTRICIAN',
+  PLUMBER = 'PLUMBER',
+  CARPENTER = 'CARPENTER',
+  MASON = 'MASON',
+  WELDER = 'WELDER',
+  PAINTER_BUILDING = 'PAINTER_BUILDING',
+  PAINTER_VEHICLE = 'PAINTER_VEHICLE',
+  CONSTRUCTION_WORKER = 'CONSTRUCTION_WORKER',
+  TAILOR = 'TAILOR',
+  DRESSMAKER = 'DRESSMAKER',
+  FASHION_DESIGNER = 'FASHION_DESIGNER',
+  TAILORING_ASSISTANT = 'TAILORING_ASSISTANT',
+  HAIRDRESSER = 'HAIRDRESSER',
+  BEAUTICIAN = 'BEAUTICIAN',
+  BARBER = 'BARBER',
+  CHEF = 'CHEF',
+  COOK = 'COOK',
+  BAKER = 'BAKER',
+  PASTRY_CHEF = 'PASTRY_CHEF',
+  WAITER = 'WAITER',
+  WAITRESS = 'WAITRESS',
+  HOTEL_STAFF = 'HOTEL_STAFF',
+  TOUR_GUIDE = 'TOUR_GUIDE',
+  ARTIST = 'ARTIST',
+  MUSICIAN = 'MUSICIAN',
+  DANCER = 'DANCER',
+  PHOTOGRAPHER = 'PHOTOGRAPHER',
+  VIDEOGRAPHER = 'VIDEOGRAPHER',
+  PHOTOGRAPHER_ASSISTANT = 'PHOTOGRAPHER_ASSISTANT',
+  CAMERAMAN = 'CAMERAMAN',
+  ACTOR = 'ACTOR',
+  ACTRESS = 'ACTRESS',
+  SINGER = 'SINGER',
+  MUSIC_TEACHER = 'MUSIC_TEACHER',
+  PAINTER_ARTIST = 'PAINTER_ARTIST',
+  GYM_INSTRUCTOR = 'GYM_INSTRUCTOR',
+  SPORTS_COACH = 'SPORTS_COACH',
+  FITNESS_TRAINER = 'FITNESS_TRAINER',
+  HOUSEWIFE = 'HOUSEWIFE',
+  HOUSEMAID = 'HOUSEMAID',
+  DOMESTIC_WORKER = 'DOMESTIC_WORKER',
+  GARDENER = 'GARDENER',
+  CLEANER = 'CLEANER',
+  JANITOR = 'JANITOR',
+  FACTORY_WORKER = 'FACTORY_WORKER',
+  LABOURER = 'LABOURER',
+  FRUIT_SELLER = 'FRUIT_SELLER',
+  STREET_VENDOR = 'STREET_VENDOR',
+  SMALL_BUSINESS_VENDOR = 'SMALL_BUSINESS_VENDOR',
+  CIVIL_SERVANT = 'CIVIL_SERVANT',
+  GOVERNMENT_OFFICER = 'GOVERNMENT_OFFICER',
+  GRAMA_NILADHARI = 'GRAMA_NILADHARI',
+  POSTMAN = 'POSTMAN',
+  LAWYER = 'LAWYER',
+  LEGAL_OFFICER = 'LEGAL_OFFICER',
+  RESEARCHER = 'RESEARCHER',
+  SCIENTIST = 'SCIENTIST',
+  SOCIAL_WORKER = 'SOCIAL_WORKER',
+  NGO_WORKER = 'NGO_WORKER',
+  NGO_FIELD_OFFICER = 'NGO_FIELD_OFFICER',
+  VOLUNTEER_WORKER = 'VOLUNTEER_WORKER',
+  PRIEST = 'PRIEST',
+  MONK = 'MONK',
+  IMAM = 'IMAM',
+  RELIGIOUS_LEADER = 'RELIGIOUS_LEADER',
+  JOURNALIST = 'JOURNALIST',
+  REPORTER = 'REPORTER',
+  LANDLORD = 'LANDLORD',
+  LANDLADY = 'LANDLADY',
+  STUDENT_SCHOOL = 'STUDENT_SCHOOL',
+  STUDENT_UNIVERSITY = 'STUDENT_UNIVERSITY',
+  RETIRED_PERSON = 'RETIRED_PERSON',
+  UNEMPLOYED = 'UNEMPLOYED',
+}
+
+enum District {
+  COLOMBO = "COLOMBO",
+  GAMPAHA = "GAMPAHA",
+  KALUTARA = "KALUTARA",
+  KANDY = "KANDY",
+  MATALE = "MATALE",
+  NUWARA_ELIYA = "NUWARA_ELIYA",
+  GALLE = "GALLE",
+  MATARA = "MATARA",
+  HAMBANTOTA = "HAMBANTOTA",
+  JAFFNA = "JAFFNA",
+  KILINOCHCHI = "KILINOCHCHI",
+  MANNAR = "MANNAR",
+  MULLAITIVU = "MULLAITIVU",
+  VAVUNIYA = "VAVUNIYA",
+  TRINCOMALEE = "TRINCOMALEE",
+  BATTICALOA = "BATTICALOA",
+  AMPARA = "AMPARA",
+  KURUNEGALA = "KURUNEGALA",
+  PUTTALAM = "PUTTALAM",
+  ANURADHAPURA = "ANURADHAPURA",
+  POLONNARUWA = "POLONNARUWA",
+  BADULLA = "BADULLA",
+  MONARAGALA = "MONARAGALA",
+  RATNAPURA = "RATNAPURA",
+  KEGALLE = "KEGALLE",
+}
+
+enum Province {
+  WESTERN = "WESTERN",
+  CENTRAL = "CENTRAL",
+  SOUTHERN = "SOUTHERN",
+  NORTHERN = "NORTHERN",
+  EASTERN = "EASTERN",
+  NORTH_WESTERN = "NORTH_WESTERN",
+  NORTH_CENTRAL = "NORTH_CENTRAL",
+  UVA = "UVA",
+  SABARAGAMUWA = "SABARAGAMUWA",
+}
 
 const CreateComprehensiveUserForm = ({
   onSubmit,
@@ -113,12 +334,6 @@ const CreateComprehensiveUserForm = ({
   const handleParentDataChange = (field: string, value: any) => {
     setParentData(prev => ({ ...prev, [field]: value }));
   };
-
-  useEffect(() => {
-    if (formData.district && DISTRICT_TO_PROVINCE[formData.district]) {
-      setFormData(prev => ({ ...prev, province: DISTRICT_TO_PROVINCE[formData.district] }));
-    }
-  }, [formData.district]);
 
   useEffect(() => {
     return () => {
@@ -293,19 +508,19 @@ const CreateComprehensiveUserForm = ({
   const [districtOpen, setDistrictOpen] = useState(false);
   const [provinceOpen, setProvinceOpen] = useState(false);
 
-  const occupationOptions = useMemo(() => OCCUPATIONS.map(value => ({
+  const occupationOptions = useMemo(() => Object.values(Occupation).map(value => ({
     value,
-    label: formatEnumLabel(value)
+    label: value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
   })), []);
 
-  const districtOptions = useMemo(() => DISTRICTS.map(value => ({
+  const districtOptions = useMemo(() => Object.values(District).map(value => ({
     value,
-    label: formatEnumLabel(value)
+    label: value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
   })), []);
 
-  const provinceOptions = useMemo(() => PROVINCES.map(value => ({
+  const provinceOptions = useMemo(() => Object.values(Province).map(value => ({
     value,
-    label: formatEnumLabel(value)
+    label: value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())
   })), []);
 
   const ParentLinkField = ({
@@ -735,40 +950,16 @@ const CreateComprehensiveUserForm = ({
                     options={availableParents}
                     loading={isLoadingParents}
                   />
-                  
-                  <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <ParentLinkField
-                      label="Guardian"
-                      selectedParentId={studentData.guardianId}
-                      open={guardianOpen}
-                      onOpenChange={setGuardianOpen}
-                      onSelect={(id) => handleParentLinkSelect('guardian', id)}
-                      options={availableParents}
-                      loading={isLoadingParents}
-                    />
-                    <div className="flex items-center space-x-2 mt-auto">
-                      <Checkbox id="same-as-father" onCheckedChange={(checked) => {
-                        if (checked) {
-                          const father = resolveSelectedParent(studentData.fatherId);
-                          if (father) {
-                            handleParentLinkSelect('guardian', String(father.id));
-                          }
-                        }
-                      }} />
-                      <Label htmlFor="same-as-father">Same as Father</Label>
-                    </div>
-                    <div className="flex items-center space-x-2 mt-auto">
-                      <Checkbox id="same-as-mother" onCheckedChange={(checked) => {
-                        if (checked) {
-                          const mother = resolveSelectedParent(studentData.motherId);
-                          if (mother) {
-                            handleParentLinkSelect('guardian', String(mother.id));
-                          }
-                        }
-                      }} />
-                      <Label htmlFor="same-as-mother">Same as Mother</Label>
-                    </div>
-                  </div>
+
+                  <ParentLinkField
+                    label="Guardian"
+                    selectedParentId={studentData.guardianId}
+                    open={guardianOpen}
+                    onOpenChange={setGuardianOpen}
+                    onSelect={(id) => handleParentLinkSelect('guardian', id)}
+                    options={availableParents}
+                    loading={isLoadingParents}
+                  />
 
                   <div className="space-y-1.5">
                     <Label className="text-sm">Father's Phone</Label>

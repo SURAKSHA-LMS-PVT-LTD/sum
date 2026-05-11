@@ -35,10 +35,6 @@ const Dashboard = () => {
   
   console.log('🎯 Dashboard - Institute Role:', userRole, 'from instituteUserType:', selectedInstitute?.userRole, 'isViewingAsParent:', isViewingAsParent, 'hasSubjectContext:', hasSubjectContext, 'selectedSubject:', !!selectedSubject, 'isSubjectLevelUrl:', isSubjectLevelUrl);
 
-    if (isTenantLogin && !selectedInstitute) {
-        return <AppLoadingScreen message="Loading institute..." iconUrl={branding?.logoUrl} />;
-    }
-
   // Parent viewing child's subject dashboard - show view-only banner
   if (isViewingAsParent && selectedChild && hasSubjectContext) {
     return (
