@@ -6,17 +6,16 @@ import { FlexibleAccessGuard } from '../../../auth/guards/flexible-access.guard'
 import { RequireAnyOfRoles } from '../../../auth/decorators/flexible-access.decorator';
 import { InstituteClassSubjectLecturesService, QueryLectureDto } from './institute_class_subject_lectures.service';
 import { CreateInstituteClassSubjectLectureDto, BulkCreateLecturesDto, CreateSingleLectureDto } from './dto/create-institute_class_subject_lecture.dto';
-import { UpdateInstituteClassSubjectLectureDto } from './dto/update-institute_class_subject_lecture.dto';
+import { UpdateInstituteClassSubjectLectureDto } from './dto/update-institute-class-subject-lecture.dto';
 import { InstituteClassSubjectLecture } from './entities/institute_class_subject_lecture.entity';
 import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
 import { UserType } from '../../user/enums/user-type.enum';
 import { SerializeDatesInterceptor } from './interceptors/serialize-dates.interceptor';
-import { LectureThumbnailInterceptor } from './interceptors/lecture-thumbnail.interceptor';
 
 @ApiTags('Institute Class Subject Lectures')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@UseInterceptors(SerializeDatesInterceptor, LectureThumbnailInterceptor)
+@UseInterceptors(SerializeDatesInterceptor)
 @Controller('institute-class-subject-lectures')
 export class InstituteClassSubjectLecturesController {
   constructor(private readonly lecturesService: InstituteClassSubjectLecturesService) {}

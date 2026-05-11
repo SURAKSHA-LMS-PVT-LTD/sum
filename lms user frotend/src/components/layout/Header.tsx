@@ -1,12 +1,23 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { User, Bell, ChevronDown, ChevronLeft, Search } from 'lucide-react';
+import { Menu, User, Bell, ChevronDown, ChevronLeft, School, Search, BookOpen } from 'lucide-react';
 import GlobalSearch from '@/components/GlobalSearch';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
+import surakshaLogo from '@/assets/suraksha-logo.png';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
+import { cachedApiClient } from '@/api/cachedClient';
+import SafeImage from '@/components/ui/SafeImage';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useNotificationStore, refreshContextCount } from '@/stores/useNotificationStore';
@@ -33,9 +44,12 @@ const Header = ({ onMenuClick }: HeaderProps) => {
   const { contextUnreadCount: unreadCount, initUnreadCount } = useNotificationStore();
   const { isTenantLogin } = useTenant();
   const [instituteDrawerOpen, setInstituteDrawerOpen] = useState(false);
+  const [classDrawerOpen, setClassDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileSwitcherOpen, setProfileSwitcherOpen] = useState(false);
 
+  // Greeting logic
+  const firstName = user?.firstName || user?.name?.split(' ')[0] || '';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
   
@@ -43,6 +57,10 @@ const Header = ({ onMenuClick }: HeaderProps) => {
   const [institutes, setInstitutes] = useState<any[]>([]);
   const [institutesLoaded, setInstitutesLoaded] = useState(false);
   
+  // Class switcher state
+  const [classes, setClasses] = useState<any[]>([]);
+  const [classesLoaded, setClassesLoaded] = useState(false);
+
   // Map backend instituteUserType to display role
   const mapInstituteRoleToDisplayRole = (raw?: string) => {
     switch (raw) {
@@ -93,6 +111,12 @@ const Header = ({ onMenuClick }: HeaderProps) => {
     refreshContextCount(selectedInstitute?.id);
   }, [selectedInstitute?.id]);
 
+  // Reset classes loaded when institute changes
+  React.useEffect(() => {
+    setClassesLoaded(false);
+    setClasses([]);
+  }, [selectedInstitute?.id]);
+
   // Load institutes for switcher
   const loadInstitutes = async () => {
     if (institutesLoaded) return;
@@ -101,6 +125,55 @@ const Header = ({ onMenuClick }: HeaderProps) => {
       setInstitutes(data);
       setInstitutesLoaded(true);
     } catch { /* silent */ }
+  };
+
+  // Load classes for class switcher
+  const loadClasses = async () => {
+    if (classesLoaded || !currentInstituteId || !user?.id) return;
+    try {
+      let endpoint = '';
+      if (effectiveRole === 'Student') {
+        endpoint = `/institute-classes/${currentInstituteId}/student/${user.id}`;
+      } else if (effectiveRole === 'Teacher') {
+        endpoint = `/institute-classes/${currentInstituteId}/teacher/${user.id}`;
+      } else {
+        endpoint = `/institute-classes/institute/${currentInstituteId}`;
+      }
+      
+      const result = await cachedApiClient.get(endpoint, { page: 1, limit: 50 }, {
+        ttl: 60,
+        forceRefresh: false,
+      });
+      
+      let classesArray: any[] = [];
+      if (Array.isArray(result)) {
+        classesArray = result;
+      } else if (result?.data && Array.isArray(result.data)) {
+        classesArray = result.data;
+      }
+      
+      // Normalize class data
+      const normalized = classesArray.map((item: any) => {
+        const cls = item.class || item;
+        return {
+          id: cls.id || item.classId,
+          name: cls.name || item.className || '',
+          code: cls.code || item.classCode || '',
+          specialty: cls.specialty || '',
+          grade: cls.grade,
+          imageUrl: cls.imageUrl || '',
+        };
+      });
+      
+      // Deduplicate
+      const unique = Array.from(new Map(normalized.filter(c => c.id).map(c => [c.id, c])).values());
+      unique.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      
+      setClasses(unique);
+      setClassesLoaded(true);
+    } catch (err) {
+      console.warn('Failed to load classes for switcher:', err);
+    }
   };
 
   const handleSwitchInstitute = (inst: any) => {
@@ -125,6 +198,27 @@ const Header = ({ onMenuClick }: HeaderProps) => {
     }
   };
 
+  const handleSwitchClass = (cls: any) => {
+    setSelectedClass({
+      id: cls.id,
+      name: cls.name,
+      code: cls.code,
+      description: cls.specialty || cls.name,
+      grade: cls.grade || 0,
+      specialty: cls.specialty || '',
+    });
+    setSelectedSubject(null);
+    
+    const instId = currentInstituteId || selectedInstitute?.id;
+    if (instId) {
+      // Try to preserve current sub-page
+      const path = location.pathname;
+      const classPageMatch = path.match(/\/class\/[^/]+\/(?:subject\/[^/]+\/)?(.+)$/);
+      const page = classPageMatch?.[1] || 'select-subject';
+      navigate(`/institute/${instId}/class/${cls.id}/${page}`);
+    }
+  };
+
   const handleLogout = () => { logout(); };
 
   const avatarImageUrl = isViewingAsParent && selectedChild?.user?.imageUrl
@@ -133,6 +227,8 @@ const Header = ({ onMenuClick }: HeaderProps) => {
       ? getImageUrl(instituteAvatarUrl)
       : (user?.imageUrl ? getImageUrl(user.imageUrl) : ''));
 
+  // Determine switcher context level
+  const showClassSwitcher = !!selectedClass && !!selectedInstitute;
   const isParentWithChild = isViewingAsParent && !!selectedChild;
 
   // Disable switcher if it's a tenant login (locked to one institute)
@@ -154,7 +250,93 @@ const Header = ({ onMenuClick }: HeaderProps) => {
             </button>
           )}
 
-          {isParentWithChild ? (
+          {showClassSwitcher ? (
+            <Drawer 
+              open={classDrawerOpen} 
+              onOpenChange={(open) => { 
+                if (isSwitcherDisabled) return;
+                setClassDrawerOpen(open); 
+                if (open) loadClasses(); 
+              }}
+            >
+              <DrawerTrigger asChild>
+                <button 
+                  disabled={isSwitcherDisabled}
+                  className={cn(
+                    "flex items-center gap-2 focus:outline-none rounded-xl px-2 py-1.5 transition-all min-w-0",
+                    !isSwitcherDisabled ? "hover:bg-muted/50 active:scale-[0.97]" : "cursor-default"
+                  )}
+                >
+                  <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    {selectedSubject ? (
+                      <BookOpen className="h-[16px] w-[16px] sm:h-[18px] sm:w-[18px] text-primary" />
+                    ) : (
+                      <School className="h-[16px] w-[16px] sm:h-[18px] sm:w-[18px] text-primary" />
+                    )}
+                  </div>
+                  <div className="flex flex-col items-start min-w-0">
+                    <span className="text-[9px] sm:text-[10px] text-muted-foreground leading-tight truncate max-w-[100px] sm:max-w-[130px]">
+                      {selectedSubject 
+                        ? selectedClass.name 
+                        : (selectedInstitute?.shortName || selectedInstitute?.name || '')}
+                    </span>
+                    <h1 className="text-xs sm:text-sm font-semibold text-foreground truncate leading-tight max-w-[120px] sm:max-w-[140px]">
+                      {selectedSubject ? selectedSubject.name : selectedClass.name}
+                    </h1>
+                  </div>
+                  {!isSwitcherDisabled && <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground shrink-0 ml-0.5" />}
+                </button>
+              </DrawerTrigger>
+              <DrawerContent className="max-h-[75vh] rounded-t-3xl">
+                <DrawerHeader className="text-left pb-2">
+                  <DrawerTitle className="text-lg font-bold">Switch Class</DrawerTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">{selectedInstitute?.shortName || selectedInstitute?.name || ''}</p>
+                </DrawerHeader>
+                <div className="px-4 pb-6 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setClassDrawerOpen(false);
+                      setSelectedClass(null);
+                      setSelectedSubject(null);
+                      navigate(`/institute/${selectedInstitute!.id}/select-class`);
+                    }}
+                    className="w-full flex items-center gap-2 text-xs text-muted-foreground py-3 px-3 rounded-xl hover:bg-muted/60 active:scale-[0.98] transition-all mb-2"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back to {selectedInstitute?.shortName || 'Institute'}
+                  </button>
+                  <div className="h-px bg-border/60 mb-3" />
+                  
+                  {!classesLoaded ? (
+                    <div className="p-8 text-center text-sm text-muted-foreground">Loading...</div>
+                  ) : classes.length === 0 ? (
+                    <div className="p-8 text-center text-sm text-muted-foreground">No classes found</div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {classes.map((cls) => (
+                        <button
+                          key={cls.id}
+                          onClick={() => { handleSwitchClass(cls); setClassDrawerOpen(false); }}
+                          className={`w-full flex items-center gap-3 py-3.5 px-3.5 rounded-2xl transition-all active:scale-[0.98] ${selectedClass?.id === cls.id ? 'bg-primary/10 border border-primary/20 shadow-sm' : 'hover:bg-muted/50'}`}
+                        >
+                          <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${selectedClass?.id === cls.id ? 'bg-primary/20' : 'bg-muted'}`}>
+                            <School className={`h-5 w-5 ${selectedClass?.id === cls.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                          </div>
+                          <div className="flex flex-col items-start min-w-0">
+                            <span className="text-sm font-medium truncate">{cls.name}</span>
+                            {cls.specialty && <span className="text-[11px] text-muted-foreground">{cls.specialty}</span>}
+                          </div>
+                          {selectedClass?.id === cls.id && (
+                            <span className="ml-auto h-2.5 w-2.5 rounded-full bg-primary shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </DrawerContent>
+            </Drawer>
+          ) : isParentWithChild ? (
             <button
               onClick={() => navigate('/my-children')}
               className="flex items-center gap-2 focus:outline-none hover:bg-muted/50 active:scale-[0.97] rounded-xl px-1.5 py-1.5 transition-all min-w-0"
@@ -172,23 +354,29 @@ const Header = ({ onMenuClick }: HeaderProps) => {
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col items-start min-w-0">
-                <h1 className="text-base sm:text-lg font-semibold text-foreground truncate leading-tight max-w-[180px]">
+                <h1 className="text-sm font-semibold text-foreground truncate leading-tight max-w-[140px]">
                   {selectedChild?.user?.nameWithInitials ||
                     `${selectedChild?.user?.firstName || ''} ${selectedChild?.user?.lastName || ''}`.trim() ||
                     'Child'}
                 </h1>
-                <span className="text-xs sm:text-sm text-muted-foreground leading-tight">Child Mode</span>
+                <span className="text-[10px] text-muted-foreground leading-tight">Child Mode</span>
               </div>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-0.5" />
             </button>
           ) : (
+            /* Branding (Left Section) - Visible on all screens if no switcher active */
             <div className="flex items-center gap-2 px-1.5 py-1.5 min-w-0">
+              <SafeImage 
+                src={selectedInstitute?.logo || surakshaLogo} 
+                alt={selectedInstitute?.shortName ? "Institute logo" : "SurakshaLMS logo"}
+                className="h-9 w-9 sm:h-10 sm:w-10 object-contain rounded-xl shrink-0"
+              />
               <div className="flex flex-col items-start min-w-0">
-                <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight">
-                  {`${greeting}, ${user?.name || user?.nameWithInitials || 'User'}!`}
+                <h1 className="text-[11px] sm:text-sm font-bold text-foreground truncate leading-tight max-w-[120px] sm:max-w-[180px]">
+                  {selectedInstitute?.shortName || 'SurakshaLMS'}
                 </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-tight">
-                  {selectedClass?.grade ? `Grade ${selectedClass.grade}` : (selectedInstitute?.shortName || selectedInstitute?.name || displayRole || 'SurakshaLMS')}
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground leading-tight truncate">
+                  {selectedInstitute?.type || displayRole || 'Education Platform'}
                 </p>
               </div>
             </div>
@@ -233,8 +421,16 @@ const Header = ({ onMenuClick }: HeaderProps) => {
             )}
           </button>
           
-          {/* Desktop Profile (icons + avatar only) */}
+          {/* Desktop Profile & Greeting (Standard Right Alignment) */}
           <div className="hidden lg:flex items-center gap-3 ml-3 pl-3 border-l border-border/50">
+            <div className="flex flex-col items-end min-w-0">
+              <p className="text-sm font-bold text-foreground leading-tight truncate">
+                {greeting}, {firstName}!
+              </p>
+              <p className="text-[10px] text-muted-foreground leading-tight truncate">
+                {selectedInstitute?.shortName || selectedInstitute?.name || 'SurakshaLMS'}
+              </p>
+            </div>
             <button
               onClick={() => setProfileSwitcherOpen(true)}
               className="focus:outline-none rounded-full active:scale-95 transition-transform shrink-0 relative"

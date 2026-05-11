@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Plus, RefreshCw, Users as UsersIcon, Search, Filter, ShieldCheck } from 'lucide-react';
+import { Plus, RefreshCw, Users as UsersIcon, Search, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getBaseUrl } from '@/contexts/utils/auth.api';
@@ -19,7 +19,6 @@ import { useApiRequest } from '@/hooks/useApiRequest';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
-import { useNavigate } from 'react-router-dom';
 
 interface User {
   id: string;
@@ -56,7 +55,6 @@ interface UsersResponse {
 const Users = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const navigate = useNavigate();
   
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -405,10 +403,6 @@ const Users = () => {
                 Refresh
               </>
             )}
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/verify-image')}>
-            <ShieldCheck className="h-4 w-4 mr-2" />
-            Verify Photos
           </Button>
           <Button onClick={() => setShowCreateForm(true)} className="bg-blue-600 hover:bg-blue-700">
             <Plus className="h-4 w-4 mr-2" />

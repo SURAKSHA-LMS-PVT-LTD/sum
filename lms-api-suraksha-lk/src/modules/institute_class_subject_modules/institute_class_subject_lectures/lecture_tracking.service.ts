@@ -355,6 +355,16 @@ export class LectureTrackingService {
     const lecture = await this.lectureRepo.findOne({ where: { id: lectureId } });
     if (!lecture) throw new NotFoundException('Lecture not found');
 
+    // Idempotent for authenticated users: resume an existing active join instead of creating a duplicate
+    if (userId) {
+      const existing = await this.liveAttRepo.findOne({
+        where: { lectureId, userId, leaveTime: null as any },
+      });
+      if (existing) {
+        return { attendanceId: existing.id, lectureId, joinTime: existing.joinTime };
+      }
+    }
+
     const record = this.liveAttRepo.create({
       lectureId,
       instituteId: lecture.instituteId,
@@ -596,21 +606,10 @@ export class LectureTrackingService {
       }
 
       // Build a map: studentId → lectureId → attendance entry
-      type AttendanceSession = {
-        joinTime?: string;
-        leaveTime?: string;
-        durationMinutes?: number;
-      };
-      type AttendanceCell = {
-        attended: boolean;
-        joinTime?: string;
-        leaveTime?: string;
-        durationMinutes?: number;
-        joinCount?: number;
-        sessions?: AttendanceSession[];
-      };
-
-      const grid: Record<string, Record<string, AttendanceCell>> = {};
+      const grid: Record<
+        string,
+        Record<string, { attended: boolean; joinTime?: string; leaveTime?: string; durationMinutes?: number }>
+      > = {};
 
       for (const s of classStudents) {
         const sid = s.studentUserId;
@@ -630,14 +629,7 @@ export class LectureTrackingService {
             ? Math.round((leave.getTime() - join.getTime()) / 60000)
             : 0;
 
-          const existing = grid[sid][row.lectureId] ?? { attended: false };
-          const sessions = Array.isArray(existing.sessions) ? [...existing.sessions] : [];
-          sessions.push({
-            joinTime: join?.toISOString() || undefined,
-            leaveTime: leave?.toISOString() || undefined,
-            durationMinutes: durationMinutes > 0 ? durationMinutes : undefined,
-          });
-
+          const existing = grid[sid][row.lectureId];
           const existingJoin = existing?.joinTime ? new Date(existing.joinTime) : null;
           const existingLeave = existing?.leaveTime ? new Date(existing.leaveTime) : null;
 
@@ -655,8 +647,6 @@ export class LectureTrackingService {
             joinTime: nextJoin?.toISOString() || undefined,
             leaveTime: nextLeave?.toISOString() || undefined,
             durationMinutes: accumulatedDuration > 0 ? accumulatedDuration : undefined,
-            joinCount: sessions.length,
-            sessions,
           };
         } catch (timeError) {
           console.error('❌ Error processing attendance row times:', timeError);
@@ -673,7 +663,6 @@ export class LectureTrackingService {
             id: s.studentUserId,
             name,
             imageUrl: student?.imageUrl ?? null,
-            isGuest: false,
           };
         } catch (err) {
           console.error('❌ Error mapping student:', err);
@@ -681,30 +670,9 @@ export class LectureTrackingService {
             id: s.studentUserId,
             name: s.studentUserId,
             imageUrl: null,
-            isGuest: false,
           };
         }
       });
-
-      // Add guests to studentList if they attended any lecture
-      const guestMap = new Map<string, { id: string; name: string; email?: string; phone?: string; school?: string; imageUrl: null; isGuest: true }>();
-      for (const row of attRows) {
-        if (!row.userId && row.guestName) {
-          const guestId = `guest-${row.id}`;
-          if (!guestMap.has(guestId)) {
-            guestMap.set(guestId, {
-              id: guestId,
-              name: row.guestName,
-              email: row.guestEmail,
-              phone: row.guestPhone,
-              school: row.guestSchool,
-              imageUrl: null,
-              isGuest: true,
-            });
-          }
-        }
-      }
-      const guestList = Array.from(guestMap.values());
 
       const lectureList = lectures.map(l => ({
         id: l.id,
@@ -712,10 +680,9 @@ export class LectureTrackingService {
         startTime: l.startTime,
         subjectId: l.subjectId ?? null,
         status: l.status,
-        liveAccessLevel: l.liveAccessLevel,
       }));
 
-      return { lectures: lectureList, students: studentList.concat(guestList), grid };
+      return { lectures: lectureList, students: studentList, grid };
     } catch (error) {
       console.error('❌ Unexpected error in getAttendanceGrid:', error);
       throw error;

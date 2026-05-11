@@ -1123,7 +1123,7 @@ const InstituteSettingsPage = () => {
                           accept="image/*"
                           disabled={false}
                           onUploaded={(url) => setBrandingForm(prev => ({ ...prev, loginLogoUrl: url }))}
-                          onRemoved={() => setBrandingForm(prev => ({ ...prev, loginLogoUrl: '' }))}
+                          onRemoved={() => setBrandingForm(prev => ({ ...prev, loginLogoUrl: null }))}
                         />
                         <BrandingImageUploader
                           currentUrl={brandingForm.faviconUrl}
@@ -1132,7 +1132,7 @@ const InstituteSettingsPage = () => {
                           accept="image/png,image/x-icon,image/vnd.microsoft.icon,image/svg+xml,image/gif,image/*,.ico"
                           disabled={false}
                           onUploaded={(url) => setBrandingForm(prev => ({ ...prev, faviconUrl: url }))}
-                          onRemoved={() => setBrandingForm(prev => ({ ...prev, faviconUrl: '' }))}
+                          onRemoved={() => setBrandingForm(prev => ({ ...prev, faviconUrl: null }))}
                         />
                       </div>
 
@@ -1167,7 +1167,7 @@ const InstituteSettingsPage = () => {
                           accept={brandingForm.loginBackgroundType === 'VIDEO' ? 'video/*' : 'image/*'}
                           disabled={false}
                           onUploaded={(url) => setBrandingForm(prev => ({ ...prev, loginBackgroundUrl: url }))}
-                          onRemoved={() => setBrandingForm(prev => ({ ...prev, loginBackgroundUrl: '' }))}
+                          onRemoved={() => setBrandingForm(prev => ({ ...prev, loginBackgroundUrl: null }))}
                         />
                       )}
 
@@ -1179,7 +1179,7 @@ const InstituteSettingsPage = () => {
                           accept="image/*"
                           disabled={false}
                           onUploaded={(url) => setBrandingForm(prev => ({ ...prev, loginVideoPosterUrl: url }))}
-                          onRemoved={() => setBrandingForm(prev => ({ ...prev, loginVideoPosterUrl: '' }))}
+                          onRemoved={() => setBrandingForm(prev => ({ ...prev, loginVideoPosterUrl: null }))}
                         />
                       )}
 
@@ -1190,7 +1190,7 @@ const InstituteSettingsPage = () => {
                         accept="image/*"
                         disabled={false}
                         onUploaded={(url) => setBrandingForm(prev => ({ ...prev, loginIllustrationUrl: url }))}
-                        onRemoved={() => setBrandingForm(prev => ({ ...prev, loginIllustrationUrl: '' }))}
+                        onRemoved={() => setBrandingForm(prev => ({ ...prev, loginIllustrationUrl: null }))}
                       />
 
                       <Separator />

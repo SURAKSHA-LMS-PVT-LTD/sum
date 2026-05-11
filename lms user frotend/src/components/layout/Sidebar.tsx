@@ -911,16 +911,18 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         <div className={`flex items-center border-b border-border ${
           isCollapsed
             ? 'justify-center px-1 py-2.5'
-            : 'justify-between px-3 sm:px-4 py-2.5 sm:py-3'
+            : 'justify-between px-2 sm:px-4 py-2.5 sm:py-3'
         }`}>
           {!isCollapsed && (
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               {selectedInstitute ? (
-                <img
-                  src={selectedInstitute.logo || surakshaLogoSidebar}
-                  alt="logo"
-                  className="h-10 w-10 object-contain"
-                />
+                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <img
+                    src={selectedInstitute.logo || surakshaLogoSidebar}
+                    alt="logo"
+                    className="h-6 w-6 object-contain"
+                  />
+                </div>
               ) : null}
               <div className="min-w-0 flex-1">
                 {selectedInstitute ? (

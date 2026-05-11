@@ -89,22 +89,6 @@ export interface HeartbeatActivity {
   wallTime?: number;
 }
 
-export interface AttendanceSession {
-  joinTime?: string;
-  leaveTime?: string;
-  durationMinutes?: number;
-  ipAddress?: string;
-}
-
-export interface AttendanceGridCell {
-  attended: boolean;
-  joinTime?: string;
-  leaveTime?: string;
-  durationMinutes?: number;
-  joinCount?: number;
-  sessions?: AttendanceSession[];
-}
-
 export interface AttendanceGridResult {
   lectures: Array<{
     id: string;
@@ -118,7 +102,13 @@ export interface AttendanceGridResult {
     name: string;
     imageUrl?: string | null;
   }>;
-  grid: Record<string, Record<string, AttendanceGridCell>>;
+  grid: Record<
+    string,
+    Record<
+      string,
+      { attended: boolean; joinTime?: string; leaveTime?: string; durationMinutes?: number }
+    >
+  >;
 }
 
 export interface LiveAttendanceRow {
@@ -152,7 +142,6 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
   withAuth = false,
-  forceRefresh = false
 ): Promise<T> {
   const base = (getBaseUrl() ?? '').replace(/\/$/, '');
   const url = `${base}${path}`;
@@ -161,6 +150,16 @@ async function request<T>(
   if (withAuth) {
     const authHeaders = await getApiHeadersAsync();
     Object.assign(headers, authHeaders);
+  } else {
+    // Still send the token if available (OptionalJwtAuthGuard on backend)
+    try {
+      const authHeaders = await getApiHeadersAsync();
+      if (authHeaders['Authorization']) {
+        headers['Authorization'] = authHeaders['Authorization'];
+      }
+    } catch {
+      // No token — fine, backend allows unauthenticated
+    }
   }
 
   const res = await fetch(url, {
@@ -245,7 +244,7 @@ class LectureTrackingApi {
     classId: string;
     instituteId: string;
     includeSubjectLectures?: boolean;
-  }, forceRefresh = false): Promise<AttendanceGridResult> {
+  }): Promise<AttendanceGridResult> {
     // ✅ Validate inputs — return empty grid instead of firing a bad request
     const validIds = (params.lectureIds ?? [])
       .map(id => String(id).trim())
@@ -265,7 +264,6 @@ class LectureTrackingApi {
       `/lecture-tracking/attendance-grid?${qs}`,
       {},
       true,
-      forceRefresh
     );
   }
 

@@ -862,10 +862,10 @@ const Login = ({
                 </div>
 
                 {error && (
-                  <p className="p-3 text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-md flex items-center">
+                  <div className="p-3 text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-md flex items-center">
                     <AlertCircle className="w-4 h-4 mr-2" />
                     {error}
-                  </p>
+                  </div>
                 )}
 
                 <div className="space-y-3 pt-2">
@@ -954,9 +954,9 @@ const Login = ({
                 </div>}
 
                 {/* Error Message */}
-                {error && <p className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 md:p-3 rounded-lg">
+                {error && <div className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 md:p-3 rounded-lg">
                     {error}
-                  </p>}
+                  </div>}
 
                 {/* Login Button */}
                 <Button type="submit" className="w-full h-11 md:h-12 text-sm md:text-base font-semibold touch-manipulation active:scale-[0.98] transition-transform rounded-lg" disabled={isLoading}>
@@ -1019,7 +1019,7 @@ const Login = ({
                   </Button>
                 </div>
 
-                {error && <p className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</p>}
+                {error && <div className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</div>}
 
                 <Button type="submit" className="w-full h-11 text-sm font-semibold rounded-lg" disabled={isLoading}>
                   {isLoading ? 'Signing in...' : 'Sign in'}
@@ -1053,7 +1053,7 @@ const Login = ({
                   <Input type="text" placeholder="e.g., STU2024001" value={instituteUserId} onChange={(e) => setInstituteUserId(e.target.value)} required className="h-10 text-sm rounded-lg" />
                 </div>
 
-                {error && <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</p>}
+                {error && <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</div>}
 
                 <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading}>
                   {isLoading ? 'Loading contacts...' : 'Continue'}
@@ -1074,7 +1074,7 @@ const Login = ({
                 <p className="text-xs text-muted-foreground">Select where we should send your one-time password. Phone numbers show last 2 digits only for privacy.</p>
 
                 {availableContacts.length === 0 && (
-                  <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">No contact information found. Please contact your institute administrator.</p>
+                  <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">No contact information found. Please contact your institute administrator.</div>
                 )}
 
                 <div className="space-y-2">
@@ -1090,7 +1090,7 @@ const Login = ({
                   ))}
                 </div>
 
-                {error && <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</p>}
+                {error && <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</div>}
 
                 <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading || !selectedContactId || availableContacts.length === 0}>
                   {isLoading ? 'Sending OTP...' : 'Send OTP'}
@@ -1145,7 +1145,7 @@ const Login = ({
                   </div>
                 </div>
 
-                {error && <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</p>}
+                {error && <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</div>}
 
                 <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading || otp.length < 6}>
                   {isLoading ? 'Resetting...' : 'Reset Password'}
@@ -1164,13 +1164,13 @@ const Login = ({
                     <Input id="firstLoginIdentifier" type="text" placeholder="Enter email, phone, ID..." value={identifier} onChange={(e) => setIdentifier(e.target.value)} required className="h-10 md:h-11 text-base" autoComplete="username" autoCapitalize="none" />
                   </div>
 
-                  <p className="text-xs md:text-sm text-muted-foreground bg-primary/10 p-2.5 md:p-3 rounded-lg">
+                  <div className="text-xs md:text-sm text-muted-foreground bg-primary/10 p-2.5 md:p-3 rounded-lg">
                     We'll send a 6-digit verification code to your registered email address.
-                  </p>
+                  </div>
 
-                  {error && <p className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md">
+                  {error && <div className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md">
                       {error}
-                    </p>}
+                    </div>}
 
                   <Button type="submit" className="w-full h-10 md:h-11 text-base touch-manipulation" disabled={isLoading}>
                     {isLoading ? 'Sending Code...' : 'Send Verification Code'}
@@ -1204,9 +1204,9 @@ const Login = ({
                     </InputOTP>
                   </div>
 
-                  {error && <p className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md text-center">
+                  {error && <div className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md text-center">
                       {error}
-                    </p>}
+                    </div>}
 
                   <Button type="submit" className="w-full h-10 md:h-11 text-base touch-manipulation" disabled={isLoading || otp.length !== 6}>
                     {isLoading ? 'Verifying...' : 'Verify Code'}
@@ -1256,9 +1256,9 @@ const Login = ({
                     </ul>
                   </div>
 
-                  {error && <p className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md">
+                  {error && <div className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md">
                       {error}
-                    </p>}
+                    </div>}
 
                   <Button type="submit" className="w-full h-10 md:h-11 text-base touch-manipulation" disabled={isLoading || !newPassword || !confirmPassword}>
                     {isLoading ? 'Setting Password...' : 'Set Password'}
@@ -1278,13 +1278,13 @@ const Login = ({
                     <Input id="resetIdentifier" type="text" placeholder="Enter email, phone, ID..." value={identifier} onChange={(e) => setIdentifier(e.target.value)} required className="h-10 md:h-11 text-base" autoComplete="username" autoCapitalize="none" />
                   </div>
 
-                  <p className="text-xs md:text-sm text-muted-foreground bg-primary/10 p-2.5 md:p-3 rounded-lg">
+                  <div className="text-xs md:text-sm text-muted-foreground bg-primary/10 p-2.5 md:p-3 rounded-lg">
                     We'll send a 6-digit reset code to your registered email.
-                  </p>
+                  </div>
 
-                  {error && <p className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md">
+                  {error && <div className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md">
                       {error}
-                    </p>}
+                    </div>}
 
                   <Button type="submit" className="w-full h-10 md:h-11 text-base touch-manipulation" disabled={isLoading}>
                     {isLoading ? 'Sending Reset Code...' : 'Send Reset Code'}
@@ -1348,9 +1348,9 @@ const Login = ({
                     </ul>
                   </div>
 
-                  {error && <p className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md">
+                  {error && <div className="text-xs md:text-sm text-destructive bg-destructive/10 p-2.5 rounded-md">
                       {error}
-                    </p>}
+                    </div>}
 
                   <Button type="submit" className="w-full h-10 md:h-11 text-base touch-manipulation" disabled={isLoading || otp.length !== 6 || !newPassword || !confirmPassword}>
                     {isLoading ? 'Resetting Password...' : 'Reset Password'}

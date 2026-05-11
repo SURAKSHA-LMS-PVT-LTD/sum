@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -9,8 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  FileDown, Calendar, CheckCircle2, XCircle, Users, PlayCircle, LogIn,
-  ChevronDown, ChevronRight, Clock, Loader2, Download, ExternalLink
+  FileDown, Calendar, CheckCircle2, XCircle, Users, PlayCircle,
+  ChevronDown, ChevronRight, Clock, Loader2, Download,
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,7 +23,6 @@ import {
 
 export default function LectureAttendanceReportPage() {
   const { selectedInstitute, selectedClass, selectedSubject } = useAuth();
-  const navigate = useNavigate();
 
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -231,13 +229,6 @@ export default function LectureAttendanceReportPage() {
   };
 
   const statusShorts = (vals: string[]) => vals;
-
-  const handleViewLecture = (lec: Lecture) => {
-    const target = lec.liveAttendanceEnabled 
-      ? `/live-lecture/${lec.trackingUrlId}` 
-      : `/view-recording/${lec.trackingUrlId}`;
-    window.open(target, '_blank');
-  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -454,14 +445,9 @@ export default function LectureAttendanceReportPage() {
                             </CardDescription>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                           <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); handleViewLecture(lec); }}>
-                            <ExternalLink className="h-3 w-3 mr-1.5" />View
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); loadLiveReport(lec.id); }}>
-                            {loadingLive[lec.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Load'}
-                          </Button>
-                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); loadLiveReport(lec.id); }}>
+                          {loadingLive[lec.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Load'}
+                        </Button>
                       </div>
                     </CardHeader>
                     {liveReport[lec.id] && (
@@ -532,14 +518,9 @@ export default function LectureAttendanceReportPage() {
                             </CardDescription>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); handleViewLecture(lec); }}>
-                            <ExternalLink className="h-3 w-3 mr-1.5" />View
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => loadRecReport(lec.id)}>
-                            {loadingRec[lec.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Load'}
-                          </Button>
-                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => loadRecReport(lec.id)}>
+                          {loadingRec[lec.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Load'}
+                        </Button>
                       </div>
                     </CardHeader>
                     {recReport[lec.id] && (

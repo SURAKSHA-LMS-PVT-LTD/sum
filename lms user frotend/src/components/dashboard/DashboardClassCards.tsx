@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { instituteApi } from '@/api/institute.api';
-import { School, ChevronRight, ChevronLeft, Loader2, BookOpen, Search, RefreshCw } from 'lucide-react';
+import { School, ChevronRight, ChevronLeft, Loader2, BookOpen, Search } from 'lucide-react';
 import type { Class } from '@/contexts/types/auth.types';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 
@@ -19,33 +19,43 @@ const DashboardClassCards = ({ compact = false }: { compact?: boolean }) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const loadClasses = useCallback(async (forceRefresh = false) => {
-    if (!selectedInstitute?.id) return;
-
-    setLoading(true);
-    try {
-      const result = await instituteApi.getInstituteClasses(
-        selectedInstitute.id,
-        {
-          userId: user?.id,
-          role: selectedInstitute.userRole,
-        },
-        forceRefresh
-      );
-      const data = (result as any)?.data || result || [];
-      setClasses(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error('Failed to load classes:', e);
-      setClasses([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedInstitute?.id, user?.id, selectedInstitute?.userRole]);
+  const hasLoadedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    loadClasses();
-  }, [loadClasses]);
+    if (!selectedInstitute?.id) return;
+
+    // Re-fetch if institute changed
+    if (hasLoadedRef.current === selectedInstitute.id) return;
+    hasLoadedRef.current = selectedInstitute.id;
+
+    setClasses([]);
+    setLoading(true);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const result = await instituteApi.getInstituteClasses(selectedInstitute.id, {
+          userId: user?.id,
+          role: selectedInstitute.userRole,
+        });
+        if (cancelled) return;
+        const data = (result as any)?.data || result || [];
+        setClasses(Array.isArray(data) ? data : []);
+      } catch (e) {
+        if (cancelled) return;
+        console.error('Failed to load classes:', e);
+        setClasses([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+      // Reset so StrictMode second-run can re-fetch
+      hasLoadedRef.current = null;
+    };
+  }, [selectedInstitute?.id]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -99,9 +109,6 @@ const DashboardClassCards = ({ compact = false }: { compact?: boolean }) => {
       <div className="bg-card border border-border rounded-xl p-4 text-center">
         <School className="h-6 w-6 text-muted-foreground/40 mx-auto mb-1.5" />
         <p className="text-sm text-muted-foreground">No classes available</p>
-        <button onClick={() => loadClasses(true)} className="mt-2 p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
-        </button>
       </div>
     );
   }
@@ -116,9 +123,6 @@ const DashboardClassCards = ({ compact = false }: { compact?: boolean }) => {
         </h3>
         
         <div className="flex items-center gap-2">
-            <button onClick={() => loadClasses(true)} disabled={loading} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
-            </button>
           {classes.length > 4 && (
             <div className="relative w-full sm:w-48">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlayCircle, ShieldAlert, VideoOff, LogIn, ArrowLeft } from 'lucide-react';
+import { PlayCircle, ShieldAlert, Lock, LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { useToast } from '@/hooks/use-toast';
@@ -65,6 +65,7 @@ export default function RecordingEntry() {
     if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
     if (!sessionId) return;
     
+    // Flush remaining activities
     if (activitiesQueue.current.length > 0) {
       await enhancedCachedClient.post('/lecture-tracking/recording/heartbeat', {
         sessionId,
@@ -90,10 +91,11 @@ export default function RecordingEntry() {
             activities: activitiesToSync
           });
         } catch (e) {
+          // Put them back if failed
           activitiesQueue.current = [...activitiesToSync, ...activitiesQueue.current];
         }
       }
-    }, 10000);
+    }, 10000); // Sync every 10 seconds
   };
 
   const queueActivity = (type: 'PLAY' | 'PAUSE' | 'SEEK' | 'HEARTBEAT') => {
@@ -125,25 +127,19 @@ export default function RecordingEntry() {
     return (
       <div className="flex justify-center items-center h-screen bg-muted/30 p-4">
         <Card className="w-full max-w-md shadow-2xl">
-          <CardHeader className="text-center pt-8">
-            <VideoOff className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <CardTitle>Access Restricted</CardTitle>
-            <CardDescription>
+          <CardContent className="pt-8 pb-8 text-center space-y-4">
+            <Lock className="w-12 h-12 text-muted-foreground mx-auto" />
+            <h3 className="font-semibold text-xl">Access Restricted</h3>
+            <p className="text-sm text-muted-foreground">
               {accessInfo.accessLevel === 'SURAKSHA_USERS' 
                 ? 'You must be logged in to view this recording.' 
                 : accessInfo.accessLevel === 'ENROLLED_ONLY'
                 ? 'This recording is restricted to enrolled students only.'
                 : 'You need to purchase access to view this recording.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pb-8 px-8 space-y-2">
-            {!user ? (
+            </p>
+            {!user && (
               <Button className="w-full mt-4" onClick={() => navigate('/login')}>
                 <LogIn className="w-4 h-4 mr-2" /> Login to Continue
-              </Button>
-            ) : !accessInfo.requirePayment && (
-               <Button className="w-full mt-4" variant="outline" onClick={() => navigate('/dashboard')}>
-                <ArrowLeft className="w-4 h-4 mr-2" /> Go to Dashboard
               </Button>
             )}
             {accessInfo.requirePayment && (
@@ -169,6 +165,7 @@ export default function RecordingEntry() {
         </div>
 
         <div className="rounded-xl overflow-hidden bg-black aspect-video relative border">
+          {/* Mock Video Player - In reality, fetch actual video URL */}
           <video
             ref={videoRef}
             className="w-full h-full"
