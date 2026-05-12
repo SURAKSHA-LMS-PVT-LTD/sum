@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeatures } from '@/contexts/FeaturesContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useToast } from '@/hooks/use-toast';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
@@ -24,6 +25,7 @@ import { ImageFieldUploader } from '@/components/institute-settings/ImageFieldUp
 import { BrandingImageUploader } from '@/components/institute-settings/BrandingImageUploader';
 import { ReportBannerUploader } from '@/components/institute-settings/ReportBannerUploader';
 import { GalleryManager } from '@/components/institute-settings/GalleryManager';
+import { FeatureSettings } from '@/components/institute-settings/FeatureSettings';
 import { Separator } from '@/components/ui/separator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { tenantApi, type LoginBrandingData, type TenantSettingsResponse, type SmsSettingsResponse, type PlanInfoResponse } from '@/api/tenant.api';
@@ -96,7 +98,7 @@ interface InstituteSettings {
   defaultSessionsPerUserCount?: number | null;
 }
 
-const VALID_TABS = ['basic', 'branding', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits'];
+const VALID_TABS = ['basic', 'branding', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features'];
 
 const SECTION_ITEMS: Array<{
   id: string;
@@ -115,6 +117,7 @@ const SECTION_ITEMS: Array<{
   { id: 'integrations', label: 'Integrations', description: 'Google Drive & third-party apps', icon: Layers, color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
   { id: 'user-columns', label: 'User Columns', description: 'Custom extra data fields for users', icon: Settings, color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
   { id: 'session-limits', label: 'Session Limits', description: 'Device limits per user, session controls', icon: ShieldCheck, color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' },
+  { id: 'features', label: 'Feature Management', description: 'Enable or disable institute features', icon: Zap, color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
 ];
 
 
@@ -122,6 +125,7 @@ const InstituteSettingsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentInstituteId, selectedInstitute, selectedClass, selectedSubject } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
   const { toast } = useToast();
   const instituteRole = useInstituteRole();
   const isInstituteAdmin = instituteRole === 'InstituteAdmin';
@@ -542,6 +546,13 @@ const InstituteSettingsPage = () => {
     );
   }
 
+  const filteredSectionItems = SECTION_ITEMS.filter(item => {
+    if (item.id === 'tenant') {
+        return isFeatureEnabled('login-branding');
+    }
+    return true;
+  });
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -585,7 +596,7 @@ const InstituteSettingsPage = () => {
       {/* Settings Tabs */}
       {isMobile && !mobileSection ? (
         <div className="divide-y divide-border/40 border border-border/50 rounded-xl overflow-hidden bg-card/50 mt-4">
-          {SECTION_ITEMS.map((item) => {
+          {filteredSectionItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
@@ -610,7 +621,7 @@ const InstituteSettingsPage = () => {
         <div className="space-y-2 mt-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-1">Select Section</p>
           <div className="divide-y divide-border/40 border border-border/50 rounded-xl overflow-hidden bg-card/50">
-            {SECTION_ITEMS.map((item) => {
+            {filteredSectionItems.map((item) => {
               const Icon = item.icon;
               return (
                 <button
@@ -658,6 +669,7 @@ const InstituteSettingsPage = () => {
               {mobileSection === 'integrations' && 'Integrations'}
               {mobileSection === 'user-columns' && 'User Columns'}
               {mobileSection === 'session-limits' && 'Session Limits'}
+              {mobileSection === 'features' && 'Feature Management'}
             </h2>
           )}
           {!isMobile && desktopSection && (
@@ -861,6 +873,7 @@ const InstituteSettingsPage = () => {
         </TabsContent>
 
         {/* ═══ TENANT & DOMAIN TAB ═══ */}
+        {isFeatureEnabled('login-branding') && (
         <TabsContent value="tenant">
           <div className="space-y-6">
             {/* Tier & Plan Overview */}
@@ -1232,6 +1245,7 @@ const InstituteSettingsPage = () => {
             )}
           </div>
         </TabsContent>
+        )}
 
         {/* Location */}
         <TabsContent value="location">
@@ -1655,6 +1669,11 @@ const InstituteSettingsPage = () => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        {/* Features */}
+        <TabsContent value="features">
+          <FeatureSettings />
         </TabsContent>
 
           </Tabs>

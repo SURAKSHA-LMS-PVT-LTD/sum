@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useFeatures } from '@/contexts/FeaturesContext';
 
 export interface FeatureDef {
   id: string;
@@ -96,6 +97,7 @@ const ROLE_AVAILABLE: Record<string, Record<string, string[]>> = {
 export type DashboardLevel = 'institute' | 'class' | 'subject';
 
 export const useDashboardFeatures = (level: DashboardLevel, userRole: string) => {
+  const { isFeatureEnabled } = useFeatures();
   const storageKey = `dash_features_${level}_${userRole}`;
 
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
@@ -120,7 +122,7 @@ export const useDashboardFeatures = (level: DashboardLevel, userRole: string) =>
     try { localStorage.setItem(storageKey, JSON.stringify(defaults)); } catch {}
   }, [level, userRole, storageKey]);
 
-  const roleAvailableIds = ROLE_AVAILABLE[level]?.[userRole] ?? [];
+  const roleAvailableIds = (ROLE_AVAILABLE[level]?.[userRole] ?? []).filter(isFeatureEnabled);
   const pinnedFeatures = pinnedIds.map(id => FEATURE_CATALOG[id]).filter(Boolean);
   const availableToAdd = roleAvailableIds
     .filter(id => !pinnedIds.includes(id))
