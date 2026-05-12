@@ -9,6 +9,7 @@ import { createTheme, ThemeProvider as MuiThemeProvider } from "@mui/material/st
 import CssBaseline from "@mui/material/CssBaseline";
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 // StatusBar imported dynamically to avoid browser module resolution errors
 
 // Native plugin for Android system navigation bar — registered in MainActivity.java
@@ -69,6 +70,9 @@ import ViewRecordingPage from "@/pages/ViewRecordingPage";
 import StudentInstituteProfilePage from "@/pages/StudentInstituteProfilePage";
 import StudentClassProfilePage from "@/pages/StudentClassProfilePage";
 import StudentSubjectProfilePage from "@/pages/StudentSubjectProfilePage";
+import InstituteAttendancePage from "./pages/InstituteAttendancePage";
+import SettingsPage from "./pages/SettingsPage";
+import DeployPage from "./pages/DeployPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -185,6 +189,129 @@ function DynamicMuiTheme({ children }: { children: React.ReactNode }) {
   return <MuiThemeProvider theme={muiTheme}><CssBaseline />{children}</MuiThemeProvider>;
 }
 
+const AppContent = () => {
+  useActivityLogger();
+  return (
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/live-lecture/:urlId" element={<LiveLecturePage />} />
+      <Route path="/view-recording/:urlId" element={<ViewRecordingPage />} />
+      <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
+      <Route path="/activate/identify" element={<ActivateAccount />} />
+      <Route path="/activate/verify" element={<ActivateAccount />} />
+      <Route path="/activate/profile" element={<ActivateAccount />} />
+      <Route path="/register/step1" element={<CreateAccount />} />
+      <Route path="/register/verify" element={<CreateAccount />} />
+      <Route path="/register/parents" element={<CreateAccount />} />
+      <Route path="/register/details/personal-information" element={<CreateAccount />} />
+      <Route path="/register/details/address" element={<CreateAccount />} />
+      <Route path="/register/details/additional" element={<CreateAccount />} />
+      <Route path="/register/student" element={<CreateAccount />} />
+      <Route path="/register/review" element={<CreateAccount />} />
+      <Route path="/register/institute" element={<RegisterInstitute />} />
+      <Route path="/profile/image/upload" element={<ReuploadProfileImagePage />} />
+      <Route path="/attendance/view" element={<ProtectedRoute><AttendanceViewPage /></ProtectedRoute>} />
+      <Route path="/institute/:instituteId/*" element={<Index />} />
+      <Route path="/organization/:organizationId/*" element={<Index />} />
+      <Route path="/child/:childId/*" element={<Index />} />
+      <Route path="/transport/:transportId/*" element={<Index />} />
+      <Route path="/dashboard" element={<Index />} />
+      <Route path="/profile" element={<Index />} />
+      <Route path="/settings" element={<Index />} />
+      <Route path="/appearance" element={<Index />} />
+      <Route path="/institutes" element={<Index />} />
+      <Route path="/organizations" element={<Index />} />
+      <Route path="/qr-attendance" element={<Index />} />
+      <Route path="/rfid-attendance" element={<Index />} />
+      <Route path="/close-attendance" element={<Index />} />
+      <Route path="/sms-history" element={<Index />} />
+      <Route path="/enrollment-management" element={<Index />} />
+      <Route path="/students" element={<Index />} />
+      <Route path="/teachers" element={<Index />} />
+      <Route path="/parents" element={<Index />} />
+      <Route path="/users" element={<Index />} />
+      <Route path="/select-institute" element={<Index />} />
+      <Route path="/select-class" element={<Index />} />
+      <Route path="/select-subject" element={<Index />} />
+      <Route path="/classes" element={<Index />} />
+      <Route path="/subjects" element={<Index />} />
+      <Route path="/attendance" element={<Index />} />
+      <Route path="/lectures" element={<Index />} />
+      <Route path="/free-lectures" element={<Index />} />
+      <Route path="/live-lectures" element={<Index />} />
+      <Route path="/institute-lectures" element={<Index />} />
+      <Route path="/lecture-live-attendance" element={<Index />} />
+      <Route path="/lecture-recording-attendance" element={<Index />} />
+      <Route path="/lecture-recording-student" element={<Index />} />
+      <Route path="/homework" element={<Index />} />
+      <Route path="/homework-submissions" element={<Index />} />
+      <Route path="/exams" element={<Index />} />
+      <Route path="/results" element={<Index />} />
+      <Route path="/grades" element={<Index />} />
+      <Route path="/grading" element={<Index />} />
+      <Route path="/institute-details" element={<Index />} />
+      <Route path="/institute-profile" element={<Index />} />
+      <Route path="/institute-users" element={<Index />} />
+      <Rout path="/institute-payments" element={<Index />} />
+      <Route path="/institute-billing" element={<Index />} />
+      <Route path="/institute-settings" element={<Index />} />
+      <Route path="/institute-subjects" element={<Index />} />
+      <Route path="/institute-organizations" element={<Index />} />
+      <Route path="/institute-mark-attendance" element={<Index />} />
+      <Route path="/attendance-matrix" element={<Index />} />
+      <Route path="/subject-payments" element={<Index />} />
+      <Route path="/subject-submissions" element={<Index />} />
+      <Route path="/subject-pay-submission" element={<Index />} />
+      <Route path="/collect-physical-payment" element={<Index />} />
+      <Route path="/sms" element={<Index />} />
+      <Route path="/notifications" element={<Index />} />
+      <Route path="/institute-notifications" element={<Index />} />
+      <Route path="/all-notifications" element={<Index />} />
+      <Route path="/setup-guide" element={<Index />} />
+      <Route path="/verify-image" element={<Index />} />
+      <Route path="/enroll-class" element={<Index />} />
+      <Route path="/enroll-subject" element={<Index />} />
+      <Route path="/my-attendance" element={<Index />} />
+      <Route path="/attendance-markers" element={<Index />} />
+      <Route path="/unverified-students" element={<Index />} />
+      <Route path="/class-subjects" element={<Index />} />
+      <Route path="/teacher-students" element={<Index />} />
+      <Route path="/teacher-homework" element={<Index />} />
+      <Route path="/teacher-exams" element={<Index />} />
+      <Route path="/teacher-lectures" element={<Index />} />
+      <Route path="/calendar-management" element={<Index />} />
+      <Route path="/calendar-view" element={<Index />} />
+      <Route path="/today-dashboard" element={<Index />} />
+      <Route path="/admin-attendance" element={<Index />} />
+      <Route path="/parent-attendance" element={<Index />} />
+      <Route path="/class-calendar" element={<Index />} />
+      <Route path="/device-management" element={<Index />} />
+      <Route path="/feedback" element={<Index />} />
+
+      <Route path="/my-children" element={<ProtectedRoute><MyChildren /></ProtectedRoute>} />
+      <Route path="/transport" element={<ProtectedRoute><Transport /></ProtectedRoute>} />
+      <Route path="/system-payment" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+      <Route path="/system-payments/create" element={<ProtectedRoute><CreatePayment /></ProtectedRoute>} />
+      <Route path="/institute-users/:instituteId/create" element={<ProtectedRoute><CreateInstituteUserPage /></ProtectedRoute>} />
+      <Route path="/payment-submissions/:paymentId" element={<ProtectedRoute><PaymentSubmissions /></ProtectedRoute>} />
+      <Route path="/payment-submissions" element={<ProtectedRoute><PaymentSubmissionsPage /></ProtectedRoute>} />
+      <Route path="/payment-submissions-physical" element={<ProtectedRoute><PaymentSubmissionsPhysical /></ProtectedRoute>} />
+      <Route path="/payment-submissions-physical/:paymentId" element={<ProtectedRoute><PaymentSubmissionsPhysicalInstitute /></ProtectedRoute>} />
+      <Route path="/payment-submissions-pysical" element={<ProtectedRoute><PaymentSubmissionsPhysical /></ProtectedRoute>} />
+      <Route path="/payment-submissions-pysical/:paymentId" element={<ProtectedRoute><PaymentSubmissionsPhysicalInstitute /></ProtectedRoute>} />
+      <Route path="/my-submissions" element={<ProtectedRoute><MySubmissions /></ProtectedRoute>} />
+      <Route path="/card-demo" element={<ProtectedRoute><CardDemo /></ProtectedRoute>} />
+      <Route path="/id-cards" element={<ProtectedRoute><CardManagement /></ProtectedRoute>} />
+      <Route path="/sessions" element={<ProtectedRoute><ActiveSessionsPage /></ProtectedRoute>} />
+
+      <Route path="/institute-attendance" element={<ProtectedRoute><InstituteAttendancePage /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+      <Route path="/deploy" element={<ProtectedRoute><DeployPage /></ProtectedRoute>} />
+
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
 
 const App = () => {
   const { isOnline, isLoading, retry } = useCapacitorConnection();
@@ -221,17 +348,11 @@ const App = () => {
   }, []);
 
   // ─── Stale WebView recovery ─────────────────────────────────────────────────
-  // On Android, after a long background session the OS can kill the WebView
-  // process while keeping the native Activity alive. When the user reopens the
-  // app the WebView reattaches but its JavaScript context is gone → white screen.
-  // We track how long the app was backgrounded and force a reload if the
-  // threshold is exceeded so the WebView boots cleanly.
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     const STALE_THRESHOLD_MS = 30 * 60 * 1000;
     let backgroundedAt: number | null = null;
-    // Store the promise so cleanup can always await and remove the listener
     const listenerPromise = CapacitorApp.addListener('appStateChange', (state) => {
       if (!state.isActive) {
         backgroundedAt = Date.now();
@@ -252,14 +373,10 @@ const App = () => {
     });
 
     return () => {
-      // Always clean up — the promise resolves with the handle
       listenerPromise.then((h) => h.remove()).catch(() => {});
     };
   }, []);
-  // ────────────────────────────────────────────────────────────────────────────
 
-  // Show connection error UI only when definitively offline (not during loading).
-  // Keep providers mounted even in this state so hooks that depend on AuthContext remain safe.
   const showConnectionError = Capacitor.isNativePlatform() && !isLoading && !isOnline;
 
   return (
@@ -282,149 +399,7 @@ const App = () => {
                   <GoogleTranslateInit />
                   <UpdateNotification />
                   <NotificationNavigator />
-                  <Routes>
-                {/* Main Routes - All handled by Index/AppContent */}
-                <Route path="/" element={<Index />} />
-                
-                {/* Public Lecture Tracking Entry Routes */}
-                <Route path="/live-lecture/:urlId" element={<LiveLecturePage />} />
-                <Route path="/view-recording/:urlId" element={<ViewRecordingPage />} />
-
-                {/* Google Drive OAuth - backend redirects back here with query params */}
-                <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
-
-                {/* Activate Account Routes (First Login Flow) */}
-                <Route path="/activate/identify" element={<ActivateAccount />} />
-                <Route path="/activate/verify" element={<ActivateAccount />} />
-                <Route path="/activate/profile" element={<ActivateAccount />} />
-
-                {/* Create Account Routes (Public Registration) */}
-                <Route path="/register/step1" element={<CreateAccount />} />
-                <Route path="/register/verify" element={<CreateAccount />} />
-                <Route path="/register/parents" element={<CreateAccount />} />
-                <Route path="/register/details/personal-information" element={<CreateAccount />} />
-                <Route path="/register/details/address" element={<CreateAccount />} />
-                <Route path="/register/details/additional" element={<CreateAccount />} />
-                <Route path="/register/student" element={<CreateAccount />} />
-                <Route path="/register/review" element={<CreateAccount />} />
-
-                {/* Register Institute Routes */}
-                <Route path="/register/institute" element={<RegisterInstitute />} />
-
-                {/* Public re-upload page — opened from rejection email link */}
-                <Route path="/profile/image/upload" element={<ReuploadProfileImagePage />} />
-
-                {/* Attendance deep-link — opened from push notification */}
-                <Route path="/attendance/view" element={<ProtectedRoute><AttendanceViewPage /></ProtectedRoute>} />
-
-                {/* Hierarchical Routes with Context */}
-                <Route path="/institute/:instituteId/*" element={<Index />} />
-                <Route path="/organization/:organizationId/*" element={<Index />} />
-                <Route path="/child/:childId/*" element={<Index />} />
-                <Route path="/transport/:transportId/*" element={<Index />} />
-
-                {/* Common Routes handled by Index/AppContent */}
-                <Route path="/dashboard" element={<Index />} />
-                <Route path="/profile" element={<Index />} />
-                <Route path="/settings" element={<Index />} />
-                <Route path="/appearance" element={<Index />} />
-                <Route path="/institutes" element={<Index />} />
-                <Route path="/organizations" element={<Index />} />
-                <Route path="/qr-attendance" element={<Index />} />
-                <Route path="/rfid-attendance" element={<Index />} />
-                <Route path="/close-attendance" element={<Index />} />
-                <Route path="/sms-history" element={<Index />} />
-                <Route path="/enrollment-management" element={<Index />} />
-                <Route path="/students" element={<Index />} />
-                <Route path="/teachers" element={<Index />} />
-                <Route path="/parents" element={<Index />} />
-                <Route path="/users" element={<Index />} />
-
-                {/* Selection Routes */}
-                <Route path="/select-institute" element={<Index />} />
-                <Route path="/select-class" element={<Index />} />
-                <Route path="/select-subject" element={<Index />} />
-
-                {/* Additional pages handled by AppContent */}
-                <Route path="/classes" element={<Index />} />
-                <Route path="/subjects" element={<Index />} />
-                <Route path="/attendance" element={<Index />} />
-                
-                <Route path="/lectures" element={<Index />} />
-                <Route path="/free-lectures" element={<Index />} />
-                <Route path="/live-lectures" element={<Index />} />
-                <Route path="/institute-lectures" element={<Index />} />
-                <Route path="/lecture-live-attendance" element={<Index />} />
-                <Route path="/lecture-recording-attendance" element={<Index />} />
-                <Route path="/lecture-recording-student" element={<Index />} />
-                <Route path="/homework" element={<Index />} />
-                <Route path="/homework-submissions" element={<Index />} />
-                <Route path="/exams" element={<Index />} />
-                <Route path="/results" element={<Index />} />
-                <Route path="/grades" element={<Index />} />
-                <Route path="/grading" element={<Index />} />
-                <Route path="/institute-details" element={<Index />} />
-                <Route path="/institute-profile" element={<Index />} />
-                <Route path="/institute-users" element={<Index />} />
-                <Route path="/institute-payments" element={<Index />} />
-                <Route path="/institute-billing" element={<Index />} />
-                <Route path="/institute-settings" element={<Index />} />
-                <Route path="/institute-subjects" element={<Index />} />
-                <Route path="/institute-organizations" element={<Index />} />
-                <Route path="/institute-mark-attendance" element={<Index />} />
-                <Route path="/attendance-matrix" element={<Index />} />
-                <Route path="/subject-payments" element={<Index />} />
-                <Route path="/subject-submissions" element={<Index />} />
-                <Route path="/subject-pay-submission" element={<Index />} />
-                <Route path="/collect-physical-payment" element={<Index />} />
-                {/* Note: /my-submissions is handled below by ProtectedRoute */}
-                <Route path="/sms" element={<Index />} />
-                <Route path="/notifications" element={<Index />} />
-                <Route path="/institute-notifications" element={<Index />} />
-                <Route path="/all-notifications" element={<Index />} />
-                <Route path="/setup-guide" element={<Index />} />
-                <Route path="/verify-image" element={<Index />} />
-                <Route path="/enroll-class" element={<Index />} />
-                <Route path="/enroll-subject" element={<Index />} />
-                <Route path="/my-attendance" element={<Index />} />
-                <Route path="/attendance-markers" element={<Index />} />
-                <Route path="/unverified-students" element={<Index />} />
-
-                <Route path="/class-subjects" element={<Index />} />
-                <Route path="/teacher-students" element={<Index />} />
-                <Route path="/teacher-homework" element={<Index />} />
-                <Route path="/teacher-exams" element={<Index />} />
-                <Route path="/teacher-lectures" element={<Index />} />
-                <Route path="/calendar-management" element={<Index />} />
-                <Route path="/calendar-view" element={<Index />} />
-                <Route path="/today-dashboard" element={<Index />} />
-                <Route path="/admin-attendance" element={<Index />} />
-                <Route path="/parent-attendance" element={<Index />} />
-                <Route path="/class-calendar" element={<Index />} />
-                <Route path="/device-management" element={<Index />} />
-                <Route path="/feedback" element={<Index />} />
-
-                {/* Dedicated Page Routes (must be protected) */}
-                <Route path="/my-children" element={<ProtectedRoute><MyChildren /></ProtectedRoute>} />
-                <Route path="/transport" element={<ProtectedRoute><Transport /></ProtectedRoute>} />
-                <Route path="/system-payment" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-                <Route path="/system-payments/create" element={<ProtectedRoute><CreatePayment /></ProtectedRoute>} />
-                <Route path="/institute-users/:instituteId/create" element={<ProtectedRoute><CreateInstituteUserPage /></ProtectedRoute>} />
-                <Route path="/payment-submissions/:paymentId" element={<ProtectedRoute><PaymentSubmissions /></ProtectedRoute>} />
-                <Route path="/payment-submissions" element={<ProtectedRoute><PaymentSubmissionsPage /></ProtectedRoute>} />
-                <Route path="/payment-submissions-physical" element={<ProtectedRoute><PaymentSubmissionsPhysical /></ProtectedRoute>} />
-                <Route path="/payment-submissions-physical/:paymentId" element={<ProtectedRoute><PaymentSubmissionsPhysicalInstitute /></ProtectedRoute>} />
-                {/* Alias for legacy typo used in navigation code */}
-                <Route path="/payment-submissions-pysical" element={<ProtectedRoute><PaymentSubmissionsPhysical /></ProtectedRoute>} />
-                <Route path="/payment-submissions-pysical/:paymentId" element={<ProtectedRoute><PaymentSubmissionsPhysicalInstitute /></ProtectedRoute>} />
-                <Route path="/my-submissions" element={<ProtectedRoute><MySubmissions /></ProtectedRoute>} />
-                <Route path="/card-demo" element={<ProtectedRoute><CardDemo /></ProtectedRoute>} />
-                <Route path="/id-cards" element={<ProtectedRoute><CardManagement /></ProtectedRoute>} />
-                <Route path="/sessions" element={<ProtectedRoute><ActiveSessionsPage /></ProtectedRoute>} />
-
-                    {/* Catch-all - Show 404 for unknown paths */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
+                  <AppContent />
                 </>
               )}
               </FeaturesProvider>

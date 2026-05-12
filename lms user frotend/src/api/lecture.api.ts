@@ -285,6 +285,14 @@ class LectureApi {
       ttl: 5,
     });
   }
+
+  async fetchLecturesWithCache(params?: LectureQueryParams): Promise<ApiResponse<Lecture[]>> {
+    const cachedData = await this.getCachedLectures(params);
+    if (cachedData) {
+      return cachedData;
+    }
+    return this.getLectures(params, true);
+  }
 }
 
 export const lectureApi = new LectureApi();
