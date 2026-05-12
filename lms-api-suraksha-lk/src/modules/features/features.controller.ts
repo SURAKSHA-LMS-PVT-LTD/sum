@@ -1,34 +1,31 @@
-import { Controller, Get, Patch, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { FeaturesService } from './features.service';
-import { UpdateFeatureTogglesDto } from './dto/feature.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { UpdateFeatureDto } from './dto/feature.dto';
+import { JwtAuthGuard } from '../security/guards/jwt-auth.guard';
+import { RolesGuard } from '../security/guards/roles.guard';
+import { Roles } from '../security/decorators/roles.decorator';
 
 @Controller('features')
 export class FeaturesController {
   constructor(private readonly featuresService: FeaturesService) {}
 
   @Get('catalog')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SystemAdmin')
-  getFeatureCatalog() {
-    return this.featuresService.getFeatureCatalog();
+  getCatalog() {
+    return this.featuresService.getCatalog();
   }
 
-  @Get('/institutes/:id/features')
-  @UseGuards(JwtAuthGuard)
-  getFeaturesForInstitute(@Param('id') instituteId: number) {
-    return this.featuresService.getFeaturesForInstitute(instituteId);
+  @Get('institute/:id')
+  getInstituteFeatureToggles(@Param('id') id: string) {
+    return this.featuresService.getInstituteFeatureToggles(id);
   }
 
-  @Patch('/institutes/:id/features')
+  @Patch('institute/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('InstituteAdmin')
-  updateFeaturesForInstitute(
-    @Param('id') instituteId: number,
-    @Body() updateDto: UpdateFeatureTogglesDto,
+  @Roles('InstituteAdmin', 'SuperAdmin')
+  updateInstituteFeatureToggles(
+    @Param('id') id: string,
+    @Body() updateFeatureDto: UpdateFeatureDto,
   ) {
-    return this.featuresService.updateFeaturesForInstitute(instituteId, updateDto);
+    return this.featuresService.updateInstituteFeatureToggles(id, updateFeatureDto);
   }
 }

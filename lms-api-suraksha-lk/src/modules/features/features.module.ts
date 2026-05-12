@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { FeaturesController } from './features.controller';
 import { FeaturesService } from './features.service';
+import { FeaturesController } from './features.controller';
 import { FeatureCatalog } from './entities/feature-catalog.entity';
 import { InstituteFeatureToggles } from './entities/institute-feature-toggles.entity';
-import { AuthModule } from '../auth/auth.module';
+import { SecurityModule } from '../security/security.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([FeatureCatalog, InstituteFeatureToggles]),
-    AuthModule,
+    SecurityModule,
   ],
   controllers: [FeaturesController],
   providers: [FeaturesService],
