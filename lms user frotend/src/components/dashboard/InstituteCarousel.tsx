@@ -1,192 +1,209 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { Institute } from '@/api/institute.api';
 import { useAuth } from '@/contexts/AuthContext';
-import { Building2, Check, ChevronLeft, ChevronRight, Search } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
-import surakshaLogo from '@/assets/suraksha-logo.png';
-import type { Institute } from '@/contexts/types/auth.types';
+import { ChevronLeft, ChevronRight, Search, X, Building2 } from 'lucide-react';
+import { getImageUrl } from '@/utils/imageUrlHelper';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 
 interface InstituteCarouselProps {
+  institutes: Institute[];
   onSelectInstitute: (institute: Institute) => void;
-  compact?: boolean;
+  isLoading: boolean;
 }
 
-const InstituteCarousel: React.FC<InstituteCarouselProps> = ({ onSelectInstitute, compact = false }) => {
-  const { user, selectedInstitute, loadUserInstitutes, isViewingAsParent, selectedChild } = useAuth();
-  const isNativeApp = Capacitor.isNativePlatform();
-  const [institutes, setInstitutes] = useState<Institute[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+const InstituteCarousel: React.FC<InstituteCarouselProps> = ({
+  institutes,
+  onSelectInstitute,
+  isLoading,
+}) => {
+  const { selectedInstitute } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const hasLoadedRef = useRef(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    if (hasLoadedRef.current || !user?.id) return;
-    hasLoadedRef.current = true;
-
-    const load = async () => {
-      try {
-        // loadUserInstitutes now handles parent-child mode internally
-        if (!isViewingAsParent && user?.institutes?.length) {
-          setInstitutes(user.institutes);
-          setLoading(false);
-        }
-        const data = await loadUserInstitutes();
-        setInstitutes(data);
-      } catch (e) {
-        console.error('Failed to load institutes:', e);
-        if (!isViewingAsParent && user?.institutes?.length) setInstitutes(user.institutes);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [user?.id, isViewingAsParent, selectedChild?.userId]);
-
-  // Scroll selected institute into view
-  useEffect(() => {
-    if (selectedInstitute && scrollRef.current) {
-      const selected = scrollRef.current.querySelector(`[data-institute-id="${selectedInstitute.id}"]`);
-      selected?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (el) {
+      const isAtEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
+      setCanScrollLeft(el.scrollLeft > 0);
+      setCanScrollRight(!isAtEnd);
     }
-  }, [selectedInstitute?.id]);
+  };
 
   const scroll = (direction: 'left' | 'right') => {
-    if (scrollRef.current) {
-      const scrollAmount = 200;
-      scrollRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth',
-      });
+    const el = scrollRef.current;
+    if (el) {
+      const scrollAmount = el.clientWidth * 0.8;
+      el.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
     }
   };
 
   const filteredInstitutes = useMemo(() => {
-    if (!searchQuery.trim()) return institutes;
-    const query = searchQuery.toLowerCase();
-    return institutes.filter(inst => {
-      const name = inst.name || '';
-      const shortName = inst.shortName || '';
-      return name.toLowerCase().includes(query) || shortName.toLowerCase().includes(query);
-    });
+    if (!searchQuery) return institutes;
+    return institutes.filter(inst =>
+      inst.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
   }, [institutes, searchQuery]);
 
-  if (loading) {
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.addEventListener('scroll', handleScroll, { passive: true });
+      handleScroll(); 
+      
+      const resizeObserver = new ResizeObserver(handleScroll);
+      resizeObserver.observe(el);
+
+      return () => {
+        el.removeEventListener('scroll', handleScroll);
+        resizeObserver.unobserve(el);
+      }
+    }
+  }, [isLoading, filteredInstitutes]);
+
+  
+  useEffect(() => {
+    if (scrollRef.current && selectedInstitute) {
+      const selectedElement = scrollRef.current.querySelector(`[data-institute-id="${selectedInstitute.id}"]`) as HTMLElement;
+      if (selectedElement) {
+        const container = scrollRef.current;
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = selectedElement.getBoundingClientRect();
+        
+        if (elementRect.left < containerRect.left || elementRect.right > containerRect.right) {
+          const scrollLeft = elementRect.left - containerRect.left + container.scrollLeft;
+          const scrollOffset = (container.clientWidth - selectedElement.clientWidth) / 2;
+          
+          container.scrollTo({
+            left: scrollLeft - scrollOffset,
+            behavior: 'smooth',
+          });
+        }
+      }
+    }
+  }, [selectedInstitute, institutes]);
+
+  if (isLoading) {
     return (
-      <div className="flex gap-3 overflow-hidden">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-14 w-44 rounded-xl bg-muted animate-pulse shrink-0" />
-        ))}
+      <div className="space-y-2">
+        <Skeleton className="h-6 w-32" />
+        <div className="flex space-x-2.5 pb-1">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-24 flex flex-col items-center gap-1.5 p-2">
+              <Skeleton className="w-10 h-10 rounded-full" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
-  if (institutes.length === 0) return null;
+  if (!institutes || institutes.length === 0) {
+    return (
+      <div className="py-2">
+        <h2 className="text-sm font-semibold text-muted-foreground pl-1 mb-1.5">My Institutes</h2>
+        <div className="border border-dashed rounded-lg p-6 text-center">
+            <p className="text-sm text-muted-foreground">No institutes found.</p>
+            <p className="text-xs text-muted-foreground/80 mt-1">You are not enrolled in any institute yet.</p>
+        </div>
+      </div>
+    );
+  }
+  
+  const showCarousel = institutes.length > 0;
+  const showScrollButtons = filteredInstitutes.length > 5;
 
   return (
-    <div className="space-y-3">
-      {institutes.length > 4 && (
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input 
-            type="text" 
-            placeholder="Search institutes..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-card border border-border/60 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all"
-          />
-        </div>
-      )}
-
-      {filteredInstitutes.length === 0 ? (
-        <div className="text-center py-4 text-muted-foreground bg-card rounded-xl border border-border/50">
-          <p className="text-sm">No institutes found matching "{searchQuery}"</p>
-        </div>
-      ) : (
-        <div className="relative group">
-          {/* Scroll buttons - visible on hover for desktop */}
-          {filteredInstitutes.length > 2 && (
-            <>
-              <button
-                onClick={() => scroll('left')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-background/90 border border-border shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
-              >
-                <ChevronLeft className="h-4 w-4 text-foreground" />
-              </button>
-              <button
-                onClick={() => scroll('right')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-background/90 border border-border shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
-              >
-                <ChevronRight className="h-4 w-4 text-foreground" />
-              </button>
-            </>
-          )}
-
-          {/* Scrollable container */}
-          <div
-            ref={scrollRef}
-            className="flex gap-2.5 overflow-x-auto no-scrollbar scroll-smooth px-0.5 py-1"
-          >
-            {filteredInstitutes.map((inst) => {
-              const isSelected = selectedInstitute?.id === inst.id;
-              const logoSrc = isNativeApp ? surakshaLogo : inst.logo || '';
-              return (
-                <button
-                  key={inst.id}
-                  data-institute-id={inst.id}
-                  onClick={() => onSelectInstitute(inst)}
-                  title={inst.name}
-                  className={`
-                    relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl shrink-0
-                    border active:scale-[0.97] transition-all
-                    min-w-[140px] max-w-[220px]
-                    ${isSelected
-                      ? 'bg-primary/10 border-primary/30 shadow-sm shadow-primary/10 ring-1 ring-primary/20'
-                      : 'bg-card border-border hover:border-primary/20 hover:bg-accent/50'
-                    }
-                  `}
-                >
-                  {/* Logo / Icon */}
-                  {logoSrc ? (
-                    <img
-                      src={logoSrc}
-                      alt={inst.shortName || inst.name}
-                      loading="lazy"
-                      className="w-9 h-9 rounded-lg object-cover shrink-0 ring-1 ring-border"
-                    />
-                  ) : (
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                    }`}>
-                      <Building2 className="h-4 w-4" />
-                    </div>
-                  )}
-
-                  {/* Text */}
-                  <div className="min-w-0 text-left flex-1">
-                    <p className={`text-sm font-semibold truncate leading-tight ${
-                      isSelected ? 'text-primary' : 'text-foreground'
-                    }`}>
-                      {inst.shortName || inst.name}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
-                      {inst.instituteUserType
-                        ? inst.instituteUserType.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase())
-                        : inst.type || 'Institute'}
-                    </p>
-                  </div>
-
-                  {/* Selected check */}
-                  {isSelected && (
-                    <div className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-primary flex items-center justify-center shadow-sm">
-                      <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                    </div>
-                  )}
+    <div className="py-2">
+        <div className="flex items-center gap-2 mb-1.5">
+            <h2 className="text-sm font-semibold text-muted-foreground pl-1">My Institutes</h2>
+            <div className="relative flex-1 max-w-xs ml-auto">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+                type="text"
+                placeholder="Find institute..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-xs rounded-lg"
+            />
+            {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2">
+                <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                 </button>
-              );
-            })}
-          </div>
+            )}
+            </div>
         </div>
-      )}
+
+        {showCarousel && (
+            <div className="relative group">
+                {showScrollButtons && canScrollLeft && (
+                <button
+                    onClick={() => scroll('left')}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-background/50 backdrop-blur-sm rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2"
+                >
+                    <ChevronLeft className="h-6 w-6" />
+                </button>
+                )}
+                
+                <div
+                    ref={scrollRef}
+                    className="flex gap-2.5 overflow-x-auto no-scrollbar scroll-smooth px-0.5 py-1"
+                >
+                    {filteredInstitutes.length > 0 ? filteredInstitutes.map((inst) => {
+                    const isSelected = selectedInstitute?.id === inst.id;
+                    const logoSrc = inst.logo || '';
+                    return (
+                        <button
+                        key={inst.id}
+                        data-institute-id={inst.id}
+                        onClick={() => onSelectInstitute(inst)}
+                        title={inst.name}
+                        className={`
+                            flex-shrink-0
+                            w-24
+                            h-full
+                            flex flex-col items-center justify-start gap-1.5 p-2
+                            rounded-xl
+                            border-2 text-center transition-all duration-200
+                            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary
+                            ${isSelected
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border/20 bg-card hover:bg-muted'
+                            }
+                        `}
+                        >
+                        <div className="w-10 h-10 rounded-full bg-muted flex-shrink-0 flex items-center justify-center overflow-hidden">
+                            {logoSrc ? (
+                            <img src={getImageUrl(logoSrc)} alt={inst.name} className="w-full h-full object-cover" />
+                            ) : (
+                            <Building2 className="w-5 h-5 text-muted-foreground" />
+                            )}
+                        </div>
+                        <p className="text-xs font-medium text-foreground line-clamp-2 w-full">
+                            {inst.name}
+                        </p>
+                        </button>
+                    );
+                    }) : (
+                        <div className="w-full text-center py-8">
+                            <p className="text-sm text-muted-foreground">No institutes match your search.</p>
+                        </div>
+                    )}
+                </div>
+
+                {showScrollButtons && canScrollRight && (
+                    <button
+                    onClick={() => scroll('right')}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-background/50 backdrop-blur-sm rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-1/2"
+                    >
+                    <ChevronRight className="h-6 w-6" />
+                    </button>
+                )}
+            </div>
+        )}
     </div>
   );
 };

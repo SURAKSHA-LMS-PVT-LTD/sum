@@ -53,7 +53,7 @@ const ClassLecturesPage = () => {
     if (!classId || !instituteId) return;
     setLoading(true);
     try {
-      const response = await lectureApi.getLectures({ classId, instituteId }, forceRefresh);
+      const response = await lectureApi.fetchLecturesWithCache({ classId, instituteId });
       const data = (response as any)?.data ?? response;
       setLectures(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -574,13 +574,11 @@ const ClassLecturesPage = () => {
       {/* Recording dialog */}
       {showRecordingDialog && recordingLecture && (
         <VideoPreviewDialog
-          open={showRecordingDialog}
-          onOpenChange={(open) => { if (!open) { setShowRecordingDialog(false); setRecordingLecture(null); } }}
+          isOpen={showRecordingDialog}
+          onClose={() => { setShowRecordingDialog(false); setRecordingLecture(null); }}
           title={recordingLecture.title}
-          url={recordingLecture.recordingUrl || ''}
-          description={recordingLecture.description}
-          materials={recordingLecture.materials}
-          defaultMode={recordingMode}
+          videoUrl={recordingLecture.recordingUrl || ''}
+          videoType="application/x-mpegURL" // Assuming HLS format, adjust if needed
         />
       )}
 
