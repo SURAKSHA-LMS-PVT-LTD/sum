@@ -7,6 +7,7 @@ import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Lock } from 'lucide-react';
+import { FEATURE_KEYS } from '@/config/feature-keys';
 
 interface FeatureSetting {
   key: string;
@@ -14,6 +15,7 @@ interface FeatureSetting {
   description: string;
   scope: 'INSTITUTE' | 'CLASS' | 'SUBJECT';
   pricing: 'FREE' | 'PAID';
+  group: string;
 }
 
 interface FeatureSettingsProps {
@@ -34,7 +36,6 @@ export const FeatureSettings: React.FC<FeatureSettingsProps> = () => {
     const fetchCatalog = async () => {
       setLoading(true);
       try {
-        // As per the backend plan, this endpoint provides the full catalog
         const response = await enhancedCachedClient.get<{ data: FeatureSetting[] }>('/features/catalog');
         setCatalog(response.data || []);
       } catch (error) {
@@ -75,41 +76,71 @@ export const FeatureSettings: React.FC<FeatureSettingsProps> = () => {
 
   const groupedFeatures = useMemo(() => {
     return catalog.reduce((acc, feature) => {
-      if (!acc[feature.scope]) {
-        acc[feature.scope] = [];
+      const group = feature.group || 'Other';
+      if (!acc[group]) {
+        acc[group] = [];
       }
-      acc[feature.scope].push(feature);
+      acc[group].push(feature);
       return acc;
     }, {} as Record<string, FeatureSetting[]>);
   }, [catalog]);
 
-  const renderFeatureList = (scope: 'INSTITUTE' | 'CLASS' | 'SUBJECT') => {
-    const featureList = groupedFeatures[scope] || [];
-    if (featureList.length === 0) {
-      return <p className="text-sm text-muted-foreground">No features available for this scope.</p>;
-    }
+  const renderFeatureGroup = (groupName: string, featureList: FeatureSetting[]) => {
+    return (
+      <div key={groupName}>
+        <h3 className="text-lg font-semibold mb-2">{groupName}</h3>
+        <div className="border rounded-lg">
+          {featureList.map(feature => {
+            const isEnabled = changes[feature.key] ?? features[feature.key]?.enabled ?? false;
+            const isPaid = feature.pricing === 'PAID';
 
-    return featureList.map(feature => {
-      const isEnabled = changes[feature.key] ?? features[feature.key]?.enabled ?? false;
-      const isPaid = feature.pricing === 'PAID';
+            // Dependency checks
+            let isDisabled = false;
+            let disabledReason = '';
 
-      return (
-        <div key={feature.key} className="flex items-center justify-between p-3 border-b last:border-b-0">
-          <div className="min-w-0 pr-4">
-            <div className="flex items-center gap-2">
-              <p className="font-medium truncate">{feature.label}</p>
-              {isPaid && <Lock className="h-3 w-3 text-amber-500" />}
-            </div>
-            <p className="text-xs text-muted-foreground">{feature.description}</p>
-          </div>
-          <Switch
-            checked={isEnabled}
-            onCheckedChange={(checked) => handleToggle(feature.key, checked)}
-          />
+            if (feature.key === FEATURE_KEYS.QR_ATTENDANCE || feature.key === FEATURE_KEYS.RFID_ATTENDANCE) {
+              if (!features[FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE]?.enabled) {
+                isDisabled = true;
+                disabledReason = `Requires '${FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE}' to be enabled.`;
+              }
+            }
+
+            if (feature.key === FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE || feature.key === FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE) {
+              if (!features[FEATURE_KEYS.LECTURES]?.enabled) {
+                isDisabled = true;
+                disabledReason = `Requires '${FEATURE_KEYS.LECTURES}' to be enabled.`;
+              }
+            }
+            
+            if (feature.key === FEATURE_KEYS.CUSTOM_DOMAIN || feature.key === FEATURE_KEYS.SUBDOMAIN || feature.key === FEATURE_KEYS.VIDEO_BACKGROUND) {
+              if (!features[FEATURE_KEYS.LOGIN_BRANDING]?.enabled) {
+                isDisabled = true;
+                disabledReason = `Requires '${FEATURE_KEYS.LOGIN_BRANDING}' to be enabled.`;
+              }
+            }
+
+            return (
+              <div key={feature.key} className="flex items-center justify-between p-3 border-b last:border-b-0">
+                <div className="min-w-0 pr-4">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium truncate">{feature.label}</p>
+                    {isPaid && <Lock className="h-3 w-3 text-amber-500" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{feature.description}</p>
+                  {isDisabled && <p className="text-xs text-red-500">{disabledReason}</p>}
+                </div>
+                <Switch
+                  checked={isEnabled}
+                  onCheckedChange={(checked) => handleToggle(feature.key, checked)}
+                  disabled={isDisabled}
+                />
+              </div>
+            );
+          })}
         </div>
-      );
-    });
-  };
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -126,24 +157,7 @@ export const FeatureSettings: React.FC<FeatureSettingsProps> = () => {
         <CardDescription>Enable or disable features for your institute.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Institute Features</h3>
-          <div className="border rounded-lg">
-            {renderFeatureList('INSTITUTE')}
-          </div>
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Class Features</h3>
-          <div className="border rounded-lg">
-            {renderFeatureList('CLASS')}
-          </div>
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Subject Features</h3>
-          <div className="border rounded-lg">
-            {renderFeatureList('SUBJECT')}
-          </div>
-        </div>
+        {Object.entries(groupedFeatures).map(([groupName, featureList]) => renderFeatureGroup(groupName, featureList))}
         <Button onClick={handleSave} disabled={saving || Object.keys(changes).length === 0}>
           {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
           Save Changes
