@@ -1,64 +1,111 @@
-import { apiClient } from './client';
-import { FeaturePermission } from '../contexts/types/auth.types';
+import { enhancedCachedClient } from './enhancedCachedClient';
 
-export interface InstituteUserType {
-  id: number;
-  instituteId: number;
+export interface UserType {
+  id: string;
+  instituteId: string;
   name: string;
+  slug: string;
   description?: string;
-  baseRole: 'INSTITUTE_ADMIN' | 'TEACHER' | 'STUDENT' | 'ATTENDANCE_MARKER' | 'PARENT';
   color?: string;
   icon?: string;
-  sortOrder: number;
   isSystem: boolean;
   isActive: boolean;
-  memberCount?: number;
-  permissions?: FeaturePermissionRow[];
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface FeaturePermissionRow {
-  featureKey: string;
-  canView: boolean;
-  canCreate: boolean;
-  canUpdate: boolean;
-  canDelete: boolean;
-  canReport: boolean;
-}
-
-export interface MyContextResponse {
-  userType: InstituteUserType;
-  permissions: Record<string, {
-    enabled: boolean;
+export interface PermissionMatrix {
+  [featureKey: string]: {
     canView: boolean;
     canCreate: boolean;
     canUpdate: boolean;
     canDelete: boolean;
     canReport: boolean;
-  }>;
+  };
 }
 
+export interface CreateUserTypePayload {
+  name: string;
+  slug: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  sortOrder?: number;
+}
+
+export interface UpdateUserTypePayload {
+  name?: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+const TTL = 120; // 2 min cache for user types list
+
 export const userTypesApi = {
-  list: (instituteId: string) =>
-    apiClient.get<InstituteUserType[]>(`/institutes/${instituteId}/user-types`),
+  list: (instituteId: string): Promise<UserType[]> =>
+    enhancedCachedClient.get<UserType[]>(
+      `/institutes/${instituteId}/user-types`,
+      {},
+      { ttl: TTL, forceRefresh: false },
+    ),
 
-  create: (instituteId: string, data: Partial<InstituteUserType>) =>
-    apiClient.post<InstituteUserType>(`/institutes/${instituteId}/user-types`, data),
+  get: (instituteId: string, typeId: string): Promise<UserType> =>
+    enhancedCachedClient.get<UserType>(
+      `/institutes/${instituteId}/user-types/${typeId}`,
+      {},
+      { ttl: TTL, forceRefresh: false },
+    ),
 
-  update: (instituteId: string, typeId: number, data: Partial<InstituteUserType>) =>
-    apiClient.patch<InstituteUserType>(`/institutes/${instituteId}/user-types/${typeId}`, data),
+  create: (instituteId: string, payload: CreateUserTypePayload): Promise<UserType> =>
+    enhancedCachedClient.post<UserType>(
+      `/institutes/${instituteId}/user-types`,
+      payload,
+      { instituteId },
+    ),
 
-  delete: (instituteId: string, typeId: number) =>
-    apiClient.delete(`/institutes/${instituteId}/user-types/${typeId}`),
+  update: (instituteId: string, typeId: string, payload: UpdateUserTypePayload): Promise<UserType> =>
+    enhancedCachedClient.patch<UserType>(
+      `/institutes/${instituteId}/user-types/${typeId}`,
+      payload,
+      { instituteId },
+    ),
 
-  getPermissions: (instituteId: string, typeId: number) =>
-    apiClient.get<FeaturePermissionRow[]>(`/institutes/${instituteId}/user-types/${typeId}/permissions`),
+  remove: (instituteId: string, typeId: string): Promise<void> =>
+    enhancedCachedClient.delete(
+      `/institutes/${instituteId}/user-types/${typeId}`,
+      { instituteId },
+    ),
 
-  updatePermissions: (instituteId: string, typeId: number, matrix: FeaturePermissionRow[]) =>
-    apiClient.put(`/institutes/${instituteId}/user-types/${typeId}/permissions`, { permissions: matrix }),
+  getPermissions: (instituteId: string, typeId: string): Promise<{ userTypeId: string; permissions: PermissionMatrix }> =>
+    enhancedCachedClient.get(
+      `/institutes/${instituteId}/user-types/${typeId}/permissions`,
+      {},
+      { ttl: TTL, forceRefresh: false },
+    ),
 
-  getMyContext: (instituteId: string) =>
-    apiClient.get<MyContextResponse>(`/institutes/${instituteId}/my-context`),
+  savePermissions: (
+    instituteId: string,
+    typeId: string,
+    permissions: PermissionMatrix,
+  ): Promise<{ success: boolean }> =>
+    enhancedCachedClient.put(
+      `/institutes/${instituteId}/user-types/${typeId}/permissions`,
+      { permissions },
+      { instituteId },
+    ),
 
-  assignType: (instituteId: string, userId: string, typeId: number) =>
-    apiClient.patch(`/institutes/${instituteId}/users/${userId}/user-type`, { userTypeId: typeId }),
+  assignUserType: (
+    instituteId: string,
+    userId: string,
+    userTypeId: string,
+  ): Promise<{ success: boolean }> =>
+    enhancedCachedClient.patch(
+      `/institutes/${instituteId}/users/${userId}/user-type`,
+      { userTypeId },
+      { instituteId },
+    ),
 };

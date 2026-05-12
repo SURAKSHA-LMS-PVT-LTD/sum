@@ -1,35 +1,30 @@
-import { useAuth } from '../contexts/AuthContext';
-import { resolvePermission, type ResolvedPermission } from '../utils/permissions';
+import { useMyRbacContext } from './useMyRbacContext';
 
-interface PermissionContext {
-  classId?: string;
-  subjectId?: string;
+type Action = 'view' | 'create' | 'update' | 'delete' | 'report';
+
+interface PermissionResult {
+  canView: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canReport: boolean;
+  loading: boolean;
 }
 
-export function usePermission(
-  featureKey: string,
-  _context?: PermissionContext
-): ResolvedPermission {
-  const { selectedInstitute } = useAuth();
-  return resolvePermission(selectedInstitute?.permissions, featureKey);
-}
+export const usePermission = (featureKey: string): PermissionResult => {
+  const { context, loading, can } = useMyRbacContext();
 
-export function usePermissions(featureKeys: string[]): Record<string, ResolvedPermission> {
-  const { selectedInstitute } = useAuth();
-  return Object.fromEntries(
-    featureKeys.map(key => [key, resolvePermission(selectedInstitute?.permissions, key)])
-  );
-}
+  if (loading || !context) {
+    // While loading — show everything (avoids flicker of "no access")
+    return { canView: true, canCreate: true, canUpdate: true, canDelete: true, canReport: true, loading: true };
+  }
 
-export function useIsAdmin(): boolean {
-  const { selectedInstitute } = useAuth();
-  return selectedInstitute?.userType?.baseRole === 'INSTITUTE_ADMIN';
-}
-
-export function useBaseRole(): string {
-  const { selectedInstitute, isViewingAsParent } = useAuth();
-  if (isViewingAsParent) return 'STUDENT';
-  return selectedInstitute?.userType?.baseRole
-    ?? selectedInstitute?.instituteUserType
-    ?? '';
-}
+  return {
+    canView:   can(featureKey, 'view'),
+    canCreate: can(featureKey, 'create'),
+    canUpdate: can(featureKey, 'update'),
+    canDelete: can(featureKey, 'delete'),
+    canReport: can(featureKey, 'report'),
+    loading: false,
+  };
+};
