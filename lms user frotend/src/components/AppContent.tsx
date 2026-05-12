@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { useFeatures } from '@/contexts/FeaturesContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useContextUrlSync, extractPageFromUrl } from '@/utils/pageNavigation';
 import { useRouteContext } from '@/hooks/useRouteContext';
@@ -11,7 +12,7 @@ import { useMobilePermissions } from '@/hooks/useMobilePermissions';
 import { apiClient } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Building2, BookOpen, GraduationCap, User, Palette, Menu, X, ArrowLeft } from 'lucide-react';
+import { Building2, BookOpen, GraduationCap, User, Palette, Menu, X, ArrowLeft, Lock } from 'lucide-react';
 // Layout components - always needed, keep static
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
@@ -135,6 +136,24 @@ const CollectPhysicalPayment = React.lazy(() => import('@/pages/CollectPhysicalP
 interface AppContentProps {
   initialPage?: string;
 }
+
+const FeatureGatedPage: React.FC<{ featureKey: string; component: React.ReactNode }> = ({ featureKey, component }) => {
+  const { isFeatureEnabled } = useFeatures();
+
+  if (isFeatureEnabled(featureKey)) {
+    return <>{component}</>;
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-center p-6">
+      <Lock className="h-16 w-16 text-muted-foreground mb-4" />
+      <h2 className="text-xl font-semibold">Feature Not Enabled</h2>
+      <p className="text-muted-foreground mt-2 max-w-sm">
+        This feature is not enabled for your institute. Please contact your institute administrator to enable this feature.
+      </p>
+    </div>
+  );
+};
 
 const AppContent = ({ initialPage }: AppContentProps) => {
   const { user, login, isInitialized, selectedInstitute, selectedClass, selectedSubject, selectedChild, selectedOrganization, setSelectedOrganization, currentInstituteId, isViewingAsParent, setSelectedInstitute, loadUserInstitutes, validateUserToken } = useAuth();
@@ -815,10 +834,10 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         if (selectedClass) return <StudentClassProfilePage />;
         return <StudentInstituteProfilePage />;
       }
-      if (nestedRouteComponent === 'homework-submissions-view') return <HomeworkSubmissions />;
+      if (nestedRouteComponent === 'homework-submissions-view') return <FeatureGatedPage featureKey="homework" component={<HomeworkSubmissions />} />;
       if (nestedRouteComponent === 'class-my-submissions') return <MySubmissions />;
-      if (nestedRouteComponent === 'exam-results-view') return <ExamResults />;
-      if (nestedRouteComponent === 'house-detail-view' && isNotTuitionInstitute) return <HouseDetail />;
+      if (nestedRouteComponent === 'exam-results-view') return <FeatureGatedPage featureKey="exams" component={<ExamResults />} />;
+      if (nestedRouteComponent === 'house-detail-view' && isNotTuitionInstitute) return <FeatureGatedPage featureKey="houses" component={<HouseDetail />} />;
       
       if (!selectedInstitute && user.institutes.length === 1) {
         // Auto-select the only institute available
@@ -842,25 +861,25 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'enroll-subject':
           return <EnrollSubject />;
         case 'my-attendance':
-          return <MyAttendance />;
+          return <FeatureGatedPage featureKey="my-attendance" component={<MyAttendance />} />;
         case 'students':
-          return <Students />;
+          return <FeatureGatedPage featureKey="students" component={<Students />} />;
         case 'lectures':
-          return <Lectures />;
+          return <FeatureGatedPage featureKey="lectures" component={<Lectures />} />;
         case 'free-lectures':
-          return <FreeLectures />;
+          return <FeatureGatedPage featureKey="free-lectures" component={<FreeLectures />} />;
         case 'homework':
-          return <Homework />;
+          return <FeatureGatedPage featureKey="homework" component={<Homework />} />;
         case 'homework-submissions':
-          return <StudentHomeworkSubmissions />;
+          return <FeatureGatedPage featureKey="homework" component={<StudentHomeworkSubmissions />} />;
         case 'exams':
-          return <Exams />;
+          return <FeatureGatedPage featureKey="exams" component={<Exams />} />;
         case 'study-materials':
-          return <StudyMaterials />;
+          return <FeatureGatedPage featureKey="study-materials" component={<StudyMaterials />} />;
         case 'results':
-          return <Results />;
+          return <FeatureGatedPage featureKey="exams" component={<Results />} />;
         case 'institute-lectures':
-          return <InstituteLectures />;
+          return <FeatureGatedPage featureKey="institute-lectures" component={<InstituteLectures />} />;
         case 'profile':
           return <Profile />;
         case 'select-institute':
@@ -872,28 +891,28 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'institute-settings':
           return <InstituteSettingsPage />;
         case 'organizations':
-          return <Organizations />;
+          return <FeatureGatedPage featureKey="organizations" component={<Organizations />} />;
         case 'institute-payments':
-          return <InstitutePayments />;
+          return <FeatureGatedPage featureKey="institute-payments" component={<InstitutePayments />} />;
         case 'class-payments':
-          return <ClassPayments />;
+          return <FeatureGatedPage featureKey="class-payments" component={<ClassPayments />} />;
         case 'pending-submissions':
-          return <PendingSubmissions />;
+          return <FeatureGatedPage featureKey="pending-submissions" component={<PendingSubmissions />} />;
         // Subject-level payments disabled
         case 'subject-payments':
         case 'subject-pay-submission':
           return <Dashboard />;
         case 'collect-physical-payment':
-          return <CollectPhysicalPayment />;
+          return <FeatureGatedPage featureKey="collect-physical-payment" component={<CollectPhysicalPayment />} />;
         case 'my-children':
           return <MyChildren />;
         case 'all-notifications':
           return <AllNotificationsPage />;
         case 'notifications':
         case 'institute-notifications':
-          return <NotificationsPage />;
+          return <FeatureGatedPage featureKey="institute-notifications" component={<NotificationsPage />} />;
         case 'calendar-view':
-          return <CalendarMonthView />;
+          return <FeatureGatedPage featureKey="calendar-view" component={<CalendarMonthView />} />;
         case 'today-dashboard':
           return <TodayDashboard />;
         case 'settings':
@@ -901,13 +920,13 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'feedback':
           return <Feedback />;
         case 'houses':
-          return isNotTuitionInstitute ? <InstituteHouses /> : <Dashboard />;
+          return isNotTuitionInstitute ? <FeatureGatedPage featureKey="houses" component={<InstituteHouses />} /> : <Dashboard />;
         case 'class-lectures':
-          return <ClassLecturesPage />;
+          return <FeatureGatedPage featureKey="class-lectures" component={<ClassLecturesPage />} />;
         case 'lecture-live-attendance':
-          return <LectureAttendanceLivePage />;
+          return <FeatureGatedPage featureKey="lecture-live-attendance" component={<LectureAttendanceLivePage />} />;
         case 'lecture-recording-attendance':
-          return <LectureRecordingAttendancePage />;
+          return <FeatureGatedPage featureKey="lecture-recording-attendance" component={<LectureRecordingAttendancePage />} />;
         case 'lecture-recording-student':
           return <StudentRecordingActivityPage />;
         default:
@@ -921,7 +940,7 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       if (nestedRouteComponent === 'child-results') return <ChildResults />;
       if (nestedRouteComponent === 'child-attendance') return <ChildAttendancePage />;
       if (nestedRouteComponent === 'child-transport') return <ChildTransportPage />;
-      if (nestedRouteComponent === 'house-detail-view' && isNotTuitionInstitute) return <HouseDetail />;
+      if (nestedRouteComponent === 'house-detail-view' && isNotTuitionInstitute) return <FeatureGatedPage featureKey="houses" component={<HouseDetail />} />;
 
       if (currentPage === 'parents') {
         return <ParentChildrenSelector />;
@@ -941,19 +960,19 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'dashboard':
           return <Dashboard />;
         case 'attendance':
-          return <Attendance />;
+          return <FeatureGatedPage featureKey="daily-attendance" component={<Attendance />} />;
         case 'homework':
-          return <Homework />;
+          return <FeatureGatedPage featureKey="homework" component={<Homework />} />;
         case 'homework-submissions':
-          return <StudentHomeworkSubmissions />;
+          return <FeatureGatedPage featureKey="homework" component={<StudentHomeworkSubmissions />} />;
         case 'results':
-          return <Results />;
+          return <FeatureGatedPage featureKey="exams" component={<Results />} />;
         case 'exams':
-          return <Exams />;
+          return <FeatureGatedPage featureKey="exams" component={<Exams />} />;
         case 'institute-payments':
-          return <InstitutePayments />;
+          return <FeatureGatedPage featureKey="institute-payments" component={<InstitutePayments />} />;
         case 'class-payments':
-          return <ClassPayments />;
+          return <FeatureGatedPage featureKey="class-payments" component={<ClassPayments />} />;
         case 'my-submissions':
           return <MySubmissions />;
         // Subject-level payments disabled
@@ -982,11 +1001,11 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <AllNotificationsPage />;
         case 'notifications':
         case 'institute-notifications':
-          return <NotificationsPage />;
+          return <FeatureGatedPage featureKey="institute-notifications" component={<NotificationsPage />} />;
         case 'parent-attendance':
           return <ParentAttendanceDashboard />;
         case 'calendar-view':
-          return <CalendarMonthView />;
+          return <FeatureGatedPage featureKey="calendar-view" component={<CalendarMonthView />} />;
         case 'today-dashboard':
           return <TodayDashboard />;
         case 'select-institute':
@@ -996,7 +1015,7 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'select-subject':
           return <SubjectSelector />;
         case 'houses':
-          return isNotTuitionInstitute ? <InstituteHouses /> : <Dashboard />;
+          return isNotTuitionInstitute ? <FeatureGatedPage featureKey="houses" component={<InstituteHouses />} /> : <Dashboard />;
         default:
           return <ParentChildrenSelector />;
       }
@@ -1034,28 +1053,28 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         if (selectedClass) return <StudentClassProfilePage />;
         return <StudentInstituteProfilePage />;
       }
-      if (nestedRouteComponent === 'homework-submissions-view') return <HomeworkSubmissions />;
+      if (nestedRouteComponent === 'homework-submissions-view') return <FeatureGatedPage featureKey="homework" component={<HomeworkSubmissions />} />;
       if (nestedRouteComponent === 'class-my-submissions') return <MySubmissions />;
-      if (nestedRouteComponent === 'exam-results-view') return <ExamResults />;
-      if (nestedRouteComponent === 'exam-create-results') return <CreateExamResults />;
-      if (nestedRouteComponent === 'house-detail-view' && isNotTuitionInstitute) return <HouseDetail />;
+      if (nestedRouteComponent === 'exam-results-view') return <FeatureGatedPage featureKey="exams" component={<ExamResults />} />;
+      if (nestedRouteComponent === 'exam-create-results') return <FeatureGatedPage featureKey="exams" component={<CreateExamResults />} />;
+      if (nestedRouteComponent === 'house-detail-view' && isNotTuitionInstitute) return <FeatureGatedPage featureKey="houses" component={<HouseDetail />} />;
 
       switch (currentPage) {
         case 'dashboard':
           return <Dashboard />;
         case 'students':
-          return <Students />;
+          return <FeatureGatedPage featureKey="students" component={<Students />} />;
         case 'unverified-students':
-          return <UnverifiedStudents />;
+          return <FeatureGatedPage featureKey="unverified-students" component={<UnverifiedStudents />} />;
         case 'parents':
-          return <Parents />;
+          return <FeatureGatedPage featureKey="parents" component={<Parents />} />;
         case 'classes':
-          return <Classes />;
+          return <FeatureGatedPage featureKey="classes" component={<Classes />} />;
         case 'subjects':
         case 'institute-subjects':
-          return <InstituteSubjects />;
+          return <FeatureGatedPage featureKey="institute-subjects" component={<InstituteSubjects />} />;
         case 'class-subjects':
-          return <ClassSubjects />;
+          return <FeatureGatedPage featureKey="class-subjects" component={<ClassSubjects />} />;
         case 'select-institute':
           return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
         case 'grading':
@@ -1063,17 +1082,17 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'create-grade':
         case 'assign-grade-classes':
         case 'view-grade-classes':
-          return <Grading />;
+          return <FeatureGatedPage featureKey="grading" component={<Grading />} />;
         case 'attendance':
         case 'daily-attendance':
-          return <Attendance />;
+          return <FeatureGatedPage featureKey="daily-attendance" component={<Attendance />} />;
         case 'my-attendance':
-          return <MyAttendance />;
+          return <FeatureGatedPage featureKey="my-attendance" component={<MyAttendance />} />;
         case 'rfid-attendance':
         case 'rfid':
-          return <RfidAttendance />;
+          return <FeatureGatedPage featureKey="rfid-attendance" component={<RfidAttendance />} />;
         case 'select-attendance-mark-type':
-          return <SelectAttendanceMarkType />;
+          return <FeatureGatedPage featureKey="select-attendance-mark-type" component={<SelectAttendanceMarkType />} />;
         case 'manual-class-attendance':
           return <ManualClassAttendance />;
         case 'class-attendance-sessions':
@@ -1085,33 +1104,33 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'institute-mark-attendance':
           return <InstituteMarkAttendance />;
         case 'lectures':
-          return <Lectures />
+          return <FeatureGatedPage featureKey="lectures" component={<Lectures />} />;
         case 'class-lectures':
-          return <ClassLecturesPage />;
+          return <FeatureGatedPage featureKey="class-lectures" component={<ClassLecturesPage />} />;
         case 'lecture-live-attendance':
-          return <LectureAttendanceLivePage />;
+          return <FeatureGatedPage featureKey="lecture-live-attendance" component={<LectureAttendanceLivePage />} />;
         case 'lecture-recording-attendance':
-          return <LectureRecordingAttendancePage />;
+          return <FeatureGatedPage featureKey="lecture-recording-attendance" component={<LectureRecordingAttendancePage />} />;
         case 'lecture-recording-student':
           return <StudentRecordingActivityPage />;
         case 'institute-lectures':
-          return <InstituteLectures />;
+          return <FeatureGatedPage featureKey="institute-lectures" component={<InstituteLectures />} />;
         case 'free-lectures':
-          return <FreeLectures />;
+          return <FeatureGatedPage featureKey="free-lectures" component={<FreeLectures />} />;
         case 'structured-lectures':
-          return <StructuredLectures />;
+          return <FeatureGatedPage featureKey="structured-lectures" component={<StructuredLectures />} />;
         case 'live-lectures':
           return <LiveLectures />;
         case 'homework':
-          return <Homework />;
+          return <FeatureGatedPage featureKey="homework" component={<Homework />} />;
         case 'homework-submissions':
-          return <StudentHomeworkSubmissions />;
+          return <FeatureGatedPage featureKey="homework" component={<StudentHomeworkSubmissions />} />;
         case 'study-materials':
-          return <StudyMaterials />;
+          return <FeatureGatedPage featureKey="study-materials" component={<StudyMaterials />} />;
         case 'exams':
-          return userRole === 'Teacher' ? <TeacherExams /> : <Exams />;
+          return <FeatureGatedPage featureKey="exams" component={<Exams />} />;
         case 'results':
-          return <Results />;
+          return <FeatureGatedPage featureKey="exams" component={<Results />} />;
         case 'profile':
           return <Profile />;
         case 'appearance':
@@ -1121,38 +1140,38 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'institute-settings':
           return <InstituteSettingsPage />;
         case 'institute-billing':
-          return <InstituteBillingPage />;
+          return <FeatureGatedPage featureKey="institute-billing" component={<InstituteBillingPage />} />;
         case 'institute-credits':
-          return <InstituteCreditsPage />;
+          return <FeatureGatedPage featureKey="institute-credits" component={<InstituteCreditsPage />} />;
         case 'institute-payments':
-          return <InstitutePayments />;
+          return <FeatureGatedPage featureKey="institute-payments" component={<InstitutePayments />} />;
         case 'class-payments':
-          return <ClassPayments />;
+          return <FeatureGatedPage featureKey="class-payments" component={<ClassPayments />} />;
         case 'pending-submissions':
-          return <PendingSubmissions />;
+          return <FeatureGatedPage featureKey="pending-submissions" component={<PendingSubmissions />} />;
         // Subject-level payments disabled
         case 'subject-payments':
         case 'subject-pay-submission':
           return <Dashboard />;
         case 'collect-physical-payment':
-          return <CollectPhysicalPayment />;
+          return <FeatureGatedPage featureKey="collect-physical-payment" component={<CollectPhysicalPayment />} />;
         case 'enrollment-management':
           return <TeacherEnrollmentManagement />;
         case 'calendar-view':
-          return <CalendarMonthView />;
+          return <FeatureGatedPage featureKey="calendar-view" component={<CalendarMonthView />} />;
         case 'today-dashboard':
           return <TodayDashboard />;
         case 'all-notifications':
           return <AllNotificationsPage />;
         case 'notifications':
         case 'institute-notifications':
-          return <NotificationsPage />;
+          return <FeatureGatedPage featureKey="institute-notifications" component={<NotificationsPage />} />;
         case 'settings':
           return <Settings />;
         case 'feedback':
           return <Feedback />;
         case 'houses':
-          return isNotTuitionInstitute ? <InstituteHouses /> : <Dashboard />;
+          return isNotTuitionInstitute ? <FeatureGatedPage featureKey="houses" component={<InstituteHouses />} /> : <Dashboard />;
         default:
           return <Dashboard />;
       }
@@ -1178,19 +1197,19 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <Dashboard />;
         case 'attendance':
         case 'daily-attendance':
-          return <Attendance />;
+          return <FeatureGatedPage featureKey="daily-attendance" component={<Attendance />} />;
         case 'my-attendance':
-          return <MyAttendance />;
+          return <FeatureGatedPage featureKey="my-attendance" component={<MyAttendance />} />;
         case 'today-dashboard':
           return <TodayDashboard />;
         case 'calendar-view':
-          return <CalendarMonthView />;
+          return <FeatureGatedPage featureKey="calendar-view" component={<CalendarMonthView />} />;
         case 'attendance-markers':
           return <AttendanceMarkers />;
         case 'qr-attendance':
-          return <QRAttendance />;
+          return <FeatureGatedPage featureKey="qr-attendance" component={<QRAttendance />} />;
         case 'select-attendance-mark-type':
-          return <SelectAttendanceMarkType />;
+          return <FeatureGatedPage featureKey="select-attendance-mark-type" component={<SelectAttendanceMarkType />} />;
         case 'manual-class-attendance':
           return <ManualClassAttendance />;
         case 'class-attendance-sessions':
@@ -1201,7 +1220,7 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <CloseAttendancePage />;
         case 'rfid-attendance':
         case 'rfid':
-          return <RfidAttendance />;
+          return <FeatureGatedPage featureKey="rfid-attendance" component={<RfidAttendance />} />;
         case 'institute-mark-attendance':
           return <InstituteMarkAttendance />;
         case 'profile':
@@ -1217,7 +1236,7 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'institute-settings':
           return <InstituteSettingsPage />;
         case 'collect-physical-payment':
-          return <CollectPhysicalPayment />;
+          return <FeatureGatedPage featureKey="collect-physical-payment" component={<CollectPhysicalPayment />} />;
         case 'settings':
           return <Settings />;
         case 'feedback':
@@ -1226,7 +1245,7 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <AllNotificationsPage />;
         case 'notifications':
         case 'institute-notifications':
-          return <NotificationsPage />;
+          return <FeatureGatedPage featureKey="institute-notifications" component={<NotificationsPage />} />;
         default:
           return <Dashboard />;
       }
@@ -1299,29 +1318,29 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       if (selectedClass) return <StudentClassProfilePage />;
       return <StudentInstituteProfilePage />;
     }
-    if (nestedRouteComponent === 'homework-submissions-view') return <HomeworkSubmissions />;
+    if (nestedRouteComponent === 'homework-submissions-view') return <FeatureGatedPage featureKey="homework" component={<HomeworkSubmissions />} />;
     if (nestedRouteComponent === 'class-my-submissions') return <MySubmissions />;
-    if (nestedRouteComponent === 'exam-results-view') return <ExamResults />;
-    if (nestedRouteComponent === 'exam-create-results') return <CreateExamResults />;
-    if (nestedRouteComponent === 'house-detail-view' && isNotTuitionInstitute) return <HouseDetail />;
+    if (nestedRouteComponent === 'exam-results-view') return <FeatureGatedPage featureKey="exams" component={<ExamResults />} />;
+    if (nestedRouteComponent === 'exam-create-results') return <FeatureGatedPage featureKey="exams" component={<CreateExamResults />} />;
+    if (nestedRouteComponent === 'house-detail-view' && isNotTuitionInstitute) return <FeatureGatedPage featureKey="houses" component={<HouseDetail />} />;
 
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />;
       case 'institute-users':
-        return <InstituteUsers />;
+        return <FeatureGatedPage featureKey="institute-users" component={<InstituteUsers />} />;
       case 'verify-image':
-        return <VerifyImage />;
+        return <FeatureGatedPage featureKey="verify-image" component={<VerifyImage />} />;
       case 'users':
         // Show InstituteUsers for InstituteAdmin
         if (userRole === 'InstituteAdmin') {
-          return <InstituteUsers />;
+          return <FeatureGatedPage featureKey="institute-users" component={<InstituteUsers />} />;
         }
         return <Users />;
       case 'students':
-         return <Students />;
+         return <FeatureGatedPage featureKey="students" component={<Students />} />;
       case 'unverified-students':
-        return <UnverifiedStudents />;
+        return <FeatureGatedPage featureKey="unverified-students" component={<UnverifiedStudents />} />;
       case 'enroll-class':
         return <EnrollClass />;
       case 'enroll-subject':
@@ -1329,20 +1348,20 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       case 'teachers':
         return <Teachers />;
       case 'parents':
-        return <Parents />;
+        return <FeatureGatedPage featureKey="parents" component={<Parents />} />;
       case 'grades':
-        return <Grades />;
+        return <FeatureGatedPage featureKey="grading" component={<Grades />} />;
       case 'classes':
-        return <Classes />;
+        return <FeatureGatedPage featureKey="classes" component={<Classes />} />;
       case 'subjects':
       case 'institute-subjects':
-        return <InstituteSubjects />;
+        return <FeatureGatedPage featureKey="institute-subjects" component={<InstituteSubjects />} />;
       case 'class-subjects':
-        return <ClassSubjects />;
+        return <FeatureGatedPage featureKey="class-subjects" component={<ClassSubjects />} />;
       case 'institutes':
         return <Institutes />;
       case 'institute-organizations':
-        return <InstituteOrganizations />;
+        return <FeatureGatedPage featureKey="institute-organizations" component={<InstituteOrganizations />} />;
       case 'select-institute':
         return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
       case 'grading':
@@ -1350,18 +1369,18 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       case 'create-grade':
       case 'assign-grade-classes':
       case 'view-grade-classes':
-        return <Grading />;
+        return <FeatureGatedPage featureKey="grading" component={<Grading />} />;
       case 'attendance':
       case 'daily-attendance':
-        return <Attendance />;
+        return <FeatureGatedPage featureKey="daily-attendance" component={<Attendance />} />;
       case 'my-attendance':
-        return <MyAttendance />;
+        return <FeatureGatedPage featureKey="my-attendance" component={<MyAttendance />} />;
       case 'attendance-markers':
         return <AttendanceMarkers />;
       case 'qr-attendance':
-        return <QRAttendance />;
+        return <FeatureGatedPage featureKey="qr-attendance" component={<QRAttendance />} />;
       case 'select-attendance-mark-type':
-        return <SelectAttendanceMarkType />;
+        return <FeatureGatedPage featureKey="select-attendance-mark-type" component={<SelectAttendanceMarkType />} />;
       case 'manual-class-attendance':
         return <ManualClassAttendance />;
       case 'class-attendance-sessions':
@@ -1372,31 +1391,31 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         return <CloseAttendancePage />;
       case 'rfid-attendance':
       case 'rfid':
-        return <RfidAttendance />;
+        return <FeatureGatedPage featureKey="rfid-attendance" component={<RfidAttendance />} />;
       case 'institute-mark-attendance':
         return <InstituteMarkAttendance />;
       case 'lectures':
-        return <Lectures />;
+        return <FeatureGatedPage featureKey="lectures" component={<Lectures />} />;
       case 'class-lectures':
-        return <ClassLecturesPage />;
+        return <FeatureGatedPage featureKey="class-lectures" component={<ClassLecturesPage />} />;
       case 'free-lectures':
-        return <FreeLectures />;
+        return <FeatureGatedPage featureKey="free-lectures" component={<FreeLectures />} />;
       case 'structured-lectures':
-        return <StructuredLectures />;
+        return <FeatureGatedPage featureKey="structured-lectures" component={<StructuredLectures />} />;
       case 'institute-lectures':
-        return <InstituteLectures />;
+        return <FeatureGatedPage featureKey="institute-lectures" component={<InstituteLectures />} />;
       case 'live-lectures':
         return <LiveLectures />;
       case 'homework':
-        return <Homework />;
+        return <FeatureGatedPage featureKey="homework" component={<Homework />} />;
       case 'homework-submissions':
-        return <StudentHomeworkSubmissions />;
+        return <FeatureGatedPage featureKey="homework" component={<StudentHomeworkSubmissions />} />;
       case 'study-materials':
-        return <StudyMaterials />;
+        return <FeatureGatedPage featureKey="study-materials" component={<StudyMaterials />} />;
       case 'exams':
-        return <Exams />;
+        return <FeatureGatedPage featureKey="exams" component={<Exams />} />;
       case 'results':
-        return <Results />;
+        return <FeatureGatedPage featureKey="exams" component={<Results />} />;
       case 'teacher-students':
         return <TeacherStudents />;
       case 'teacher-homework':
@@ -1422,46 +1441,46 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       case 'institute-settings':
         return <InstituteSettingsPage />;
       case 'sms':
-        return <SMS />;
+        return <FeatureGatedPage featureKey="sms" component={<SMS />} />;
       case 'sms-history':
-        return <SMSHistory />;
+        return <FeatureGatedPage featureKey="sms-history" component={<SMSHistory />} />;
       case 'all-notifications':
         return <AllNotificationsPage />;
       case 'notifications':
       case 'institute-notifications':
-        return <NotificationsPage />;
+        return <FeatureGatedPage featureKey="institute-notifications" component={<NotificationsPage />} />;
       case 'institute-payments':
-        return <InstitutePayments />;
+        return <FeatureGatedPage featureKey="institute-payments" component={<InstitutePayments />} />;
       case 'class-payments':
-        return <ClassPayments />;
+        return <FeatureGatedPage featureKey="class-payments" component={<ClassPayments />} />;
       case 'institute-billing':
-        return <InstituteBillingPage />;
+        return <FeatureGatedPage featureKey="institute-billing" component={<InstituteBillingPage />} />;
       case 'institute-credits':
-        return <InstituteCreditsPage />;
+        return <FeatureGatedPage featureKey="institute-credits" component={<InstituteCreditsPage />} />;
       case 'pending-submissions':
-        return <PendingSubmissions />;
+        return <FeatureGatedPage featureKey="pending-submissions" component={<PendingSubmissions />} />;
       // Subject-level payments disabled
       case 'subject-payments':
       case 'subject-pay-submission':
         return <Dashboard />;
       case 'collect-physical-payment':
-        return <CollectPhysicalPayment />;
+        return <FeatureGatedPage featureKey="collect-physical-payment" component={<CollectPhysicalPayment />} />;
       case 'enrollment-management':
         return <TeacherEnrollmentManagement />;
       case 'calendar-management':
-        return <CalendarManagementPage />;
+        return <FeatureGatedPage featureKey="calendar-management" component={<CalendarManagementPage />} />;
       case 'calendar-view':
-        return <CalendarMonthView />;
+        return <FeatureGatedPage featureKey="calendar-view" component={<CalendarMonthView />} />;
       case 'today-dashboard':
         return <TodayDashboard />;
       case 'admin-attendance':
-        return <AdminAttendancePage />;
+        return <FeatureGatedPage featureKey="admin-attendance" component={<AdminAttendancePage />} />;
       case 'lecture-attendance-report':
         return <LectureAttendanceReportPage />;
       case 'lecture-live-attendance':
-        return <LectureAttendanceLivePage />;
+        return <FeatureGatedPage featureKey="lecture-live-attendance" component={<LectureAttendanceLivePage />} />;
       case 'lecture-recording-attendance':
-        return <LectureRecordingAttendancePage />;
+        return <FeatureGatedPage featureKey="lecture-recording-attendance" component={<LectureRecordingAttendancePage />} />;
       case 'lecture-recording-student':
         return <StudentRecordingActivityPage />;
       case 'parent-attendance':
@@ -1469,9 +1488,9 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       case 'class-calendar':
         return <ClassCalendarPage />;
       case 'device-management':
-        return <DeviceManagement />;
+        return <FeatureGatedPage featureKey="device-management" component={<DeviceManagement />} />;
       case 'houses':
-        return isNotTuitionInstitute ? <InstituteHouses /> : <Dashboard />;
+        return isNotTuitionInstitute ? <FeatureGatedPage featureKey="houses" component={<InstituteHouses />} /> : <Dashboard />;
       case 'my-children':
         return <MyChildren />;
       case 'child/:childId/dashboard':

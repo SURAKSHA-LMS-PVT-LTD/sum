@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { useFeatures } from '@/contexts/FeaturesContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { extractPageFromUrl, buildSidebarUrl, getSidebarHighlightPage } from '@/utils/pageNavigation';
@@ -157,6 +158,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     isViewingAsParent
   } = useAuth();
   const { isTenantLogin } = useTenant();
+  const { isFeatureEnabled } = useFeatures();
 
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -292,10 +294,12 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   };
 
   const filterFn = React.useCallback((items: NavItem[]) => {
-    return items.filter(item =>
-      item.alwaysShow || AccessControl.hasPermission(userRole as any, (item.permission || 'view-dashboard') as any)
-    );
-  }, [userRole]);
+    return items.filter(item => {
+      const hasPermission = AccessControl.hasPermission(userRole as any, (item.permission || 'view-dashboard') as any);
+      const featureEnabled = isFeatureEnabled(item.id);
+      return (item.alwaysShow || (hasPermission && featureEnabled));
+    });
+  }, [userRole, isFeatureEnabled]);
 
   // ── Build nav groups based on role + selection state ──────────
   const navGroups = React.useMemo((): NavGroup[] => {
@@ -349,23 +353,23 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       if (selectedInstitute && !selectedClass) {
         groups.push({ id: 'institute', label: 'Institute', icon: Building2, alwaysFlat: true, items: [
           { id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true },
-          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, alwaysShow: true },
-          { id: 'institute-lectures', label: 'Institute Lectures', icon: Video, alwaysShow: true },
-          { id: 'calendar-view', label: 'Calendar', icon: Calendar, alwaysShow: true },
-          ...(!isTuitionInstitute ? [{ id: 'houses', label: 'Houses', icon: Flag, alwaysShow: true }] : []),
+          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck },
+          { id: 'institute-lectures', label: 'Institute Lectures', icon: Video },
+          { id: 'calendar-view', label: 'Calendar', icon: Calendar },
+          ...(!isTuitionInstitute ? [{ id: 'houses', label: 'Houses', icon: Flag }] : []),
         ]});
       }
 
       if (selectedInstitute && selectedClass && !selectedSubject) {
         groups.push({ id: 'class', label: 'Class', icon: School, alwaysFlat: true, items: [
           { id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true },
-          { id: 'class-lectures', label: 'Class Lectures', icon: Video, alwaysShow: true },
-          { id: 'lecture-recording-student', label: 'Recording Activity', icon: BarChart3, alwaysShow: true },
-          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, alwaysShow: true },
-          { id: 'calendar-view', label: 'Calendar', icon: Calendar, alwaysShow: true },
+          { id: 'class-lectures', label: 'Class Lectures', icon: Video },
+          { id: 'lecture-recording-student', label: 'Recording Activity', icon: BarChart3 },
+          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck },
+          { id: 'calendar-view', label: 'Calendar', icon: Calendar },
         ]});
         groups.push({ id: 'payments-class', label: 'Fees & Payments', icon: CreditCard, items: [
-          { id: 'class-payments', label: 'Class Fees', icon: Banknote, alwaysShow: true },
+          { id: 'class-payments', label: 'Class Fees', icon: Banknote },
           { id: 'my-submissions', label: 'My Submissions', icon: FileText, alwaysShow: true },
         ]});
       }
@@ -378,46 +382,46 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         const academicItems: NavItem[] = [];
         if (hasFullAccess) {
           academicItems.push(
-            { id: 'lectures', label: 'Lectures', icon: Video, alwaysShow: true },
+            { id: 'lectures', label: 'Lectures', icon: Video },
           );
         }
         academicItems.push(
-          { id: 'free-lectures', label: 'Free Lectures', icon: Video, alwaysShow: true },
+          { id: 'free-lectures', label: 'Free Lectures', icon: Video },
         );
         if (hasFullAccess) {
           academicItems.push(
-            { id: 'homework', label: 'Homework', icon: Notebook, alwaysShow: true },
-            { id: 'exams', label: 'Exams', icon: Award, alwaysShow: true },
-            { id: 'study-materials', label: 'Study Materials', icon: FileText, alwaysShow: true },
+            { id: 'homework', label: 'Homework', icon: Notebook },
+            { id: 'exams', label: 'Exams', icon: Award },
+            { id: 'study-materials', label: 'Study Materials', icon: FileText },
           );
         }
         
         groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, defaultOpen: true, items: academicItems });
         groups.push({ id: 'attendance', label: 'Attendance', icon: UserCheck, defaultOpen: true, items: [
-          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, alwaysShow: true },
-          { id: 'calendar-view', label: 'Calendar', icon: Calendar, alwaysShow: true },
+          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck },
+          { id: 'calendar-view', label: 'Calendar', icon: Calendar },
         ]});
         // Subject-level payments disabled — class payments handled via enrollment
         groups.push({ id: 'payments', label: 'Fees & Payments', icon: CreditCard, items: [
-          { id: 'class-payments', label: 'Class Fees', icon: Banknote, alwaysShow: true },
+          { id: 'class-payments', label: 'Class Fees', icon: Banknote },
           { id: 'my-submissions', label: 'My Submissions', icon: FileText, alwaysShow: true },
         ]});
       }
 
       if (selectedInstitute && !selectedClass) {
         groups.push({ id: 'payments-inst', label: 'Fees & Payments', icon: CreditCard, items: [
-          { id: 'institute-payments', label: 'Institute Fees', icon: CreditCard, alwaysShow: true },
+          { id: 'institute-payments', label: 'Institute Fees', icon: CreditCard },
           { id: 'my-submissions', label: 'My Submissions', icon: FileText, alwaysShow: true },
         ]});
       }
 
       if (!selectedInstitute) {
         groups.push({ id: 'services', label: 'Services', icon: LayoutGrid, items: [
-          { id: 'id-cards', label: 'ID Cards', icon: IdCard, alwaysShow: true },
+          { id: 'id-cards', label: 'ID Cards', icon: IdCard },
           ...(!isTenantLogin ? [
-            { id: 'system-payment', label: 'System Payment', icon: CreditCard, alwaysShow: true },
-            { id: 'organizations', label: 'Organizations', icon: Building2, alwaysShow: true, locked: true },
-            { id: 'transport', label: 'Transport', icon: Truck, alwaysShow: true, locked: true },
+            { id: 'system-payment', label: 'System Payment', icon: CreditCard },
+            { id: 'organizations', label: 'Organizations', icon: Building2, locked: true },
+            { id: 'transport', label: 'Transport', icon: Truck, locked: true },
           ] : []),
         ]});
       }
@@ -425,7 +429,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       // Consolidated Communication
       groups.push({ id: 'communication', label: 'Communication', icon: MessageSquare,
         defaultOpen: activePage === 'institute-notifications',
-        items: [{ id: 'institute-notifications', label: 'Notifications', icon: Bell, alwaysShow: true, badge: unreadNotifCount }]
+        items: [{ id: 'institute-notifications', label: 'Notifications', icon: Bell, badge: unreadNotifCount }]
       });
 
       groups.push({ id: 'account', label: 'Account', icon: User, items: [
@@ -451,7 +455,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       if (!isTenantLogin) {
         groups.push({ id: 'communication-global', label: 'Communication', icon: MessageSquare,
           defaultOpen: activePage === 'institute-notifications',
-          items: [{ id: 'institute-notifications', label: 'All Notifications', icon: Bell, alwaysShow: true, badge: unreadNotifCount }]
+          items: [{ id: 'institute-notifications', label: 'All Notifications', icon: Bell, badge: unreadNotifCount }]
         });
       }
 
@@ -459,56 +463,56 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         groups.push({ id: 'class-nav', label: 'Class Navigation', icon: School, alwaysFlat: true, items: [
           ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
           ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
-          ...(selectedInstitute && !selectedClass ? [{ id: 'institute-subjects', label: `Institute ${subjectLabel}s`, icon: BookOpen, alwaysShow: true }] : []),
-          ...(!selectedClass ? [{ id: 'institute-lectures', label: 'Institute Lectures', icon: Video, alwaysShow: true }] : []),
-          ...(selectedClass ? [{ id: 'class-lectures', label: 'Class Lectures', icon: Video, alwaysShow: true }] : []),
-          ...(!selectedClass && !isTuitionInstitute ? [{ id: 'houses', label: 'Houses', icon: Flag, alwaysShow: true }] : []),
+          ...(selectedInstitute && !selectedClass ? [{ id: 'institute-subjects', label: `Institute ${subjectLabel}s`, icon: BookOpen }] : []),
+          ...(!selectedClass ? [{ id: 'institute-lectures', label: 'Institute Lectures', icon: Video }] : []),
+          ...(selectedClass ? [{ id: 'class-lectures', label: 'Class Lectures', icon: Video }] : []),
+          ...(!selectedClass && !isTuitionInstitute ? [{ id: 'houses', label: 'Houses', icon: Flag }] : []),
         ].filter(i => i !== undefined) as NavItem[]});
 
         if (selectedClass) {
           groups.push({ id: 'manage-users', label: 'Manage Users', icon: Users, defaultOpen: hasActiveInGroup(['students','unverified-students'], activePage), items: [
-            { id: 'students', label: 'Students', icon: GraduationCap, alwaysShow: true },
-            { id: 'unverified-students', label: 'Pending Students', icon: UserCheck, alwaysShow: true },
+            { id: 'students', label: 'Students', icon: GraduationCap },
+            { id: 'unverified-students', label: 'Pending Students', icon: UserCheck },
           ]});
         }
 
         if (selectedClass && selectedSubject) {
           groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, defaultOpen: true, items: [
-            { id: 'lectures', label: 'Lectures', icon: Video, alwaysShow: true },
-            { id: 'free-lectures', label: 'Free Lectures', icon: Video, alwaysShow: true },
-            { id: 'homework', label: 'Homework', icon: Notebook, alwaysShow: true },
-            { id: 'exams', label: 'Exams', icon: Award, alwaysShow: true },
-            { id: 'study-materials', label: 'Study Materials', icon: FileText, alwaysShow: true },
+            { id: 'lectures', label: 'Lectures', icon: Video },
+            { id: 'free-lectures', label: 'Free Lectures', icon: Video },
+            { id: 'homework', label: 'Homework', icon: Notebook },
+            { id: 'exams', label: 'Exams', icon: Award },
+            { id: 'study-materials', label: 'Study Materials', icon: FileText },
           ]});
         }
 
         const teacherAttendanceLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         const teacherItemLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         groups.push({ id: 'attendance', label: teacherAttendanceLabel, icon: UserCheck, defaultOpen: hasActiveInGroup(['daily-attendance','my-attendance','select-attendance-mark-type','qr-attendance','rfid-attendance','institute-mark-attendance','close-attendance','lecture-live-attendance','lecture-recording-attendance'], activePage), items: [
-          { id: 'select-attendance-mark-type', label: 'Mark Attendance', icon: QrCode, alwaysShow: true },
-          ...(selectedClass ? [{ id: 'daily-attendance', label: teacherItemLabel, icon: ClipboardList, alwaysShow: true }] : []),
-          ...(selectedClass ? [{ id: 'lecture-live-attendance', label: 'Live Attendance', icon: BarChart3, alwaysShow: true }] : []),
-          ...(selectedClass ? [{ id: 'lecture-recording-attendance', label: 'Recording Attendance', icon: BarChart3, alwaysShow: true }] : []),
-          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, alwaysShow: true },
+          { id: 'select-attendance-mark-type', label: 'Mark Attendance', icon: QrCode },
+          ...(selectedClass ? [{ id: 'daily-attendance', label: teacherItemLabel, icon: ClipboardList }] : []),
+          ...(selectedClass ? [{ id: 'lecture-live-attendance', label: 'Live Attendance', icon: BarChart3 }] : []),
+          ...(selectedClass ? [{ id: 'lecture-recording-attendance', label: 'Recording Attendance', icon: BarChart3 }] : []),
+          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck },
         ]});
 
         if (!selectedClass) {
           groups.push({ id: 'calendar', label: 'Calendar', icon: Calendar,
             defaultOpen: hasActiveInGroup(['calendar-view'], activePage),
             items: [
-              { id: 'calendar-view', label: 'View Calendar', icon: Calendar, alwaysShow: true },
+              { id: 'calendar-view', label: 'View Calendar', icon: Calendar },
             ]});
         }
 
         // Subject-level payments disabled — class payments handled via enrollment
         const teacherPaymentItems: NavItem[] = [];
         if (!selectedClass) {
-          teacherPaymentItems.push({ id: 'institute-payments', label: 'Institute Fees', icon: CreditCard, alwaysShow: true });
+          teacherPaymentItems.push({ id: 'institute-payments', label: 'Institute Fees', icon: CreditCard });
         }
         if (selectedClass) {
-          teacherPaymentItems.push({ id: 'class-payments', label: 'Class Fees', icon: Banknote, alwaysShow: true });
+          teacherPaymentItems.push({ id: 'class-payments', label: 'Class Fees', icon: Banknote });
         }
-        teacherPaymentItems.push({ id: 'collect-physical-payment', label: 'Collect Payment', icon: Banknote, alwaysShow: true });
+        teacherPaymentItems.push({ id: 'collect-physical-payment', label: 'Collect Payment', icon: Banknote });
         groups.push({ id: 'payments', label: 'Fees & Payments', icon: CreditCard,
           defaultOpen: hasActiveInGroup(['institute-payments','class-payments','collect-physical-payment'], activePage),
           items: teacherPaymentItems });
@@ -516,9 +520,9 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
       if (!selectedInstitute) {
         groups.push({ id: 'services', label: 'Services', icon: LayoutGrid, items: [
-          { id: 'id-cards', label: 'ID Cards', icon: IdCard, alwaysShow: true },
+          { id: 'id-cards', label: 'ID Cards', icon: IdCard },
           ...(!isTenantLogin ? [
-            { id: 'system-payment', label: 'System Payment', icon: CreditCard, alwaysShow: true },
+            { id: 'system-payment', label: 'System Payment', icon: CreditCard },
           ] : []),
         ]});
       }
@@ -554,18 +558,18 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         if (!selectedClass && !isTuitionInstitute) {
           groups.push({ id: 'houses-group', label: 'Community', icon: Flag,
             defaultOpen: activePage === 'houses',
-            items: [{ id: 'houses', label: 'Houses', icon: Flag, alwaysShow: true }] });
+            items: [{ id: 'houses', label: 'Houses', icon: Flag }] });
         }
 
         // Manage Users — consolidated group (the key improvement)
         const manageUserItems: NavItem[] = [
-          ...(!selectedClass ? [{ id: 'institute-users', label: 'All Users', icon: Users, alwaysShow: true }] : []),
-          ...(!selectedSubject ? [{ id: 'parents', label: 'Parents', icon: Users, alwaysShow: true }] : []),
+          ...(!selectedClass ? [{ id: 'institute-users', label: 'All Users', icon: Users }] : []),
+          ...(!selectedSubject ? [{ id: 'parents', label: 'Parents', icon: Users }] : []),
           ...(selectedClass ? [
-            { id: 'students', label: 'Students', icon: GraduationCap, alwaysShow: true },
-            { id: 'unverified-students', label: 'Pending Students', icon: UserCheck, alwaysShow: true },
+            { id: 'students', label: 'Students', icon: GraduationCap },
+            { id: 'unverified-students', label: 'Pending Students', icon: UserCheck },
           ] : []),
-          ...(!selectedClass ? [{ id: 'verify-image', label: 'Verify Photos', icon: ShieldCheck, alwaysShow: true }] : []),
+          ...(!selectedClass ? [{ id: 'verify-image', label: 'Verify Photos', icon: ShieldCheck }] : []),
         ];
         groups.push({ id: 'manage-users', label: 'Manage Users', icon: UserCog,
           defaultOpen: hasActiveInGroup(['institute-users','parents','students','unverified-students','verify-image'], activePage),
@@ -575,19 +579,19 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         const academicItems: NavItem[] = [
           { id: 'classes', label: 'All Classes', icon: School, alwaysShow: !selectedClass },
           { id: 'institute-subjects', label: `Institute ${subjectLabel}s`, icon: BookOpen, alwaysShow: !selectedClass },
-          ...(!selectedClass ? [{ id: 'institute-lectures', label: 'Institute Lectures', icon: Video, alwaysShow: true }] : []),
+          ...(!selectedClass ? [{ id: 'institute-lectures', label: 'Institute Lectures', icon: Video }] : []),
           ...(selectedClass && !selectedSubject ? [
-            { id: 'class-lectures', label: 'Class Lectures', icon: Video, alwaysShow: true },
-            { id: 'class-subjects', label: `Class ${subjectLabel}s`, icon: BookOpen, alwaysShow: true },
+            { id: 'class-lectures', label: 'Class Lectures', icon: Video },
+            { id: 'class-subjects', label: `Class ${subjectLabel}s`, icon: BookOpen },
           ] : []),
           ...(selectedClass && selectedSubject ? [
-            { id: 'lectures', label: 'Lectures', icon: Video, alwaysShow: true },
-            { id: 'free-lectures', label: 'Free Lectures', icon: Video, alwaysShow: true },
-            { id: 'homework', label: 'Homework', icon: Notebook, alwaysShow: true },
-            { id: 'exams', label: 'Exams', icon: Award, alwaysShow: true },
-            { id: 'study-materials', label: 'Study Materials', icon: FileText, alwaysShow: true },
+            { id: 'lectures', label: 'Lectures', icon: Video },
+            { id: 'free-lectures', label: 'Free Lectures', icon: Video },
+            { id: 'homework', label: 'Homework', icon: Notebook },
+            { id: 'exams', label: 'Exams', icon: Award },
+            { id: 'study-materials', label: 'Study Materials', icon: FileText },
           ] : []),
-          ...(!isTuitionInstitute && !selectedClass ? [{ id: 'institute-organizations', label: 'Organization', icon: Building2, alwaysShow: true }] : []),
+          ...(!isTuitionInstitute && !selectedClass ? [{ id: 'institute-organizations', label: 'Organization', icon: Building2 }] : []),
         ];
         groups.push({ id: 'academics', label: 'Academics', icon: BookOpen,
           defaultOpen: hasActiveInGroup(['classes','institute-subjects','lectures','homework','exams','study-materials'], activePage),
@@ -597,18 +601,18 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         const attendanceItemLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         const attendanceSectionLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         const attendanceItems: NavItem[] = selectedClass ? [
-          { id: 'select-attendance-mark-type', label: 'Mark Attendance', icon: QrCode, alwaysShow: true },
-          { id: 'daily-attendance', label: attendanceItemLabel, icon: ClipboardList, alwaysShow: true },
-          { id: 'lecture-live-attendance', label: 'Live Attendance', icon: BarChart3, alwaysShow: true },
-          { id: 'lecture-recording-attendance', label: 'Recording Attendance', icon: BarChart3, alwaysShow: true },
-          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, alwaysShow: true },
+          { id: 'select-attendance-mark-type', label: 'Mark Attendance', icon: QrCode },
+          { id: 'daily-attendance', label: attendanceItemLabel, icon: ClipboardList },
+          { id: 'lecture-live-attendance', label: 'Live Attendance', icon: BarChart3 },
+          { id: 'lecture-recording-attendance', label: 'Recording Attendance', icon: BarChart3 },
+          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck },
         ] : [
-          { id: 'select-attendance-mark-type', label: 'Mark Attendance', icon: QrCode, alwaysShow: true },
-          { id: 'daily-attendance', label: attendanceItemLabel, icon: ClipboardList, alwaysShow: true },
-          { id: 'lecture-live-attendance', label: 'Live Attendance', icon: BarChart3, alwaysShow: true },
-          { id: 'lecture-recording-attendance', label: 'Recording Attendance', icon: BarChart3, alwaysShow: true },
-          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, alwaysShow: true },
-          { id: 'admin-attendance', label: 'Advanced Attendance', icon: BarChart3, alwaysShow: true },
+          { id: 'select-attendance-mark-type', label: 'Mark Attendance', icon: QrCode },
+          { id: 'daily-attendance', label: attendanceItemLabel, icon: ClipboardList },
+          { id: 'lecture-live-attendance', label: 'Live Attendance', icon: BarChart3 },
+          { id: 'lecture-recording-attendance', label: 'Recording Attendance', icon: BarChart3 },
+          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck },
+          { id: 'admin-attendance', label: 'Advanced Attendance', icon: BarChart3 },
         ];
         groups.push({ id: 'attendance', label: attendanceSectionLabel, icon: UserCheck,
           defaultOpen: hasActiveInGroup(['daily-attendance','select-attendance-mark-type','qr-attendance','rfid-attendance','institute-mark-attendance','close-attendance','admin-attendance'], activePage),
@@ -619,25 +623,25 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           groups.push({ id: 'calendar', label: 'Calendar', icon: Calendar,
             defaultOpen: hasActiveInGroup(['calendar-view','calendar-management'], activePage),
             items: [
-              { id: 'calendar-view', label: 'View Calendar', icon: Calendar, alwaysShow: true },
-              { id: 'calendar-management', label: 'Manage Calendar', icon: CalendarDays, alwaysShow: true },
+              { id: 'calendar-view', label: 'View Calendar', icon: Calendar },
+              { id: 'calendar-management', label: 'Manage Calendar', icon: CalendarDays },
             ]});
         }
 
         // Fees & Payments
         const paymentItems: NavItem[] = [];
         if (!selectedClass) {
-          paymentItems.push({ id: 'institute-payments', label: 'Institute Fees', icon: CreditCard, alwaysShow: true });
+          paymentItems.push({ id: 'institute-payments', label: 'Institute Fees', icon: CreditCard });
         }
         if (selectedClass) {
-          paymentItems.push({ id: 'class-payments', label: 'Class Fees', icon: Banknote, alwaysShow: true });
+          paymentItems.push({ id: 'class-payments', label: 'Class Fees', icon: Banknote });
         }
         // Subject-level payments disabled — class payments handled via enrollment
         // Collect Payment is always available when an institute is selected
-        paymentItems.push({ id: 'collect-physical-payment', label: 'Collect Payment', icon: Banknote, alwaysShow: true });
+        paymentItems.push({ id: 'collect-physical-payment', label: 'Collect Payment', icon: Banknote });
         if (!selectedClass) {
-          paymentItems.push({ id: 'institute-billing', label: `Billing & Plan${instituteTier && instituteTier !== 'FREE' ? '' : ' — Free'}`, icon: Receipt, alwaysShow: true });
-          paymentItems.push({ id: 'institute-credits', label: 'Institute Wallet', icon: Wallet, alwaysShow: true });
+          paymentItems.push({ id: 'institute-billing', label: `Billing & Plan${instituteTier && instituteTier !== 'FREE' ? '' : ' — Free'}`, icon: Receipt });
+          paymentItems.push({ id: 'institute-credits', label: 'Institute Wallet', icon: Wallet });
         }
         if (paymentItems.length) {
           groups.push({ id: 'payments', label: 'Fees & Payments', icon: CreditCard,
@@ -653,10 +657,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         groups.push({ id: 'services', label: 'Services', icon: LayoutGrid,
           defaultOpen: hasActiveInGroup(['id-cards'], activePage),
           items: [
-            { id: 'id-cards', label: 'ID Cards', icon: IdCard, alwaysShow: true },
+            { id: 'id-cards', label: 'ID Cards', icon: IdCard },
             ...(!isTenantLogin ? [
-              { id: 'system-payment', label: 'System Payment', icon: CreditCard, alwaysShow: true },
-              { id: 'organizations', label: 'Organizations', icon: Building2, alwaysShow: true, locked: true },
+              { id: 'system-payment', label: 'System Payment', icon: CreditCard },
+              { id: 'organizations', label: 'Organizations', icon: Building2, locked: true },
             ] : []),
           ]});
       }
@@ -669,21 +673,21 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       ];
       if (selectedInstitute) {
         accountItems.push({ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true });
-        accountItems.push({ id: 'device-management', label: 'Device Management', icon: Wifi, alwaysShow: true });
+        accountItems.push({ id: 'device-management', label: 'Device Management', icon: Wifi });
       }
       accountItems.push({ id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true });
       // Consolidated Communication
       const commItems: NavItem[] = [];
       if (!isTenantLogin) {
-        commItems.push({ id: 'institute-notifications', label: 'All Notifications', icon: Bell, alwaysShow: true, badge: unreadNotifCount });
+        commItems.push({ id: 'institute-notifications', label: 'All Notifications', icon: Bell, badge: unreadNotifCount });
       }
       if (selectedInstitute) {
         if (!selectedClass) {
-          commItems.push({ id: 'sms', label: 'Send SMS', icon: MessageSquare, alwaysShow: true });
-          commItems.push({ id: 'sms-history', label: 'SMS History', icon: ListChecks, alwaysShow: true });
+          commItems.push({ id: 'sms', label: 'Send SMS', icon: MessageSquare });
+          commItems.push({ id: 'sms-history', label: 'SMS History', icon: ListChecks });
         }
         if (isTenantLogin) {
-          commItems.push({ id: 'institute-notifications', label: 'Notifications', icon: Bell, alwaysShow: true, badge: unreadNotifCount });
+          commItems.push({ id: 'institute-notifications', label: 'Notifications', icon: Bell, badge: unreadNotifCount });
         }
       }
       if (commItems.length > 0) {
@@ -726,15 +730,15 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       groups.push({ id: 'academics', label: 'Academics', icon: BookOpen,
         defaultOpen: hasActiveInGroup(['homework','homework-submissions','exams'], activePage),
         items: [
-          { id: 'homework', label: 'Homework', icon: Notebook, alwaysShow: true },
+          { id: 'homework', label: 'Homework', icon: Notebook },
           { id: 'homework-submissions', label: 'Submit Homework', icon: FileText, alwaysShow: true },
-          { id: 'exams', label: 'Exams', icon: Award, alwaysShow: true },
+          { id: 'exams', label: 'Exams', icon: Award },
         ]});
 
       // Subject-level payments disabled — class payments handled via enrollment
       const parentPaymentItems: NavItem[] = [
-        { id: 'institute-payments', label: 'Institute Fees', icon: CreditCard, alwaysShow: true },
-        ...(selectedClass ? [{ id: 'class-payments', label: 'Class Fees', icon: Banknote, alwaysShow: true }] : []),
+        { id: 'institute-payments', label: 'Institute Fees', icon: CreditCard },
+        ...(selectedClass ? [{ id: 'class-payments', label: 'Class Fees', icon: Banknote }] : []),
         { id: 'my-submissions', label: 'My Submissions', icon: FileText, alwaysShow: true },
       ];
       groups.push({ id: 'payments', label: 'Fees & Payments', icon: CreditCard,
@@ -744,10 +748,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
       groups.push({ id: 'services', label: 'Services', icon: LayoutGrid, items: [
         ...(!selectedInstitute ? [
-          { id: 'id-cards', label: 'ID Cards', icon: IdCard, alwaysShow: true },
-          { id: 'system-payment', label: 'System Payment', icon: CreditCard, alwaysShow: true },
+          { id: 'id-cards', label: 'ID Cards', icon: IdCard },
+          { id: 'system-payment', label: 'System Payment', icon: CreditCard },
         ] : []),
-        { id: 'transport', label: 'Transport', icon: Truck, alwaysShow: true, locked: true },
+        { id: 'transport', label: 'Transport', icon: Truck, locked: true },
       ]});
 
       groups.push({ id: 'account', label: 'Account', icon: User, items: [
@@ -774,22 +778,22 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         ]});
 
         groups.push({ id: 'attendance', label: 'Attendance', icon: UserCheck, defaultOpen: true, items: [
-          { id: 'daily-attendance', label: 'Daily Attendance', icon: UserCheck, alwaysShow: true },
-          { id: 'select-attendance-mark-type', label: 'Mark Attendance', icon: QrCode, alwaysShow: true },
-          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, alwaysShow: true },
+          { id: 'daily-attendance', label: 'Daily Attendance', icon: UserCheck },
+          { id: 'select-attendance-mark-type', label: 'Mark Attendance', icon: QrCode },
+          { id: 'my-attendance', label: 'My Attendance', icon: UserCheck },
         ]});
 
         if (!selectedClass) {
           groups.push({ id: 'calendar', label: 'Calendar', icon: Calendar,
             defaultOpen: hasActiveInGroup(['calendar-view'], activePage),
             items: [
-              { id: 'calendar-view', label: 'View Calendar', icon: Calendar, alwaysShow: true },
+              { id: 'calendar-view', label: 'View Calendar', icon: Calendar },
             ]});
         }
 
         if (selectedSubject) {
           groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
-            { id: 'free-lectures', label: 'Free Lectures', icon: Video, alwaysShow: true },
+            { id: 'free-lectures', label: 'Free Lectures', icon: Video },
           ]});
         }
 
@@ -797,14 +801,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         groups.push({ id: 'payments', label: 'Fees & Payments', icon: CreditCard,
           defaultOpen: hasActiveInGroup(['collect-physical-payment'], activePage),
           items: [
-            { id: 'collect-physical-payment', label: 'Collect Payment', icon: Banknote, alwaysShow: true },
+            { id: 'collect-physical-payment', label: 'Collect Payment', icon: Banknote },
           ]});
       }
 
       if (!selectedInstitute) {
         groups.push({ id: 'services', label: 'Services', icon: LayoutGrid, items: [
-          { id: 'id-cards', label: 'ID Cards', icon: IdCard, alwaysShow: true },
-          { id: 'system-payment', label: 'System Payment', icon: CreditCard, alwaysShow: true },
+          { id: 'id-cards', label: 'ID Cards', icon: IdCard },
+          { id: 'system-payment', label: 'System Payment', icon: CreditCard },
         ]});
       }
 
@@ -830,7 +834,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     if (!selectedInstitute && !isTenantLogin) {
       groups.push({ id: 'communication-global', label: 'Communication', icon: MessageSquare,
         defaultOpen: activePage === 'institute-notifications',
-        items: [{ id: 'institute-notifications', label: 'All Notifications', icon: Bell, alwaysShow: true, badge: unreadNotifCount }]
+        items: [{ id: 'institute-notifications', label: 'All Notifications', icon: Bell, badge: unreadNotifCount }]
       });
     }
 
@@ -866,17 +870,17 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
     if (!selectedInstitute) {
       groups.push({ id: 'services', label: 'Services', icon: LayoutGrid, items: [
-        { id: 'id-cards', label: 'ID Cards', icon: IdCard, alwaysShow: true },
-        { id: 'system-payment', label: 'System Payment', icon: CreditCard, alwaysShow: true },
-        { id: 'organizations', label: 'Organizations', icon: Building2, alwaysShow: true, locked: true },
-        { id: 'transport', label: 'Transport', icon: Truck, alwaysShow: true, locked: true },
+        { id: 'id-cards', label: 'ID Cards', icon: IdCard },
+        { id: 'system-payment', label: 'System Payment', icon: CreditCard },
+        { id: 'organizations', label: 'Organizations', icon: Building2, locked: true },
+        { id: 'transport', label: 'Transport', icon: Truck, locked: true },
       ]});
     }
 
     groups.push({ id: 'account', label: 'Account', icon: User, items: [
       { id: 'profile', label: 'My Profile', icon: User, alwaysShow: true },
       { id: 'feedback', label: 'Feedback', icon: MessageSquareHeart, alwaysShow: true },
-      { id: 'settings', label: 'Settings', icon: Settings },
+      { id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true },
     ]});
 
     return groups;
