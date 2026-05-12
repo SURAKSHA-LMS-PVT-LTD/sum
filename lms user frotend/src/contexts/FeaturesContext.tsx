@@ -14,7 +14,7 @@ export interface FeaturesContextValue {
   features: Record<string, Feature>;
   loading: boolean;
   isFeatureEnabled: (key: string) => boolean;
-  refetchFeatures: () => void;
+  refetchFeatures: () => Promise<void>;
 }
 
 const FeaturesContext = createContext<FeaturesContextValue | undefined>(undefined);
@@ -27,7 +27,7 @@ export const FeaturesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchFeatures = useCallback(async () => {
+  const fetchFeatures = useCallback(async (forceRefresh = false) => {
     if (!instituteId) {
       setFeatures({});
       setLoading(false);
@@ -38,43 +38,35 @@ export const FeaturesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setError(null);
 
     try {
-      // The backend plan specifies this endpoint
       const response = await cachedApiClient.get<{ features: Record<string, Feature> }>(
         `/institutes/${instituteId}/features`,
         {},
-        { 
-          ttl: 300, // 5 minutes as per plan
-          cacheKey: `institute-features-${instituteId}`,
-          useStaleWhileRevalidate: true 
-        }
+        { ttl: 300, forceRefresh, useStaleWhileRevalidate: !forceRefresh }
       );
       setFeatures(response.features || {});
     } catch (err: any) {
       setError(err);
       console.error('Failed to fetch institute features:', err);
-      setFeatures({}); // Fallback to no features on error
+      setFeatures({});
     } finally {
       setLoading(false);
     }
   }, [instituteId]);
 
   useEffect(() => {
-    fetchFeatures();
+    fetchFeatures(false);
   }, [fetchFeatures]);
 
-  const refetchFeatures = useCallback(() => {
-    if (instituteId) {
-        // Assuming invalidateCache exists on cachedApiClient.
-        // If not, this will need to be implemented.
-        // cachedApiClient.invalidateCache(`institute-features-${instituteId}`);
-    }
-    fetchFeatures();
-  }, [instituteId, fetchFeatures]);
+  const refetchFeatures = useCallback((): Promise<void> => {
+    return fetchFeatures(true); // force bypass cache, returns promise
+  }, [fetchFeatures]);
 
   const isFeatureEnabled = useCallback((key: string): boolean => {
+    if (loading) return true; // show while loading
     const feature = features[key];
-    return !!feature?.enabled;
-  }, [features]);
+    if (feature === undefined) return true; // no toggle = enabled by default
+    return !!feature.enabled;
+  }, [features, loading]);
 
   const value = useMemo(() => ({
     features,

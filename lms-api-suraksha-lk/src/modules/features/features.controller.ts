@@ -1,31 +1,36 @@
 import { Controller, Get, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { FeaturesService } from './features.service';
-import { UpdateFeatureDto } from './dto/feature.dto';
-import { JwtAuthGuard } from '../security/guards/jwt-auth.guard';
-import { RolesGuard } from '../security/guards/roles.guard';
-import { Roles } from '../security/decorators/roles.decorator';
+import { UpdateFeatureTogglesDto } from './dto/feature.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
-@Controller('features')
+@Controller()
 export class FeaturesController {
   constructor(private readonly featuresService: FeaturesService) {}
 
-  @Get('catalog')
+  @Get('features/catalog')
   getCatalog() {
-    return this.featuresService.getCatalog();
+    return this.featuresService.getFeatureCatalog();
   }
 
-  @Get('institute/:id')
-  getInstituteFeatureToggles(@Param('id') id: string) {
-    return this.featuresService.getInstituteFeatureToggles(id);
+  // Legacy route
+  @Get('features/institute/:id')
+  getInstituteFeatureTogglesLegacy(@Param('id') id: string) {
+    return this.featuresService.getFeaturesForInstitute(+id);
   }
 
-  @Patch('institute/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('InstituteAdmin', 'SuperAdmin')
-  updateInstituteFeatureToggles(
+  // Route used by FeaturesContext: GET /institutes/:id/features
+  @Get('institutes/:id/features')
+  async getInstituteFeatures(@Param('id') id: string) {
+    const features = await this.featuresService.getFeaturesForInstitute(+id);
+    return { features };
+  }
+
+  @Patch('institutes/:id/features')
+  @UseGuards(JwtAuthGuard)
+  updateInstituteFeatures(
     @Param('id') id: string,
-    @Body() updateFeatureDto: UpdateFeatureDto,
+    @Body() updateFeatureDto: UpdateFeatureTogglesDto,
   ) {
-    return this.featuresService.updateInstituteFeatureToggles(id, updateFeatureDto);
+    return this.featuresService.updateFeaturesForInstitute(+id, updateFeatureDto);
   }
 }

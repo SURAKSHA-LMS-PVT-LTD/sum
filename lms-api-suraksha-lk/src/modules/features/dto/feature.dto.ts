@@ -1,5 +1,4 @@
-import { IsString, IsBoolean, IsOptional, IsEnum, IsArray, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsBoolean, IsOptional, IsEnum, IsArray, IsObject } from 'class-validator';
 
 export enum FeatureScope {
   INSTITUTE = 'INSTITUTE',
@@ -67,12 +66,6 @@ export class FeatureDto {
 }
 
 export class UpdateFeatureTogglesDto {
-  @ValidateNested({ each: true })
-  @Type(() => FeatureToggleDto)
+  @IsObject()
   features: Record<string, boolean>;
-}
-
-export class FeatureToggleDto {
-    @IsBoolean()
-    enabled: boolean;
 }

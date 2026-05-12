@@ -22,7 +22,7 @@ export class FeaturesService {
         const toggle = instituteToggles.find(t => t.featureKey === feature.key);
         return {
             ...feature,
-            enabled: toggle ? toggle.enabled : false, // Default to disabled if no toggle is found
+            enabled: toggle ? toggle.enabled : true, // Default to enabled if no explicit toggle
         };
     });
 
@@ -37,20 +37,21 @@ export class FeaturesService {
   }
 
   async updateFeaturesForInstitute(instituteId: number, updateDto: UpdateFeatureTogglesDto): Promise<void> {
-    for (const key in updateDto.features) {
-        let toggle = await this.instituteFeatureTogglesRepository.findOne({ where: { instituteId, featureKey: key } });
-        if (!toggle) {
-            toggle = this.instituteFeatureTogglesRepository.create({
-                instituteId,
-                featureKey: key,
-                enabled: updateDto.features[key],
-                enabledSource: 'ADMIN',
-            });
-        } else {
-            toggle.enabled = updateDto.features[key];
-        }
-        await this.instituteFeatureTogglesRepository.save(toggle);
-    }
+    const entries = Object.entries(updateDto.features);
+    if (entries.length === 0) return;
+
+    // Bulk upsert — one query per changed feature using INSERT ... ON DUPLICATE KEY UPDATE
+    const em = this.instituteFeatureTogglesRepository.manager;
+    await Promise.all(
+      entries.map(([key, enabled]) =>
+        em.query(
+          `INSERT INTO institute_feature_toggles (institute_id, feature_key, enabled, enabled_source, enabled_at, created_at, updated_at)
+           VALUES (?, ?, ?, 'ADMIN', NOW(), NOW(), NOW())
+           ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), updated_at = NOW()`,
+          [instituteId, key, enabled ? 1 : 0],
+        ),
+      ),
+    );
   }
 
   async getFeatureCatalog(): Promise<FeatureCatalog[]> {

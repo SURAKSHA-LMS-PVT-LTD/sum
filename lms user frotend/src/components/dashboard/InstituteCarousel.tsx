@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { Institute } from '@/api/institute.api';
+import { Institute } from '@/contexts/types/auth.types';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChevronLeft, ChevronRight, Search, X, Building2 } from 'lucide-react';
 import { getImageUrl } from '@/utils/imageUrlHelper';
@@ -7,17 +7,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 
 interface InstituteCarouselProps {
-  institutes: Institute[];
+  institutes?: Institute[];
   onSelectInstitute: (institute: Institute) => void;
-  isLoading: boolean;
+  isLoading?: boolean;
+  compact?: boolean;
 }
 
 const InstituteCarousel: React.FC<InstituteCarouselProps> = ({
-  institutes,
+  institutes: institutesProp,
   onSelectInstitute,
-  isLoading,
+  isLoading: isLoadingProp,
 }) => {
-  const { selectedInstitute } = useAuth();
+  const { selectedInstitute, user } = useAuth();
+  const institutes: Institute[] = institutesProp ?? user?.institutes ?? [];
+  const isLoading = isLoadingProp ?? false;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);

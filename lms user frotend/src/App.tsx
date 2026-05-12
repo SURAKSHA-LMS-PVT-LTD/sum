@@ -252,7 +252,7 @@ const AppContent = () => {
       <Route path="/institute-details" element={<Index />} />
       <Route path="/institute-profile" element={<Index />} />
       <Route path="/institute-users" element={<Index />} />
-      <Rout path="/institute-payments" element={<Index />} />
+      <Route path="/institute-payments" element={<Index />} />
       <Route path="/institute-billing" element={<Index />} />
       <Route path="/institute-settings" element={<Index />} />
       <Route path="/institute-subjects" element={<Index />} />

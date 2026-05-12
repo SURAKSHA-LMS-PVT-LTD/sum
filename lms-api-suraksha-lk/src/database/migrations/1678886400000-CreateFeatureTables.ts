@@ -48,12 +48,12 @@ export class CreateFeatureTables1678886400000 implements MigrationInterface {
                 },
                 {
                     name: "dependencies",
-                    type: "jsonb",
+                    type: "json",
                     isNullable: true,
                 },
                 {
                     name: "ui_targets",
-                    type: "jsonb",
+                    type: "json",
                     isNullable: true,
                 },
                 {
@@ -70,8 +70,10 @@ export class CreateFeatureTables1678886400000 implements MigrationInterface {
             columns: [
                 {
                     name: "id",
-                    type: "serial",
+                    type: "int",
                     isPrimary: true,
+                    isGenerated: true,
+                    generationStrategy: "increment",
                 },
                 {
                     name: "institute_id",

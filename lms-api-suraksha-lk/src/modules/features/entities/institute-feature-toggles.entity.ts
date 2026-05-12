@@ -6,37 +6,37 @@ export class InstituteFeatureToggles {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ name: 'institute_id' })
   instituteId: number;
 
-  @Column()
+  @Column({ name: 'feature_key' })
   featureKey: string;
 
   @ManyToOne(() => FeatureCatalog)
-  @JoinColumn({ name: 'featureKey' })
+  @JoinColumn({ name: 'feature_key' })
   feature: FeatureCatalog;
 
   @Column()
   enabled: boolean;
 
-  @Column({ type: 'enum', enum: ['ADMIN', 'PLAN', 'SYSTEM'], nullable: true })
+  @Column({ name: 'enabled_source', type: 'enum', enum: ['ADMIN', 'PLAN', 'SYSTEM'], nullable: true })
   enabledSource: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'enabled_by_user_id', nullable: true })
   enabledByUserId: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'enabled_at' })
   enabledAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ name: 'expires_at', nullable: true })
   expiresAt: Date;
 
   @Column({ type: 'text', nullable: true })
   notes: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/api/client';
+import { apiClient as api } from '@/api/client';
 
 export const useActivityLogger = () => {
   const { user, selectedInstitute } = useAuth();

@@ -21,18 +21,18 @@ export class FeatureCatalog {
   @Column({ type: 'enum', enum: FeaturePricing })
   pricing: FeaturePricing;
 
-  @Column({ type: 'enum', enum: FeatureBillingCycle })
+  @Column({ name: 'billing_cycle', type: 'enum', enum: FeatureBillingCycle })
   billingCycle: FeatureBillingCycle;
 
-  @Column({ default: false })
+  @Column({ name: 'is_core', default: false })
   isCore: boolean;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   dependencies: string[];
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ name: 'ui_targets', type: 'simple-json', nullable: true })
   uiTargets: string[];
 
-  @Column({ default: true })
+  @Column({ name: 'is_active', default: true })
   isActive: boolean;
 }
