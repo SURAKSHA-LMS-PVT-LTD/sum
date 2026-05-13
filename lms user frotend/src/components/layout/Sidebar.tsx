@@ -690,12 +690,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           paymentItems.push({ id: FEATURE_KEYS.INSTITUTE_CREDITS, label: 'Institute Wallet', icon: Wallet });
           if (isFeatureEnabled(FEATURE_KEYS.SURAKSHA_FINANCE)) {
             paymentItems.push({ id: 'finance-hub', label: 'Finance Hub', icon: Wallet });
-            paymentItems.push({ id: 'collect-payment', label: 'Collect Cash', icon: Banknote });
           }
         }
         if (paymentItems.length) {
           groups.push({ id: 'payments', label: 'Fees & Payments', icon: CreditCard,
-            defaultOpen: hasActiveInGroup(['institute-payments','class-payments','institute-billing','institute-credits','collect-physical-payment','finance-hub','collect-payment'], activePage),
+            defaultOpen: hasActiveInGroup(['institute-payments','class-payments','institute-billing','institute-credits','collect-physical-payment','finance-hub'], activePage),
             items: paymentItems });
         }
 

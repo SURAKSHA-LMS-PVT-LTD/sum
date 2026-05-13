@@ -12,6 +12,7 @@ export type LedgerTxSource =
   | 'FUND_TRANSFER'
   | 'TEACHER_PAYOUT'
   | 'TEACHER_DEDUCTION'
+  | 'TEACHER_ADVANCE'
   | 'MANUAL';
 
 export interface FinanceAccount {
@@ -95,7 +96,28 @@ export interface AnalyticsRow {
 export interface AnalyticsResult {
   period: string;
   data: AnalyticsRow[];
+  bySource?: { source: string; income: string; expense: string }[];
   summary: { totalIncome: string; totalExpense: string; net: string };
+}
+
+export interface TeacherWalletSummary {
+  teacherId: string;
+  teacherName?: string;
+  teacherEmail?: string;
+  teacherImageUrl?: string;
+  instituteUserId?: string;
+  // wallet fields — null if wallet not yet initialised
+  walletId?: string | null;
+  balance?: string | null;
+  totalEarned?: string | null;
+  totalDeductions?: string | null;
+  totalPaidOut?: string | null;
+}
+
+export interface CategoryAnalyticsRow {
+  category: string | null;
+  categoryType: 'INCOME' | 'EXPENSE' | null;
+  total: string;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -199,6 +221,31 @@ export const financeApi = {
 
   // Teacher wallet (admin)
   getTeacherWallet: (teacherId: string) => request<TeacherWallet | null>('GET', `/teacher/${teacherId}/wallet`),
-  getTeacherLedger: (teacherId: string, params?: { page?: number; limit?: number }) =>
+  getTeacherLedger: (teacherId: string, params?: { page?: number; limit?: number; startDate?: string; endDate?: string }) =>
     request<LedgerPage>('GET', `/teacher/${teacherId}/ledger`, undefined, params),
+
+  // Teachers summary (all teachers in institute with optional wallet)
+  getTeachersSummary: () => request<{ data: TeacherWalletSummary[]; total: number }>('GET', '/teachers/summary'),
+
+  // Initialize teacher wallet
+  initTeacherWallet: (teacherId: string) => request<TeacherWallet>('POST', `/teacher/${teacherId}/init-wallet`),
+
+  // Teacher advance
+  giveTeacherAdvance: (dto: { teacherId: string; amount: number; fromAccountId: string; description: string; adminNote?: string }) =>
+    request<void>('POST', '/advance', dto),
+
+  // Manual record
+  addManualRecord: (dto: {
+    recordType: 'INCOME' | 'EXPENSE';
+    amount: number;
+    categoryId?: string;
+    accountId: string;
+    description: string;
+    adminNote?: string;
+    recordDate?: string;
+  }) => request<void>('POST', '/manual', dto),
+
+  // Category analytics
+  getAnalyticsByCategory: (params?: { startDate?: string; endDate?: string }) =>
+    request<{ data: CategoryAnalyticsRow[] }>('GET', '/analytics/categories', undefined, params),
 };

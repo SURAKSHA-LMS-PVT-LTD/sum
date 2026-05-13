@@ -275,6 +275,7 @@ class ClassPaymentsApi {
       targetType: 'STUDENTS' | 'PARENTS' | 'BOTH';
       priority: 'MANDATORY' | 'OPTIONAL' | 'DONATION';
       amount: number;
+      teacherCommissionPct?: number;
       documentUrl?: string;
       lastDate: string;
       notes?: string;
@@ -365,7 +366,7 @@ class ClassPaymentsApi {
   async adminVerifyStudentClassPayment(
     paymentId: string,
     studentId: string,
-    data: { amount: number; date: string; notes?: string; paymentTier?: 'full' | 'half' | 'quarter'; },
+    data: { amount: number; date: string; notes?: string; paymentTier?: 'full' | 'half' | 'quarter'; targetAccountId?: string; commissionPctOverride?: number; },
   ): Promise<any> {
     return apiClient.post(
       `/institute-class-payment-submissions/payment/${paymentId}/student/${studentId}/admin-verify`,

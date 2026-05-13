@@ -24,6 +24,7 @@ import { instituteApi } from '@/api/institute.api';
 import { usersApi } from '@/api/users.api';
 import { useAuth } from '@/contexts/AuthContext';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
+import { financeApi } from '@/api/finance.api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ interface CollectDialogState {
   date: string;
   notes: string;
   tier: PaymentTier;
+  targetAccountId?: string;
 }
 interface ClassOption { id: string; name: string; code: string; }
 interface SubjectOption { id: string; name: string; code: string; }
@@ -163,6 +165,9 @@ const CollectPhysicalPayment: React.FC = () => {
   const [collectDialog, setCollectDialog] = useState<CollectDialogState | null>(null);
   const [collecting, setCollecting] = useState(false);
 
+  // ── Finance accounts (for ledger routing) ─────────────────────────────────
+  const [financeAccounts, setFinanceAccounts] = useState<Array<{ id: string; name: string; type: string }>>([]);
+
   // ── Institute-scope student submission status ──────────────────────────────
   const [instStudentSubMap, setInstStudentSubMap] = useState<Record<string, string>>({});
   const [loadingInstSubStatus, setLoadingInstSubStatus] = useState(false);
@@ -177,6 +182,12 @@ const CollectPhysicalPayment: React.FC = () => {
   const [loadingSummary, setLoadingSummary] = useState(false);
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Load finance accounts for ledger routing
+  useEffect(() => {
+    if (!instituteId) return;
+    financeApi.getAccounts().then(accs => setFinanceAccounts(accs)).catch(() => {});
+  }, [instituteId]);
+
   // Data loading
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -550,10 +561,12 @@ const CollectPhysicalPayment: React.FC = () => {
         if (paymentScope === 'subject') {
           await subjectPaymentsApi.adminVerifyStudentCspPayment(paymentId, student.uuid, {
             amount: amt, date: collectDialog.date, notes: collectDialog.notes || undefined, paymentTier: collectDialog.tier,
+            targetAccountId: collectDialog.targetAccountId || undefined,
           });
         } else if (paymentScope === 'class') {
           await classPaymentsApi.adminVerifyStudentClassPayment(paymentId, student.uuid, {
             amount: amt, date: collectDialog.date, notes: collectDialog.notes || undefined, paymentTier: collectDialog.tier,
+            targetAccountId: collectDialog.targetAccountId || undefined,
           });
         } else {
           await apiClient.post(
@@ -1238,6 +1251,23 @@ const CollectPhysicalPayment: React.FC = () => {
                 <Input type="date" value={collectDialog.date}
                   onChange={e => setCollectDialog(d => d ? { ...d, date: e.target.value } : d)} />
               </div>
+              {financeAccounts.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Credit to Account (Finance)</Label>
+                  <Select
+                    value={collectDialog.targetAccountId || 'skip'}
+                    onValueChange={v => setCollectDialog(d => d ? { ...d, targetAccountId: v === 'skip' ? undefined : v } : d)}
+                  >
+                    <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="skip">Skip — don't record in ledger</SelectItem>
+                      {financeAccounts.map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.name} ({a.type})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-1 pb-1">
                 <Label className="text-xs font-medium">Notes (optional)</Label>
                 <Textarea placeholder="Receipt no., remarks…" rows={2} value={collectDialog.notes}

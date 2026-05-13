@@ -25,6 +25,7 @@ interface FormData {
   targetType: 'PARENTS' | 'STUDENTS' | 'BOTH';
   priority: 'MANDATORY' | 'OPTIONAL' | 'DONATION';
   amount: number;
+  teacherCommissionPct: number;
   documentUrl?: string;
   lastDate: string;
   notes?: string;
@@ -44,7 +45,7 @@ const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
   const [formData, setFormData] = useState<FormData>({
     title: '', description: '',
     targetType: 'STUDENTS', priority: 'MANDATORY',
-    amount: 0, documentUrl: '', lastDate: '', notes: '',
+    amount: 0, teacherCommissionPct: 0, documentUrl: '', lastDate: '', notes: '',
     bankName: '', accountHolderName: '', accountHolderNumber: '',
   });
 
@@ -77,6 +78,7 @@ const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
         targetType: formData.targetType,
         priority: formData.priority,
         amount: parseFloat(formData.amount.toString()),
+        teacherCommissionPct: formData.teacherCommissionPct > 0 ? formData.teacherCommissionPct : undefined,
         documentUrl: formData.documentUrl?.trim() || undefined,
         lastDate: new Date(formData.lastDate).toISOString(),
         notes: formData.notes || undefined,
@@ -86,7 +88,7 @@ const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
       });
       toast({ title: 'Success', description: 'Class payment created successfully.' });
       setFieldErrors({});
-      setFormData({ title: '', description: '', targetType: 'STUDENTS', priority: 'MANDATORY', amount: 0, documentUrl: '', lastDate: '', notes: '', bankName: '', accountHolderName: '', accountHolderNumber: '' });
+      setFormData({ title: '', description: '', targetType: 'STUDENTS', priority: 'MANDATORY', amount: 0, teacherCommissionPct: 0, documentUrl: '', lastDate: '', notes: '', bankName: '', accountHolderName: '', accountHolderNumber: '' });
       setSelectedBankId('');
       setShowCustomBank(false);
       onSuccess();
@@ -150,6 +152,23 @@ const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
             <Label htmlFor="amount">Amount (Rs) *</Label>
             <Input id="amount" type="number" step="0.01" min="0" value={formData.amount} onChange={e => handleInputChange('amount', parseFloat(e.target.value) || 0)} placeholder="0.00" className={fieldErrors.amount ? 'border-red-500' : ''} />
             {fieldErrors.amount && <p className="text-xs text-red-500">{fieldErrors.amount}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="teacherCommissionPct">Teacher Commission % (Optional)</Label>
+            <Input
+              id="teacherCommissionPct"
+              type="number"
+              step="0.5"
+              min="0"
+              max="100"
+              value={formData.teacherCommissionPct || ''}
+              onChange={e => handleInputChange('teacherCommissionPct', parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+            <p className="text-xs text-muted-foreground">
+              When this payment is approved, this % of the collected amount is credited to the teacher's wallet. Leave 0 for no commission.
+            </p>
           </div>
 
           <div className="space-y-2">

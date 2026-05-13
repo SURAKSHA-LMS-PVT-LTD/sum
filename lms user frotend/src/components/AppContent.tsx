@@ -133,7 +133,6 @@ const InstituteCreditsPage = React.lazy(() => import('@/pages/InstituteCreditsPa
 const CollectPhysicalPayment = React.lazy(() => import('@/pages/CollectPhysicalPayment'));
 const FinanceHubPage = React.lazy(() => import('@/pages/FinanceHubPage'));
 const TeacherFinancePage = React.lazy(() => import('@/pages/TeacherFinancePage'));
-const CollectPaymentPage = React.lazy(() => import('@/pages/CollectPaymentPage'));
 
 
 interface AppContentProps {
@@ -932,12 +931,6 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <FeatureGatedPage featureKey="lecture-recording-attendance" component={<LectureRecordingAttendancePage />} />;
         case 'lecture-recording-student':
           return <StudentRecordingActivityPage />;
-        case 'finance-hub':
-          return <FeatureGatedPage featureKey="suraksha-finance" component={<FinanceHubPage />} />;
-        case 'teacher-finance':
-          return <FeatureGatedPage featureKey="teacher-finance" component={<TeacherFinancePage />} />;
-        case 'collect-payment':
-          return <FeatureGatedPage featureKey="suraksha-finance" component={<CollectPaymentPage />} />;
         default:
           return <Dashboard />;
       }
@@ -1181,6 +1174,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <Feedback />;
         case 'houses':
           return isNotTuitionInstitute ? <FeatureGatedPage featureKey="houses" component={<InstituteHouses />} /> : <Dashboard />;
+        case 'teacher-finance':
+          return <FeatureGatedPage featureKey="teacher-finance" component={<TeacherFinancePage />} />;
         default:
           return <Dashboard />;
       }
@@ -1510,6 +1505,10 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         return <ChildAttendancePage />;
       case 'child/:childId/transport':
         return <ChildTransportPage />;
+      case 'finance-hub':
+        return <FeatureGatedPage featureKey="suraksha-finance" component={<FinanceHubPage />} />;
+      case 'teacher-finance':
+        return <FeatureGatedPage featureKey="teacher-finance" component={<TeacherFinancePage />} />;
       default:
         return <Dashboard />;
     }

@@ -390,6 +390,8 @@ class SubjectPaymentsApi {
       date: string;
       notes?: string;
       paymentTier?: 'full' | 'half' | 'quarter';
+      targetAccountId?: string;
+      commissionPctOverride?: number;
     }
   ): Promise<any> {
     return apiClient.post(
