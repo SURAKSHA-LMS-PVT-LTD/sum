@@ -17,7 +17,7 @@ class InstituteUsersApi {
       ...(params.parent !== undefined && { parent: String(params.parent) }),
     });
 
-    const endpoint = `/institute-users/institute/${instituteId}/users/${userTypeId}?${queryParams}`;
+    const endpoint = `/institute-users/institute/${instituteId}/users-by-type/${userTypeId}?${queryParams}`;
     return apiClient.get(endpoint);
   }
 

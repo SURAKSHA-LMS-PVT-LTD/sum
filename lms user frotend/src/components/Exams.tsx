@@ -61,7 +61,6 @@ const Exams = ({
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: any }>({ open: false, item: null });
   const [isDeleting, setIsDeleting] = useState(false);
   const userRole = useInstituteRole();
-  const { hasCustomType, canCreate: rbacCanCreate, canUpdate: rbacCanUpdate, canDelete: rbacCanDelete } = usePermission('exams');
 
   // Memoize default params to prevent unnecessary re-renders
   const defaultParams = useMemo(() => {
@@ -290,24 +289,12 @@ const Exams = ({
           View
         </Button>
   }];
+  const { hasCustomType, canCreate: rbacCanCreate, canUpdate: rbacCanUpdate, canDelete: rbacCanDelete } = usePermission('exams');
   const canAdd = hasCustomType ? rbacCanCreate : AccessControl.hasPermission(userRole, 'create-exam');
   const canEdit = hasCustomType ? rbacCanUpdate : (userRole === 'Teacher' ? true : AccessControl.hasPermission(userRole, 'edit-exam'));
   const canDelete = hasCustomType ? rbacCanDelete : (userRole === 'Teacher' ? true : AccessControl.hasPermission(userRole, 'delete-exam'));
   const canView = true; // All users can view exams
 
-  // DEBUG: Log role and institute information
-  console.log('🔍 EXAMS DEBUG:', {
-    userRole,
-    selectedInstitute,
-    'selectedInstitute.userRole': selectedInstitute?.userRole,
-    'selectedInstitute.instituteUserType': (selectedInstitute as any)?.instituteUserType,
-    canAdd,
-    canEdit,
-    canDelete,
-    canView,
-    handleEditExam: !!handleEditExam,
-    handleViewResults: !!handleViewResults
-  });
   const getTitle = () => {
     const contexts = [];
     if (selectedInstitute) {

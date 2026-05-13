@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { enrollmentApi } from '@/api/enrollment.api';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
+import { usePermission } from '@/hooks/usePermission';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { getBaseUrl, getApiHeadersAsync } from '@/contexts/utils/auth.api';
 import { CACHE_TTL } from '@/config/cacheTTL';
@@ -54,10 +55,10 @@ const AssignSubjectStudentsDialog: React.FC<AssignSubjectStudentsDialogProps> = 
 }) => {
   const { selectedInstitute, selectedClass, selectedSubject, user } = useAuth();
   const instituteRole = useInstituteRole();
+  const { hasCustomType, canCreate: rbacCanCreate } = usePermission('academics.subjects');
   const { toast } = useToast();
-  
-  // Check permissions - InstituteAdmin and Teacher only
-  const hasPermission = instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher';
+
+  const hasPermission = hasCustomType ? rbacCanCreate : (instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher');
   
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -73,7 +74,7 @@ const AssignSubjectStudentsDialog: React.FC<AssignSubjectStudentsDialogProps> = 
     try {
       const data: StudentsResponse = await enhancedCachedClient.get(
         `/institute-users/institute/${selectedInstitute.id}/users/STUDENT/class/${selectedClass.id}`,
-        { limit: 1000, page: 1 },
+        { limit: 1000, page: 1, isActive: 'true' },
         {
           ttl: CACHE_TTL.STUDENTS,
           forceRefresh,
@@ -83,8 +84,16 @@ const AssignSubjectStudentsDialog: React.FC<AssignSubjectStudentsDialogProps> = 
           classId: selectedClass.id
         }
       );
-      
-      setStudents(data?.data ?? []);
+
+      const list = (data?.data ?? (Array.isArray(data) ? data : [])) as any[];
+      const mapped: Student[] = list.map((u: any) => ({
+        id: u.id ?? u.user_id ?? u.userId,
+        name: u.name ?? [u.first_name, u.last_name].filter(Boolean).join(' '),
+        email: u.email,
+        phoneNumber: u.phoneNumber ?? u.phone_number,
+        imageUrl: u.imageUrl ?? u.institute_user_image_url ?? u.user_image_url,
+      }));
+      setStudents(mapped);
       setDataLoaded(true);
     } catch (error: any) {
       console.error('Error fetching students:', error);

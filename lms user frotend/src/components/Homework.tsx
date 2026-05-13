@@ -46,17 +46,9 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
   const navigate = useNavigate();
   const { user, selectedInstitute, selectedClass, selectedSubject, currentInstituteId, currentClassId, currentSubjectId, isViewingAsParent, selectedChild } = useAuth();
   const instituteRole = useInstituteRole();
-  const { hasCustomType, canCreate: rbacCanCreate, canUpdate: rbacCanUpdate, canDelete: rbacCanDelete, canSubmit: rbacCanSubmit } = usePermission('homework');
   const { toast } = useToast();
   const { refresh, isRefreshing, canRefresh, cooldownRemaining } = useRefreshWithCooldown(10);
   
-  // DEBUG: Log role and institute information
-  console.log('🔍 HOMEWORK DEBUG:', {
-    instituteRole,
-    selectedInstitute,
-    'selectedInstitute.userRole': selectedInstitute?.userRole,
-    'selectedInstitute.instituteUserType': (selectedInstitute as any)?.instituteUserType
-  });
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
@@ -298,13 +290,11 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
     await handleLoadData(true);
   };
 
-  // For custom user types use RBAC; for system roles use the existing AccessControl logic
+  const { hasCustomType, canCreate: rbacCanCreate, canUpdate: rbacCanUpdate, canDelete: rbacCanDelete, canSubmit: rbacCanSubmit } = usePermission('homework');
   const canAdd = hasCustomType ? rbacCanCreate : AccessControl.hasPermission(instituteRole, 'create-homework');
   const canEdit = hasCustomType ? rbacCanUpdate : (instituteRole === 'Teacher' ? true : AccessControl.hasPermission(instituteRole, 'edit-homework'));
   const canDelete = hasCustomType ? rbacCanDelete : (instituteRole === 'Teacher' ? true : AccessControl.hasPermission(instituteRole, 'delete-homework'));
-  // canSubmit: students by role OR custom types with submit permission
   const isStudent = hasCustomType ? rbacCanSubmit : instituteRole === 'Student';
-  // canViewSubmissions: admins/teachers by role OR custom types with view+report
   const canViewSubmissions = hasCustomType ? (rbacCanCreate || rbacCanUpdate) : (instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 

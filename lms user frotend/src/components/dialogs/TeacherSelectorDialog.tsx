@@ -64,21 +64,24 @@ export const TeacherSelectorDialog: React.FC<TeacherSelectorDialogProps> = ({
 
   const fetchTeachers = async () => {
     if (!selectedInstitute?.id) return;
-    
+
     setLoading(true);
     try {
       const response = await enhancedCachedClient.get(
         `/institute-users/institute/${selectedInstitute.id}/users/TEACHER`,
-        { page: 1, limit: 100 },
-        {
-          ttl: 15,
-          userId: user?.id,
-          role: 'InstituteAdmin',
-          instituteId: selectedInstitute.id
-        }
+        { page: 1, limit: 200 },
+        { ttl: 15, userId: user?.id, role: 'InstituteAdmin', instituteId: selectedInstitute.id }
       );
-      
-      const teacherList = response?.data || response || [];
+
+      const raw: any[] = response?.data || (Array.isArray(response) ? response : []);
+      const teacherList: Teacher[] = raw.map((u: any) => ({
+        id: u.id ?? u.user_id ?? u.userId,
+        name: u.name ?? [u.first_name, u.last_name].filter(Boolean).join(' '),
+        email: u.email ?? '',
+        imageUrl: u.imageUrl ?? u.institute_user_image_url ?? u.user_image_url,
+        phoneNumber: u.phoneNumber ?? u.phone_number,
+        userIdByInstitute: u.userIdByInstitute,
+      }));
       setTeachers(teacherList);
       setFilteredTeachers(teacherList);
     } catch (error: any) {

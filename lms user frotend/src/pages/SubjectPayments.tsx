@@ -54,7 +54,6 @@ const SubjectPayments = () => {
   const effectiveStudentId = isViewingAsParent && selectedChild ? selectedChild.id : undefined;
   const instituteRole = useInstituteRole();
   const { hasCustomType, canCreate: rbacCanCreate, canSubmit: rbacCanSubmit } = usePermission('subject-payments');
-  // For custom user types use RBAC; for system roles use hardcoded role checks
   const isAdminRole = hasCustomType ? rbacCanCreate : (instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher');
   const isSubmitterRole = hasCustomType ? rbacCanSubmit : (instituteRole === 'Student');
   

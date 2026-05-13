@@ -19,6 +19,22 @@ import {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+// Which actions are meaningful per feature (others are hidden/disabled for that feature)
+// submit = only relevant for homework/exams/payments; report = analytics features; etc.
+const SUBMIT_FEATURES = new Set(['homework', 'exams', 'subject-payments', 'class-payments', 'institute-payments']);
+const REPORT_FEATURES = new Set(['exams', 'grading', 'admin-attendance', 'daily-attendance', 'lecture-live-attendance', 'lecture-recording-attendance']);
+
+// What custom user types can NOT exceed relative to base role permissions.
+// System type slugs and their ceiling — custom types cannot get actions their base role doesn't have.
+// (This is UI enforcement only — the real guard is on the backend.)
+const SYSTEM_BASE_PERMISSIONS: Record<string, Partial<Record<string, boolean>>> = {
+  student:    { canView: true, canSubmit: true },
+  teacher:    { canView: true, canCreate: true, canUpdate: true, canDelete: true, canReport: true, canSubmit: true },
+  institute_admin: { canView: true, canCreate: true, canUpdate: true, canDelete: true, canReport: true, canSubmit: true },
+  attendance_marker: { canView: true },
+  parent:     { canView: true },
+};
+
 interface CatalogFeature {
   key: string;
   label: string;
@@ -205,6 +221,13 @@ export const UserTypesManager: React.FC = () => {
   };
 
   // ── Save permissions ───────────────────────────────────────────────────────
+
+  // Whether an action is valid for a given feature (UI only — hides irrelevant toggles)
+  const isActionApplicable = (featureKey: string, actionKey: ActionKey): boolean => {
+    if (actionKey === 'canSubmit') return SUBMIT_FEATURES.has(featureKey);
+    if (actionKey === 'canReport') return REPORT_FEATURES.has(featureKey);
+    return true;
+  };
 
   const handleSave = async (typeId: string) => {
     if (!instituteId) return;
@@ -414,40 +437,47 @@ export const UserTypesManager: React.FC = () => {
               <CardHeader className="pb-3 border-b">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-2">
-                    <span
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: selectedType.color ?? '#6366f1' }}
-                    />
+                    <span className="w-4 h-4 rounded-full" style={{ backgroundColor: selectedType.color ?? '#6366f1' }} />
                     <CardTitle className="text-base">{selectedType.name} — Permissions</CardTitle>
-                    {selectedType.isSystemType && (
-                      <Badge variant="secondary" className="text-[10px]">System</Badge>
-                    )}
+                    {selectedType.isSystemType && <Badge variant="secondary" className="text-[10px]">System — read only</Badge>}
                   </div>
-                  <Button
-                    size="sm"
-                    onClick={() => handleSave(selectedType.id)}
-                    disabled={!isDirty || savingTypeId === selectedType.id}
-                  >
-                    {savingTypeId === selectedType.id
-                      ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                      : <Save className="h-4 w-4 mr-1.5" />}
-                    Save {isDirty ? '(unsaved)' : ''}
-                  </Button>
+                  {!selectedType.isSystemType && (
+                    <Button size="sm" onClick={() => handleSave(selectedType.id)} disabled={!isDirty || savingTypeId === selectedType.id}>
+                      {savingTypeId === selectedType.id
+                        ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                        : <Save className="h-4 w-4 mr-1.5" />}
+                      Save {isDirty ? '(unsaved)' : ''}
+                    </Button>
+                  )}
                 </div>
 
-                {/* Action legend */}
-                <div className="flex flex-wrap gap-3 mt-2">
-                  {ACTIONS.map(a => (
-                    <span key={a.key} className={`flex items-center gap-1 text-xs ${a.color}`}>
-                      <a.Icon className="h-3 w-3" /> {a.label}
+                {/* System type notice */}
+                {selectedType.isSystemType && (
+                  <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                    <Lock className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                    <span>
+                      System roles use built-in access logic and cannot be edited here.
+                      Their permissions are determined by the system and apply to all users of this role.
+                      Create a <strong>custom user type</strong> to define specific access rules.
                     </span>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {/* Action legend */}
+                {!selectedType.isSystemType && (
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {ACTIONS.map(a => (
+                      <span key={a.key} className={`flex items-center gap-1 text-xs ${a.color}`}>
+                        <a.Icon className="h-3 w-3" /> {a.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </CardHeader>
 
               <CardContent className="p-0">
                 {/* Sticky column header */}
-                <div className="grid grid-cols-[1fr_repeat(5,40px)] gap-0 px-4 py-2 bg-muted/40 border-b sticky top-0 z-10">
+                <div className="grid grid-cols-[1fr_repeat(6,36px)] gap-0 px-4 py-2 bg-muted/40 border-b sticky top-0 z-10">
                   <div className="text-xs font-semibold text-muted-foreground uppercase">Feature</div>
                   {ACTIONS.map(a => (
                     <Tooltip key={a.key}>
@@ -462,70 +492,87 @@ export const UserTypesManager: React.FC = () => {
                 </div>
 
                 <div className="overflow-y-auto max-h-[60vh]">
-                  {SCOPE_CONFIG.map(({ scope, label: scopeLabel, Icon: ScopeIcon }) => {
+                  {SCOPE_CONFIG.map(({ scope, label: scopeLabel, Icon: ScopeIcon, description: scopeDesc }) => {
                     const scopeGroups = groupedByScope[scope];
                     if (!scopeGroups) return null;
                     const cats = CATEGORY_ORDER.filter(c => scopeGroups[c]?.length);
                     if (!cats.length) return null;
                     return (
                       <div key={scope}>
-                        {/* Scope section header */}
                         <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border-b border-t">
                           <ScopeIcon className="h-3.5 w-3.5 text-primary" />
-                          <p className="text-xs font-bold text-primary uppercase tracking-wide">{scopeLabel}</p>
+                          <div>
+                            <p className="text-xs font-bold text-primary uppercase tracking-wide">{scopeLabel}</p>
+                            <p className="text-[10px] text-muted-foreground">{scopeDesc}</p>
+                          </div>
                         </div>
 
                         {cats.map(cat => (
                           <div key={cat}>
-                            {/* Category sub-header */}
                             <div className="px-4 py-1.5 bg-muted/20 border-b border-t">
                               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                                 {CATEGORY_LABELS[cat] ?? cat}
                               </p>
                             </div>
 
-                            {/* Feature rows */}
                             {(scopeGroups[cat] ?? []).map((feat: CatalogFeature, idx: number) => {
                               const row = permMap[feat.key] ?? initRow(feat.key);
-                              const allOn = ACTIONS.every(a => row[a.key]);
+                              const isReadOnly = selectedType.isSystemType;
+                              // For custom types: only allow actions that are applicable to this feature
+                              const applicableActions = ACTIONS.filter(a => isActionApplicable(feat.key, a.key));
+                              const allOn = applicableActions.every(a => row[a.key]);
+
                               return (
                                 <div
                                   key={feat.key}
-                                  className={`grid grid-cols-[1fr_repeat(5,40px)] gap-0 px-4 py-2 items-center border-b last:border-b-0 ${
+                                  className={`grid grid-cols-[1fr_repeat(6,36px)] gap-0 px-4 py-2 items-center border-b last:border-b-0 ${
                                     idx % 2 === 0 ? '' : 'bg-muted/10'
-                                  }`}
+                                  } ${isReadOnly ? 'opacity-60' : ''}`}
                                 >
                                   <div className="flex items-center gap-2 min-w-0 pr-2">
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          className={`w-4 h-4 flex-shrink-0 rounded flex items-center justify-center border transition-colors ${
-                                            allOn
-                                              ? 'bg-primary border-primary text-primary-foreground'
-                                              : 'border-border hover:border-primary'
-                                          }`}
-                                          onClick={() => handleToggleAll(selectedType.id, feat.key, !allOn)}
-                                        >
-                                          {allOn && <Check className="h-2.5 w-2.5" />}
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>{allOn ? 'Remove all' : 'Grant all'}</TooltipContent>
-                                    </Tooltip>
+                                    {!isReadOnly && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            className={`w-4 h-4 flex-shrink-0 rounded flex items-center justify-center border transition-colors ${
+                                              allOn
+                                                ? 'bg-primary border-primary text-primary-foreground'
+                                                : 'border-border hover:border-primary'
+                                            }`}
+                                            onClick={() => handleToggleAll(selectedType.id, feat.key, !allOn)}
+                                          >
+                                            {allOn && <Check className="h-2.5 w-2.5" />}
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{allOn ? 'Remove all' : 'Grant all'}</TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                    {isReadOnly && <div className="w-4 h-4 flex-shrink-0" />}
                                     <div className="min-w-0">
                                       <p className="text-sm font-medium truncate">{feat.label}</p>
                                       <p className="text-[10px] text-muted-foreground truncate">{feat.key}</p>
                                     </div>
                                   </div>
 
-                                  {ACTIONS.map(action => (
-                                    <div key={action.key} className="flex justify-center">
-                                      <Switch
-                                        checked={row[action.key]}
-                                        onCheckedChange={() => handleToggle(selectedType.id, feat.key, action.key)}
-                                        className="scale-75"
-                                      />
-                                    </div>
-                                  ))}
+                                  {ACTIONS.map(action => {
+                                    const applicable = isActionApplicable(feat.key, action.key);
+                                    return (
+                                      <div key={action.key} className="flex justify-center">
+                                        {applicable ? (
+                                          <Switch
+                                            checked={row[action.key]}
+                                            onCheckedChange={() => !isReadOnly && handleToggle(selectedType.id, feat.key, action.key)}
+                                            disabled={isReadOnly}
+                                            className="scale-75"
+                                          />
+                                        ) : (
+                                          <div className="w-8 h-4 flex items-center justify-center">
+                                            <span className="text-[10px] text-muted-foreground/30">—</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               );
                             })}

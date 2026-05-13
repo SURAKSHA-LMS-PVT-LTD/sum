@@ -6,20 +6,29 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { instituteClassesApi } from '@/api/instituteClasses.api';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import ImageCropUpload from '@/components/common/ImageCropUpload';
 import { getErrorMessage } from '@/api/apiError';
+import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 
 interface CreateClassFormProps {
   onSubmit: (data: any) => void;
   onCancel: () => void;
+}
+
+interface TeacherOption {
+  id: string;
+  name: string;
+  email: string;
+  imageUrl?: string;
 }
 
 const CreateClassForm = ({ onSubmit, onCancel }: CreateClassFormProps) => {
@@ -28,6 +37,23 @@ const CreateClassForm = ({ onSubmit, onCancel }: CreateClassFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<TeacherOption | null>(null);
+
+  useEffect(() => {
+    if (selectedInstitute?.id) {
+      setTeachersLoading(true);
+      enhancedCachedClient.get(
+        `/institute-users/institute/${selectedInstitute.id}/users/TEACHER`,
+        { page: 1, limit: 200 },
+        { ttl: 15, userId: user?.id, role: 'InstituteAdmin', instituteId: selectedInstitute.id }
+      ).then((res: any) => {
+        const list = res?.data || res || [];
+        setTeachers(list);
+      }).catch(() => {}).finally(() => setTeachersLoading(false));
+    }
+  }, [selectedInstitute?.id]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -269,14 +295,46 @@ const CreateClassForm = ({ onSubmit, onCancel }: CreateClassFormProps) => {
               </Select>
             </div>
             <div>
-              <Label htmlFor="classTeacherId" className="text-xs">Class Teacher ID</Label>
-              <Input
-                id="classTeacherId"
-                placeholder="Enter teacher ID or select below"
-                value={formData.classTeacherId}
-                onChange={(e) => handleInputChange('classTeacherId', e.target.value)}
-                className="h-8 text-sm"
-              />
+              <Label className="text-xs">Class Teacher</Label>
+              {selectedTeacher ? (
+                <div className="flex items-center gap-2 p-2 border rounded-md bg-primary/5 border-primary/20 h-8">
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={selectedTeacher.imageUrl} />
+                    <AvatarFallback className="text-[10px]">{selectedTeacher.name[0]}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs flex-1 truncate">{selectedTeacher.name}</span>
+                  <button type="button" onClick={() => { setSelectedTeacher(null); handleInputChange('classTeacherId', ''); }} className="text-muted-foreground hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Select
+                  value={formData.classTeacherId || ''}
+                  onValueChange={(val) => {
+                    const t = teachers.find(t => t.id === val);
+                    setSelectedTeacher(t || null);
+                    handleInputChange('classTeacherId', val);
+                  }}
+                  disabled={teachersLoading}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder={teachersLoading ? 'Loading...' : 'Select teacher (optional)'} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50 max-h-48">
+                    {teachers.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={t.imageUrl} />
+                            <AvatarFallback className="text-[10px]">{t.name[0]}</AvatarFallback>
+                          </Avatar>
+                          <span>{t.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </CardContent>
         </Card>
