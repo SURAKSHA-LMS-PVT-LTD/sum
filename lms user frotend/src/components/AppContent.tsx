@@ -131,6 +131,9 @@ const HouseDetail = React.lazy(() => import('@/pages/HouseDetail'));
 const InstituteBillingPage = React.lazy(() => import('@/pages/InstituteBillingPage'));
 const InstituteCreditsPage = React.lazy(() => import('@/pages/InstituteCreditsPage'));
 const CollectPhysicalPayment = React.lazy(() => import('@/pages/CollectPhysicalPayment'));
+const FinanceHubPage = React.lazy(() => import('@/pages/FinanceHubPage'));
+const TeacherFinancePage = React.lazy(() => import('@/pages/TeacherFinancePage'));
+const CollectPaymentPage = React.lazy(() => import('@/pages/CollectPaymentPage'));
 
 
 interface AppContentProps {
@@ -929,6 +932,12 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <FeatureGatedPage featureKey="lecture-recording-attendance" component={<LectureRecordingAttendancePage />} />;
         case 'lecture-recording-student':
           return <StudentRecordingActivityPage />;
+        case 'finance-hub':
+          return <FeatureGatedPage featureKey="suraksha-finance" component={<FinanceHubPage />} />;
+        case 'teacher-finance':
+          return <FeatureGatedPage featureKey="teacher-finance" component={<TeacherFinancePage />} />;
+        case 'collect-payment':
+          return <FeatureGatedPage featureKey="suraksha-finance" component={<CollectPaymentPage />} />;
         default:
           return <Dashboard />;
       }

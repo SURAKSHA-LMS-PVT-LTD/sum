@@ -30,6 +30,10 @@ export const FEATURE_KEYS = {
   SMS_HISTORY: 'sms-history',
   INSTITUTE_NOTIFICATIONS: 'institute-notifications',
 
+  // Institute scope - Finance
+  SURAKSHA_FINANCE: 'suraksha-finance',
+  TEACHER_FINANCE: 'teacher-finance',
+
   // Institute scope - Payments and Billing
   INSTITUTE_PAYMENTS: 'institute-payments',
   PENDING_SUBMISSIONS: 'pending-submissions',

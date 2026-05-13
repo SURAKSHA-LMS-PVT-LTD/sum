@@ -556,8 +556,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           teacherPaymentItems.push({ id: FEATURE_KEYS.CLASS_PAYMENTS, label: 'Class Fees', icon: Banknote });
         }
         teacherPaymentItems.push({ id: FEATURE_KEYS.COLLECT_PHYSICAL_PAYMENT, label: 'Collect Payment', icon: Banknote });
+        if (isFeatureEnabled(FEATURE_KEYS.TEACHER_FINANCE)) {
+          teacherPaymentItems.push({ id: 'teacher-finance', label: 'My Earnings', icon: Wallet });
+        }
         groups.push({ id: 'payments', label: 'Fees & Payments', icon: CreditCard,
-          defaultOpen: hasActiveInGroup(['institute-payments','class-payments','collect-physical-payment'], activePage),
+          defaultOpen: hasActiveInGroup(['institute-payments','class-payments','collect-physical-payment','teacher-finance'], activePage),
           items: teacherPaymentItems });
       }
 
@@ -685,10 +688,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         if (!selectedClass) {
           paymentItems.push({ id: FEATURE_KEYS.INSTITUTE_BILLING, label: `Billing & Plan${instituteTier && instituteTier !== 'FREE' ? '' : ' — Free'}`, icon: Receipt });
           paymentItems.push({ id: FEATURE_KEYS.INSTITUTE_CREDITS, label: 'Institute Wallet', icon: Wallet });
+          if (isFeatureEnabled(FEATURE_KEYS.SURAKSHA_FINANCE)) {
+            paymentItems.push({ id: 'finance-hub', label: 'Finance Hub', icon: Wallet });
+            paymentItems.push({ id: 'collect-payment', label: 'Collect Cash', icon: Banknote });
+          }
         }
         if (paymentItems.length) {
           groups.push({ id: 'payments', label: 'Fees & Payments', icon: CreditCard,
-            defaultOpen: hasActiveInGroup(['institute-payments','class-payments','institute-billing','institute-credits','collect-physical-payment'], activePage),
+            defaultOpen: hasActiveInGroup(['institute-payments','class-payments','institute-billing','institute-credits','collect-physical-payment','finance-hub','collect-payment'], activePage),
             items: paymentItems });
         }
 
