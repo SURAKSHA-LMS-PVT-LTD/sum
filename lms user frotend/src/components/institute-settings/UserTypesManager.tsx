@@ -233,20 +233,27 @@ export const UserTypesManager: React.FC = () => {
     setDialogOpen(true);
   };
 
+  const refreshUserTypes = useCallback(async (selectId?: string) => {
+    if (!instituteId) return;
+    const fresh = await userTypesApi.listFresh(instituteId);
+    setUserTypes(fresh);
+    if (selectId) setSelectedTypeId(selectId);
+  }, [instituteId]);
+
   const handleFormSave = async () => {
     if (!instituteId || !form.name.trim()) return;
     setFormSaving(true);
     try {
       if (editingType) {
-        const updated = await userTypesApi.update(editingType.id, {
+        await userTypesApi.update(editingType.id, {
           name: form.name,
           namePlural: form.namePlural || form.name + 's',
           description: form.description,
           color: form.color,
           isPublic: form.isPublic,
         });
-        setUserTypes(prev => prev.map(t => t.id === updated.id ? updated : t));
         toast({ title: 'User type updated' });
+        await refreshUserTypes();
       } else {
         const created = await userTypesApi.create(instituteId, {
           name: form.name,
@@ -255,9 +262,8 @@ export const UserTypesManager: React.FC = () => {
           color: form.color,
           isPublic: form.isPublic,
         });
-        setUserTypes(prev => [...prev, created]);
-        setSelectedTypeId(created.id);
         toast({ title: 'User type created' });
+        await refreshUserTypes(created.id);
       }
       setDialogOpen(false);
     } catch (e: any) {
@@ -272,9 +278,10 @@ export const UserTypesManager: React.FC = () => {
     if (!confirm(`Delete "${ut.name}"? This cannot be undone.`)) return;
     try {
       await userTypesApi.delete(ut.id);
-      setUserTypes(prev => prev.filter(t => t.id !== ut.id));
-      if (selectedTypeId === ut.id) setSelectedTypeId(userTypes.find(t => t.id !== ut.id)?.id ?? null);
       toast({ title: 'User type deleted' });
+      const nextId = userTypes.find(t => t.id !== ut.id)?.id ?? null;
+      if (selectedTypeId === ut.id) setSelectedTypeId(nextId);
+      await refreshUserTypes();
     } catch {
       toast({ title: 'Error', description: 'Could not delete user type', variant: 'destructive' });
     }
