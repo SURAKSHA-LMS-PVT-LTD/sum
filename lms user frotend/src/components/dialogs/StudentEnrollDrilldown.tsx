@@ -13,7 +13,7 @@ import { Loader2, ChevronRight, ChevronLeft, School, BookOpen, Users } from 'luc
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { cachedApiClient } from '@/api/cachedClient';
-import AssignStudentsDialog from '@/components/dialogs/AssignStudentsDialog';
+import AssignStudentsDialog from '@/components/forms/AssignStudentsDialog';
 import AssignSubjectStudentsDialog from '@/components/forms/AssignSubjectStudentsDialog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
