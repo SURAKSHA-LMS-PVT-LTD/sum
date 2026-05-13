@@ -19,7 +19,14 @@ export const useActivityLogger = () => {
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
-        console.error('Failed to log activity:', error);
+        // Silently ignore 404 errors - activity logging endpoint may not be implemented
+        // Only log other errors
+        if (error instanceof Error) {
+          const errorMsg = error.message;
+          if (!errorMsg.includes('404') && !errorMsg.includes('Cannot POST')) {
+            console.debug('Activity logging error (non-critical):', errorMsg);
+          }
+        }
       }
     };
 

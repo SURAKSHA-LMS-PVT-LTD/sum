@@ -27,7 +27,7 @@ export const useInstituteRole = (): UserRole => {
     }
 
     return (user?.role || 'Student') as UserRole;
-  }, [isViewingAsParent, selectedInstitute?.instituteUserType, selectedInstitute?.userRole, selectedOrganization?.userRole, user?.role]);
+  }, [isViewingAsParent, selectedInstitute, selectedOrganization, user]);
 };
 
 /**

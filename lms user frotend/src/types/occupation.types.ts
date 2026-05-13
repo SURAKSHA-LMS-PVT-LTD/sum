@@ -180,3 +180,16 @@ export enum Occupation {
   RETIRED_PERSON = 'RETIRED_PERSON',
   UNEMPLOYED = 'UNEMPLOYED',
 }
+
+/**
+ * Format occupation enum value to readable label
+ * Converts BANK_OFFICER to "Bank Officer", etc.
+ */
+export function formatOccupation(occupation: Occupation | string): string {
+  if (!occupation) return '';
+  
+  return occupation
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}

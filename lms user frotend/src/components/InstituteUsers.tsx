@@ -148,6 +148,9 @@ const InstituteUsers = () => {
   const [inactiveFilters, setInactiveFilters] = useState<InstituteUserFilterParams>({});
   const [pendingUserTypeId, setPendingUserTypeId] = useState<string>('');
   const [verifyingIds, setVerifyingIds] = useState<Set<string>>(new Set());
+
+  // Store table instances in refs to avoid recreating them on every render
+  const tableInstancesRef = useRef<Record<string, any>>({});
   const [selectedPendingUsers, setSelectedPendingUsers] = useState<string[]>([]);
   const [bulkVerifying, setBulkVerifying] = useState(false);
   const [userInfoDialog, setUserInfoDialog] = useState<{ open: boolean; user: BasicUser | null }>({ open: false, user: null });
@@ -232,32 +235,42 @@ const InstituteUsers = () => {
     else setFilters(prev => ({ ...prev, [selectedUserTypeId]: newFilters }));
   };
 
+  // Call table hooks at top level - one for each view
+  const tableConfig = { pagination: { defaultLimit: 50, availableLimits: [25, 50, 100] }, autoLoad: false };
+  
+  // Table for regular users by type (call hook at top level, always)
+  const usersByTypeTable = useTableData<InstituteUserData>({
+    endpoint: currentInstituteId && selectedUserTypeId ? `/institute-users/institute/${currentInstituteId}/users/${selectedUserTypeId}` : null,
+    defaultParams: filters[selectedUserTypeId] || {},
+    dependencies: [],
+    ...tableConfig
+  });
+
+  // Table for inactive users (call hook at top level, always)
+  const inactiveUsersTable = useTableData<InstituteUserData>({
+    endpoint: currentInstituteId ? `/institute-users/institute/${currentInstituteId}/users/inactive` : null,
+    defaultParams: inactiveFilters,
+    dependencies: [],
+    ...tableConfig
+  });
+
+  // Table for pending verification (call hook at top level, always)
+  const pendingUsersTable = useTableData<InstituteUserData>({
+    endpoint: currentInstituteId && pendingUserTypeId ? `/institute-users/institute/${currentInstituteId}/unverified-by-type/${pendingUserTypeId}` : null,
+    defaultParams: pendingFilters,
+    dependencies: [pendingUserTypeId],
+    ...tableConfig
+  });
+
+  // Organize tables in an object after hooks are called
   const tables = useMemo(() => {
-    const tableConfig = { pagination: { defaultLimit: 50, availableLimits: [25, 50, 100] }, autoLoad: false };
-    const allTables: Record<string, any> = {};
-
-    if (currentInstituteId) {
-      userTypes.forEach(ut => {
-        allTables[ut.id] = useTableData<InstituteUserData>({
-          endpoint: `/institute-users/institute/${currentInstituteId}/users-by-type/${ut.id}`,
-          defaultParams: filters[ut.id] || {},
-          dependencies: [],
-          ...tableConfig
-        });
-      });
-
-      allTables.inactive = useTableData<InstituteUserData>({
-        endpoint: `/institute-users/institute/${currentInstituteId}/users/inactive`,
-        defaultParams: inactiveFilters, dependencies: [], ...tableConfig
-      });
-
-      allTables.pending = useTableData<InstituteUserData>({
-        endpoint: `/institute-users/institute/${currentInstituteId}/unverified-by-type/${pendingUserTypeId}`,
-        defaultParams: pendingFilters, dependencies: [pendingUserTypeId], ...tableConfig
-      });
-    }
+    const allTables: Record<string, any> = {
+      [selectedUserTypeId]: usersByTypeTable,
+      inactive: inactiveUsersTable,
+      pending: pendingUsersTable
+    };
     return allTables;
-  }, [currentInstituteId, userTypes, filters, inactiveFilters, pendingFilters, pendingUserTypeId]);
+  }, [selectedUserTypeId, usersByTypeTable, inactiveUsersTable, pendingUsersTable]);
 
   const createUserRequest = useApiRequest(async (userData: any) => {
     const response = await fetch(`/api/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userData) });
