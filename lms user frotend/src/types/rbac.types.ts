@@ -1,4 +1,4 @@
-export type PermissionAction = 'view' | 'create' | 'update' | 'delete' | 'report';
+export type PermissionAction = 'view' | 'create' | 'update' | 'delete' | 'report' | 'submit';
 
 // featureKey → array of granted actions
 export type PermissionMatrix = Record<string, PermissionAction[]>;
@@ -20,4 +20,5 @@ export interface FeaturePermission {
   canUpdate: boolean;
   canDelete: boolean;
   canReport: boolean;
+  canSubmit: boolean;
 }

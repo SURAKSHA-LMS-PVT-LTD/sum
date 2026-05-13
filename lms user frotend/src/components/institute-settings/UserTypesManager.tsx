@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,7 +13,8 @@ import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { userTypesApi, UserType } from '@/api/userTypes.api';
 import {
   Plus, Trash2, Edit2, Save, Loader2, Shield, Users, Lock,
-  Eye, FilePen, Pencil, BarChart2, X, Check, Info,
+  Eye, FilePen, Pencil, BarChart2, Check, Upload,
+  Building2, BookOpen, FileText,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -36,6 +36,7 @@ interface PermissionRow {
   canUpdate: boolean;
   canDelete: boolean;
   canReport: boolean;
+  canSubmit: boolean;
 }
 
 type PermissionMap = Record<string, PermissionRow>; // featureKey → row
@@ -46,10 +47,17 @@ const ACTIONS = [
   { key: 'canCreate', label: 'Create', Icon: FilePen,  color: 'text-green-600' },
   { key: 'canUpdate', label: 'Edit',   Icon: Pencil,   color: 'text-amber-600' },
   { key: 'canDelete', label: 'Delete', Icon: Trash2,   color: 'text-red-600'   },
-  { key: 'canReport', label: 'Report', Icon: BarChart2, color: 'text-purple-600'},
+  { key: 'canReport', label: 'Report',  Icon: BarChart2,   color: 'text-purple-600' },
+  { key: 'canSubmit', label: 'Submit',  Icon: Upload,      color: 'text-orange-600' },
 ] as const;
 
 type ActionKey = typeof ACTIONS[number]['key'];
+
+const SCOPE_CONFIG = [
+  { scope: 'INSTITUTE', label: 'Institute Level', Icon: Building2, description: 'Permissions that apply across the whole institute' },
+  { scope: 'CLASS',     label: 'Class Level',     Icon: BookOpen,  description: 'Permissions within individual classes' },
+  { scope: 'SUBJECT',   label: 'Subject Level',   Icon: FileText,  description: 'Permissions within individual subjects' },
+] as const;
 
 const CATEGORY_ORDER = ['ACADEMICS', 'ATTENDANCE', 'PAYMENTS', 'COMMUNICATION', 'TRANSPORT', 'SERVICES', 'BRANDING'];
 const CATEGORY_LABELS: Record<string, string> = {
@@ -60,7 +68,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function initRow(featureKey: string): PermissionRow {
-  return { featureKey, canView: false, canCreate: false, canUpdate: false, canDelete: false, canReport: false };
+  return { featureKey, canView: false, canCreate: false, canUpdate: false, canDelete: false, canReport: false, canSubmit: false };
 }
 
 function emptyPermMap(features: CatalogFeature[]): PermissionMap {
@@ -188,6 +196,7 @@ export const UserTypesManager: React.FC = () => {
             canUpdate: enable,
             canDelete: enable,
             canReport: enable,
+            canSubmit: enable,
           },
         },
       };
@@ -301,13 +310,18 @@ export const UserTypesManager: React.FC = () => {
   const permMap = selectedTypeId ? (permissionsMap[selectedTypeId] ?? {}) : {};
   const isDirty = selectedTypeId ? !!dirty[selectedTypeId] : false;
 
-  // Group features by category
-  const grouped: Record<string, CatalogFeature[]> = {};
+  // Group features by scope → category
+  const groupedByScope: Record<string, Record<string, CatalogFeature[]>> = {};
   for (const f of features) {
+    const scope = f.scope || 'INSTITUTE';
     const cat = f.category || 'SERVICES';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(f);
+    if (!groupedByScope[scope]) groupedByScope[scope] = {};
+    if (!groupedByScope[scope][cat]) groupedByScope[scope][cat] = [];
+    groupedByScope[scope][cat].push(f);
   }
+
+  // Track which scope sections are expanded in the permission matrix
+  // (stored outside render so it survives re-renders — use state defined above)
 
   return (
     <TooltipProvider>
@@ -448,65 +462,78 @@ export const UserTypesManager: React.FC = () => {
                 </div>
 
                 <div className="overflow-y-auto max-h-[60vh]">
-                  {CATEGORY_ORDER.filter(cat => grouped[cat]?.length).map(cat => (
-                    <div key={cat}>
-                      {/* Category header */}
-                      <div className="px-4 py-1.5 bg-muted/20 border-b border-t">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {CATEGORY_LABELS[cat] ?? cat}
-                        </p>
-                      </div>
+                  {SCOPE_CONFIG.map(({ scope, label: scopeLabel, Icon: ScopeIcon }) => {
+                    const scopeGroups = groupedByScope[scope];
+                    if (!scopeGroups) return null;
+                    const cats = CATEGORY_ORDER.filter(c => scopeGroups[c]?.length);
+                    if (!cats.length) return null;
+                    return (
+                      <div key={scope}>
+                        {/* Scope section header */}
+                        <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border-b border-t">
+                          <ScopeIcon className="h-3.5 w-3.5 text-primary" />
+                          <p className="text-xs font-bold text-primary uppercase tracking-wide">{scopeLabel}</p>
+                        </div>
 
-                      {/* Feature rows */}
-                      {(grouped[cat] ?? []).map((feat, idx) => {
-                        const row = permMap[feat.key] ?? initRow(feat.key);
-                        const allOn = ACTIONS.every(a => row[a.key]);
-                        return (
-                          <div
-                            key={feat.key}
-                            className={`grid grid-cols-[1fr_repeat(5,40px)] gap-0 px-4 py-2 items-center border-b last:border-b-0 ${
-                              idx % 2 === 0 ? '' : 'bg-muted/10'
-                            }`}
-                          >
-                            {/* Feature name + all-toggle */}
-                            <div className="flex items-center gap-2 min-w-0 pr-2">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    className={`w-4 h-4 flex-shrink-0 rounded flex items-center justify-center border transition-colors ${
-                                      allOn
-                                        ? 'bg-primary border-primary text-primary-foreground'
-                                        : 'border-border hover:border-primary'
-                                    }`}
-                                    onClick={() => handleToggleAll(selectedType.id, feat.key, !allOn)}
-                                    title={allOn ? 'Remove all' : 'Grant all'}
-                                  >
-                                    {allOn && <Check className="h-2.5 w-2.5" />}
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent>{allOn ? 'Remove all' : 'Grant all'}</TooltipContent>
-                              </Tooltip>
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium truncate">{feat.label}</p>
-                                <p className="text-[10px] text-muted-foreground truncate">{feat.key}</p>
-                              </div>
+                        {cats.map(cat => (
+                          <div key={cat}>
+                            {/* Category sub-header */}
+                            <div className="px-4 py-1.5 bg-muted/20 border-b border-t">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {CATEGORY_LABELS[cat] ?? cat}
+                              </p>
                             </div>
 
-                            {/* Per-action toggles */}
-                            {ACTIONS.map(action => (
-                              <div key={action.key} className="flex justify-center">
-                                <Switch
-                                  checked={row[action.key]}
-                                  onCheckedChange={() => handleToggle(selectedType.id, feat.key, action.key)}
-                                  className="scale-75"
-                                />
-                              </div>
-                            ))}
+                            {/* Feature rows */}
+                            {(scopeGroups[cat] ?? []).map((feat: CatalogFeature, idx: number) => {
+                              const row = permMap[feat.key] ?? initRow(feat.key);
+                              const allOn = ACTIONS.every(a => row[a.key]);
+                              return (
+                                <div
+                                  key={feat.key}
+                                  className={`grid grid-cols-[1fr_repeat(5,40px)] gap-0 px-4 py-2 items-center border-b last:border-b-0 ${
+                                    idx % 2 === 0 ? '' : 'bg-muted/10'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 pr-2">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          className={`w-4 h-4 flex-shrink-0 rounded flex items-center justify-center border transition-colors ${
+                                            allOn
+                                              ? 'bg-primary border-primary text-primary-foreground'
+                                              : 'border-border hover:border-primary'
+                                          }`}
+                                          onClick={() => handleToggleAll(selectedType.id, feat.key, !allOn)}
+                                        >
+                                          {allOn && <Check className="h-2.5 w-2.5" />}
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{allOn ? 'Remove all' : 'Grant all'}</TooltipContent>
+                                    </Tooltip>
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium truncate">{feat.label}</p>
+                                      <p className="text-[10px] text-muted-foreground truncate">{feat.key}</p>
+                                    </div>
+                                  </div>
+
+                                  {ACTIONS.map(action => (
+                                    <div key={action.key} className="flex justify-center">
+                                      <Switch
+                                        checked={row[action.key]}
+                                        onCheckedChange={() => handleToggle(selectedType.id, feat.key, action.key)}
+                                        className="scale-75"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
-                  ))}
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

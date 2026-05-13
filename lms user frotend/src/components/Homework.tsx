@@ -3,6 +3,7 @@ import { useResizableColumns } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
+import { usePermission } from '@/hooks/usePermission';
 import { useRefreshWithCooldown } from '@/hooks/useRefreshWithCooldown';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
   const navigate = useNavigate();
   const { user, selectedInstitute, selectedClass, selectedSubject, currentInstituteId, currentClassId, currentSubjectId, isViewingAsParent, selectedChild } = useAuth();
   const instituteRole = useInstituteRole();
+  const { hasCustomType, canCreate: rbacCanCreate, canUpdate: rbacCanUpdate, canDelete: rbacCanDelete, canSubmit: rbacCanSubmit } = usePermission('homework');
   const { toast } = useToast();
   const { refresh, isRefreshing, canRefresh, cooldownRemaining } = useRefreshWithCooldown(10);
   
@@ -296,10 +298,14 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
     await handleLoadData(true);
   };
 
-  const canAdd = AccessControl.hasPermission(instituteRole, 'create-homework');
-  const canEdit = instituteRole === 'Teacher' ? true : AccessControl.hasPermission(instituteRole, 'edit-homework');
-  const canDelete = instituteRole === 'Teacher' ? true : AccessControl.hasPermission(instituteRole, 'delete-homework');
-  const isStudent = instituteRole === 'Student';
+  // For custom user types use RBAC; for system roles use the existing AccessControl logic
+  const canAdd = hasCustomType ? rbacCanCreate : AccessControl.hasPermission(instituteRole, 'create-homework');
+  const canEdit = hasCustomType ? rbacCanUpdate : (instituteRole === 'Teacher' ? true : AccessControl.hasPermission(instituteRole, 'edit-homework'));
+  const canDelete = hasCustomType ? rbacCanDelete : (instituteRole === 'Teacher' ? true : AccessControl.hasPermission(instituteRole, 'delete-homework'));
+  // canSubmit: students by role OR custom types with submit permission
+  const isStudent = hasCustomType ? rbacCanSubmit : instituteRole === 'Student';
+  // canViewSubmissions: admins/teachers by role OR custom types with view+report
+  const canViewSubmissions = hasCustomType ? (rbacCanCreate || rbacCanUpdate) : (instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const toggleExpand = (id: number) => {
@@ -351,11 +357,11 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
     ...(isStudent ? [{ key: 'status', header: 'Status', defaultVisible: true, defaultWidth: 120, minWidth: 80 } as ColumnDef] : []),
     { key: 'active', header: 'Active', defaultVisible: true, defaultWidth: 100, minWidth: 60 },
     { key: 'references', header: 'References', defaultVisible: true, defaultWidth: 180, minWidth: 100 },
-    ...((instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') ? [{ key: 'submissions', header: 'Submissions', defaultVisible: true, defaultWidth: 140, minWidth: 80 } as ColumnDef] : []),
+    ...(canViewSubmissions ? [{ key: 'submissions', header: 'Submissions', defaultVisible: true, defaultWidth: 140, minWidth: 80 } as ColumnDef] : []),
     { key: '_view', header: 'View', defaultVisible: true, defaultWidth: 90, minWidth: 60 },
     ...(isStudent ? [{ key: '_edit', header: 'Submit', defaultVisible: true, defaultWidth: 90, minWidth: 60 } as ColumnDef] : []),
-    ...((instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') && (canEdit || canDelete) ? [{ key: 'actions', header: 'Actions', defaultVisible: true, defaultWidth: 110, minWidth: 80, locked: true } as ColumnDef] : []),
-  ], [isStudent, instituteRole, canEdit, canDelete]);
+    ...((canEdit || canDelete) ? [{ key: 'actions', header: 'Actions', defaultVisible: true, defaultWidth: 110, minWidth: 80, locked: true } as ColumnDef] : []),
+  ], [isStudent, canViewSubmissions, canEdit, canDelete]);
 
   const { colState: hwColState, visibleColumns: visHWDefs, toggleColumn: toggleHWCol, resetColumns: resetHWCols } = useColumnConfig(hwColDefs, 'homework');
 
@@ -460,8 +466,8 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
     }
   };
 
-  // Payment gate: If student hasn't paid, block access to homework
-  if (instituteRole === 'Student' && selectedSubject?.verificationStatus && 
+  // Payment gate: If student (or custom submit-role user) hasn't paid, block access to homework
+  if (isStudent && selectedSubject?.verificationStatus &&
       !['verified', 'enrolled_free_card'].includes(selectedSubject.verificationStatus)) {
     const statusLabels: Record<string, { label: string; color: string; desc: string }> = {
       pending_payment: { label: 'Payment Required', color: 'text-orange-600', desc: 'You need to submit payment to access homework. Please go to Fees & Payments to submit your payment.' },
@@ -497,13 +503,13 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold mb-4">{getTitle()}</h2>
           <p className="text-muted-foreground mb-6">
-            {instituteRole === 'Student' && (!currentInstituteId || !currentClassId || !currentSubjectId)
+            {isStudent && (!currentInstituteId || !currentClassId || !currentSubjectId)
               ? 'Please select institute, class, and subject to view homework.'
               : 'Click the button below to load homework data'}
           </p>
-          <Button 
-            onClick={() => handleLoadData(false)} 
-            disabled={isLoading || (instituteRole === 'Student' && (!currentInstituteId || !currentClassId || !currentSubjectId))}
+          <Button
+            onClick={() => handleLoadData(false)}
+            disabled={isLoading || (isStudent && (!currentInstituteId || !currentClassId || !currentSubjectId))}
           >
             {isLoading ? (
               <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Loading Data...</>
@@ -582,7 +588,7 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
           )}
 
           {/* Create Button */}
-          {(instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') && canAdd && (
+          {canAdd && (
             <div className="flex justify-end">
               <Button onClick={() => setIsCreateDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-1" /> Create Homework
@@ -709,7 +715,7 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
                             </Button>
                           )
                         )}
-                        {(instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') && (
+                        {canViewSubmissions && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -811,7 +817,7 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
                           <Button size="sm" variant="outline" onClick={() => handleViewHomework(hw)}>
                             <Eye className="h-3 w-3 mr-1" />Details
                           </Button>
-                          {(instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') && (
+                          {(canEdit || canDelete) && (
                             <>
                               {canEdit && (
                                 <Button size="sm" variant="outline" onClick={() => handleEditHomework(hw)}>

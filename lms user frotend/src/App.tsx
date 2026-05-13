@@ -40,6 +40,7 @@ import HomeworkSubmissionDetails from "./pages/HomeworkSubmissionDetails";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantProvider } from "@/contexts/TenantContext";
 import { FeaturesProvider } from "@/contexts/FeaturesContext"; // Import FeaturesProvider
+import { RbacProvider } from "@/contexts/RbacContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import UpdateHomework from "@/pages/UpdateHomework";
 import UpdateLecture from "@/pages/UpdateLecture";
@@ -389,6 +390,7 @@ const App = () => {
             <TenantProvider>
             <AuthProvider>
               <FeaturesProvider>
+              <RbacProvider>
               {showConnectionError ? (
                 <CapacitorConnectionError onRetry={retry} />
               ) : (
@@ -402,6 +404,7 @@ const App = () => {
                   <AppContent />
                 </>
               )}
+              </RbacProvider>
               </FeaturesProvider>
             </AuthProvider>
             </TenantProvider>

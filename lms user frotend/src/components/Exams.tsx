@@ -21,6 +21,7 @@ import CreateResultsForm from '@/components/forms/CreateResultsForm';
 import { DataCardView } from '@/components/ui/data-card-view';
 import { useViewMode } from '@/hooks/useViewMode';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { usePermission } from '@/hooks/usePermission';
 import { useTableData } from '@/hooks/useTableData';
 import { cachedApiClient } from '@/api/cachedClient';
 import DeleteConfirmDialog from '@/components/forms/DeleteConfirmDialog';
@@ -60,6 +61,7 @@ const Exams = ({
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: any }>({ open: false, item: null });
   const [isDeleting, setIsDeleting] = useState(false);
   const userRole = useInstituteRole();
+  const { hasCustomType, canCreate: rbacCanCreate, canUpdate: rbacCanUpdate, canDelete: rbacCanDelete } = usePermission('exams');
 
   // Memoize default params to prevent unnecessary re-renders
   const defaultParams = useMemo(() => {
@@ -288,9 +290,9 @@ const Exams = ({
           View
         </Button>
   }];
-  const canAdd = AccessControl.hasPermission(userRole, 'create-exam');
-  const canEdit = userRole === 'Teacher' ? true : AccessControl.hasPermission(userRole, 'edit-exam');
-  const canDelete = userRole === 'Teacher' ? true : AccessControl.hasPermission(userRole, 'delete-exam');
+  const canAdd = hasCustomType ? rbacCanCreate : AccessControl.hasPermission(userRole, 'create-exam');
+  const canEdit = hasCustomType ? rbacCanUpdate : (userRole === 'Teacher' ? true : AccessControl.hasPermission(userRole, 'edit-exam'));
+  const canDelete = hasCustomType ? rbacCanDelete : (userRole === 'Teacher' ? true : AccessControl.hasPermission(userRole, 'delete-exam'));
   const canView = true; // All users can view exams
 
   // DEBUG: Log role and institute information
@@ -491,8 +493,8 @@ const Exams = ({
               </div>
             </div>}
 
-           {/* Add Create Buttons for InstituteAdmin and Teacher */}
-           {(userRole === 'InstituteAdmin' || userRole === 'Teacher') && canAdd && <div className="flex justify-end">
+           {/* Create button — visible to any role with canCreate permission */}
+           {canAdd && <div className="flex justify-end">
                 <Button onClick={() => setIsCreateDialogOpen(true)} size="sm" className="h-8 text-xs sm:h-9 sm:text-sm">
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   Create Exam
@@ -530,7 +532,7 @@ const Exams = ({
                               <Button size="sm" variant="outline" className="h-7 text-xs px-2.5" onClick={(e) => { e.stopPropagation(); handleViewResults(item); }}>
                                 <Eye className="h-3 w-3 mr-1" />Results
                               </Button>
-                              {(userRole === 'InstituteAdmin' || userRole === 'Teacher') && canAdd && (
+                              {canAdd && (
                                 <Button
                                   size="sm"
                                   variant="outline"

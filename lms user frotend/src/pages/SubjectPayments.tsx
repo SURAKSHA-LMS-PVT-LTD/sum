@@ -37,6 +37,7 @@ import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import { useViewMode } from '@/hooks/useViewMode';
+import { usePermission } from '@/hooks/usePermission';
 import { useResizableColumns } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
@@ -52,6 +53,10 @@ const SubjectPayments = () => {
   // When parent is viewing as child, use the child's student ID
   const effectiveStudentId = isViewingAsParent && selectedChild ? selectedChild.id : undefined;
   const instituteRole = useInstituteRole();
+  const { hasCustomType, canCreate: rbacCanCreate, canSubmit: rbacCanSubmit } = usePermission('subject-payments');
+  // For custom user types use RBAC; for system roles use hardcoded role checks
+  const isAdminRole = hasCustomType ? rbacCanCreate : (instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher');
+  const isSubmitterRole = hasCustomType ? rbacCanSubmit : (instituteRole === 'Student');
   
   // Check if institute type is tuition_institute
   const isTuitionInstitute = selectedInstitute?.type === 'tuition_institute';
@@ -104,11 +109,11 @@ const SubjectPayments = () => {
     setLoading(true);
     try {
       let response: SubjectPaymentsResponse;
-      if (instituteRole === 'Student') {
+      if (isSubmitterRole) {
         // my-payments returns inline mySubmissions per payment — no extra call needed
         response = await subjectPaymentsApi.getMySubjectPayments(selectedInstitute.id, selectedClass.id, selectedSubject.id, pageNum + 1, limitNum, forceRefresh, effectiveStudentId);
-      } else if (instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') {
-        // For admins and teachers, use regular endpoint
+      } else if (isAdminRole) {
+        // For admins and teachers (and custom types with create perm), use regular endpoint
         response = await subjectPaymentsApi.getSubjectPayments(selectedInstitute.id, selectedClass.id, selectedSubject.id, pageNum + 1, limitNum, forceRefresh);
       } else {
         toast({
@@ -136,10 +141,10 @@ const SubjectPayments = () => {
 
   // Handle verification for admins
   const handleVerify = (submission: PaymentSubmission) => {
-    if (instituteRole !== 'InstituteAdmin') {
+    if (!isAdminRole) {
       toast({
         title: "Access Denied",
-        description: "Only Institute Admins can verify submissions.",
+        description: "Only admins can verify submissions.",
         variant: "destructive"
       });
       return;
@@ -148,9 +153,9 @@ const SubjectPayments = () => {
     setVerifyDialogOpen(true);
   };
 
-  // View submissions for a payment (admins/teachers only)
+  // View submissions for a payment (admins/teachers or custom types with create perm)
   const viewSubmissions = (payment: SubjectPayment) => {
-    if (instituteRole !== 'InstituteAdmin' && instituteRole !== 'Teacher') {
+    if (!isAdminRole) {
       toast({
         title: "Access Denied",
         description: "You don't have permission to view submissions.",
@@ -442,7 +447,7 @@ const SubjectPayments = () => {
                 </p>}
             </div>
           </div>
-          {(instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') && <Button onClick={() => setCreatePaymentDialogOpen(true)} className="shrink-0 w-full sm:w-auto" size="sm" disabled={!selectedInstitute || !selectedClass || !selectedSubject}>
+          {isAdminRole && <Button onClick={() => setCreatePaymentDialogOpen(true)} className="shrink-0 w-full sm:w-auto" size="sm" disabled={!selectedInstitute || !selectedClass || !selectedSubject}>
               <Plus className="h-4 w-4 mr-1.5" />
               Create Payment
             </Button>}
@@ -627,7 +632,7 @@ const SubjectPayments = () => {
                             {payment.targetType && (
                               <p className="text-xs text-muted-foreground">Target: <span className="font-medium text-foreground">{payment.targetType}</span></p>
                             )}
-                            {(instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') && totalSubs > 0 && (
+                            {isAdminRole && totalSubs > 0 && (
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                                   <span>Submissions</span>
@@ -699,7 +704,7 @@ const SubjectPayments = () => {
                                   </div>
                                 );
                               })()}
-                              {(instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') && (
+                              {isAdminRole && (
                                 <div className="flex flex-col gap-1.5">
                                   {payment.bankName || payment.accountHolderName || payment.accountHolderNumber ? (
                                     <Button variant="outline" size="sm" className="w-full border-blue-500 text-blue-700 hover:bg-blue-50" onClick={() => handleViewBankDetails(payment)}>
@@ -824,7 +829,7 @@ const SubjectPayments = () => {
         </div>}
 
         {/* Verify Dialog for Institute Admins */}
-        {selectedInstitute && instituteRole === 'InstituteAdmin' && <VerifySubmissionDialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen} submission={selectedSubmission} instituteId={selectedInstitute.id} onSuccess={() => {
+        {selectedInstitute && isAdminRole && <VerifySubmissionDialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen} submission={selectedSubmission} instituteId={selectedInstitute.id} onSuccess={() => {
         setVerifyDialogOpen(false);
         setSelectedSubmission(null);
         loadSubjectPayments(); // Reload data after verification

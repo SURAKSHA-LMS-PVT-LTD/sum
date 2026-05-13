@@ -35,6 +35,7 @@ import { useResizableColumns } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import ClassPaymentMatrix from '@/components/payments/ClassPaymentMatrix';
+import { usePermission } from '@/hooks/usePermission';
 
 // Inline bank details dialog (reuse for class payments)
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -83,6 +84,9 @@ function ClassPaymentBankDetailsDialog({ open, onOpenChange, payment }: { open: 
 const ClassPayments = () => {
   const { user, selectedInstitute, selectedClass, isViewingAsParent, selectedChild } = useAuth();
   const instituteRole = useInstituteRole();
+  const { hasCustomType, canCreate: rbacCanCreate, canSubmit: rbacCanSubmit } = usePermission('class-payments');
+  const isAdminRole = hasCustomType ? rbacCanCreate : (instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher');
+  const isSubmitterRole = hasCustomType ? rbacCanSubmit : (instituteRole === 'Student');
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -126,7 +130,7 @@ const ClassPayments = () => {
       const isPayerRole = instituteRole === 'Student' || instituteRole === 'Parent' || (isViewingAsParent && selectedChild);
       if (isPayerRole) {
         response = await classPaymentsApi.getMyClassPayments(selectedInstitute.id, selectedClass.id, pageNum + 1, limitNum, forceRefresh);
-      } else if (instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher' || instituteRole === 'AttendanceMarker') {
+      } else if (isAdminRole || instituteRole === 'AttendanceMarker') {
         response = await classPaymentsApi.getClassPayments(selectedInstitute.id, selectedClass.id, pageNum + 1, limitNum, forceRefresh);
       } else {
         toast({ title: 'Access Denied', description: "You don't have permission to view class payments.", variant: 'destructive' });
@@ -183,8 +187,7 @@ const ClassPayments = () => {
     return paymentsData.data.filter(p => p.title?.toLowerCase().includes(q) || p.amount?.toString().includes(searchQuery.trim()) || p.priority?.toLowerCase().includes(q));
   }, [paymentsData?.data, searchQuery]);
 
-  const isPayerRole = instituteRole === 'Student' || instituteRole === 'Parent' || isViewingAsParent;
-  const isAdminRole = instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher';
+  const isPayerRole = isSubmitterRole || instituteRole === 'Parent' || isViewingAsParent;
 
   const colDefs = React.useMemo<ColumnDef[]>(() => [
     { key: 'title', header: 'Title', locked: true, defaultWidth: 200, minWidth: 120 },
@@ -287,7 +290,7 @@ const ClassPayments = () => {
             </p>
           </div>
         </div>
-        {(instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') && (
+        {isAdminRole && (
           <Button onClick={() => setCreatePaymentDialogOpen(true)} size="sm" className="shrink-0 w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-1.5" />Create Payment
           </Button>
@@ -403,7 +406,7 @@ const ClassPayments = () => {
                         <div className="px-4 pb-4 border-t pt-3 space-y-3">
                           {payment.description && <p className="text-xs text-muted-foreground leading-relaxed">{payment.description}</p>}
                           {payment.targetType && <p className="text-xs text-muted-foreground">Target: <span className="font-medium text-foreground">{payment.targetType}</span></p>}
-                          {(instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher') && totalSubs > 0 && (
+                          {isAdminRole && totalSubs > 0 && (
                             <div className="space-y-1.5">
                               <div className="flex justify-between text-xs text-muted-foreground"><span>Submissions</span><span className="font-medium">{verifiedSubs}/{totalSubs} verified</span></div>
                               <div className="h-2 w-full rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPct}%` }} /></div>
@@ -505,7 +508,7 @@ const ClassPayments = () => {
       )}
 
       {/* Dialogs */}
-      {selectedInstitute && instituteRole === 'InstituteAdmin' && (
+      {selectedInstitute && isAdminRole && (
         <VerifySubmissionDialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen} submission={selectedSubmission} instituteId={selectedInstitute.id} onSuccess={() => { setVerifyDialogOpen(false); setSelectedSubmission(null); loadPayments(); }} />
       )}
 

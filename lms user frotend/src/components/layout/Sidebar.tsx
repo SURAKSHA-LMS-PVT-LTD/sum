@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useFeatures } from '@/contexts/FeaturesContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
+import { useRbac } from '@/contexts/RbacContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { extractPageFromUrl, buildSidebarUrl, getSidebarHighlightPage } from '@/utils/pageNavigation';
 import ProfileSwitcherSheet from './ProfileSwitcherSheet';
@@ -223,6 +224,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const isTuitionInstitute = (selectedInstitute?.type || '').toLowerCase() === 'tuition_institute';
   const { subjectLabel, classLabel } = useInstituteLabels();
   const userRole = useInstituteRole();
+  const { context: rbacContext, loading: rbacLoading } = useRbac();
+
+  // Users with these slugs use the hard-coded sidebar layout (role-based).
+  // All other slugs are custom institute-defined roles and use the RBAC permission matrix.
+  const SYSTEM_TYPE_SLUGS = React.useMemo(
+    () => new Set(['student', 'teacher', 'institute_admin', 'attendance_marker', 'parent']),
+    [],
+  );
 
   const currentPage = React.useMemo(() => extractPageFromUrl(location.pathname), [location.pathname]);
   const activePage = React.useMemo(() => getSidebarHighlightPage(location.pathname), [location.pathname]);
@@ -301,13 +310,39 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     }
   };
 
+  // Determines whether a user can see a nav item.
+  // Two-layer check:
+  //   1. Institute feature toggle (admin enables/disables at institute level) — always gates first.
+  //   2. Permission check — if the user has a CUSTOM (non-system) RBAC user type,
+  //      use their `canView` permission for that feature key.
+  //      Otherwise fall back to the hard-coded role permission matrix.
   const filterFn = React.useCallback((items: NavItem[]) => {
+    // Has the user been assigned a custom (non-system) RBAC user type by the institute?
+    const slug = rbacContext?.userTypeSlug ?? '';
+    const hasCustomType = !rbacLoading && !!rbacContext?.userTypeId && !SYSTEM_TYPE_SLUGS.has(slug);
+
     return items.filter(item => {
-      const hasPermission = AccessControl.hasPermission(userRole as any, (item.permission || 'view-dashboard') as any);
+      // alwaysShow items bypass all checks (Dashboard, Profile, etc.)
+      if (item.alwaysShow) return true;
+
+      // Institute-level feature must be enabled first
       const featureEnabled = isFeatureEnabled(item.id);
-      return (item.alwaysShow || (hasPermission && featureEnabled));
+      if (!featureEnabled) return false;
+
+      // Custom RBAC user type: use per-feature canView from the permission matrix
+      if (hasCustomType) {
+        // isSystemAdmin (global superadmin) → see everything that the feature toggle allows
+        if (rbacContext!.isSystemAdmin) return true;
+        const perms = rbacContext!.permissions[item.id];
+        // No row = not granted. Structural items (select-class, etc.) use alwaysShow so they bypass this.
+        if (perms === undefined) return false;
+        return perms.includes('view');
+      }
+
+      // Legacy hard-coded role check (system types: student, teacher, admin, etc.)
+      return AccessControl.hasPermission(userRole as any, (item.permission || 'view-dashboard') as any);
     });
-  }, [userRole, isFeatureEnabled]);
+  }, [userRole, isFeatureEnabled, rbacContext, rbacLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Build nav groups based on role + selection state ──────────
   const navGroups = React.useMemo((): NavGroup[] => {
@@ -832,6 +867,82 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           { id: 'user-types', label: 'User Types & Permissions', icon: ShieldCheck, alwaysShow: true },
         ]});
       }
+
+      return groups;
+    }
+
+    // ==========================================================
+    //  CUSTOM USER TYPE (non-system role assigned by institute)
+    //  e.g. "Lab Assistant", "Librarian", "Transport Manager"
+    //  The filterFn already gates each item by canView; here we
+    //  expose ALL feature-based nav items so they're available to filter.
+    // ==========================================================
+    if (rbacContext?.userTypeId && !SYSTEM_TYPE_SLUGS.has(rbacContext.userTypeSlug ?? '')) {
+      groups.push({ id: 'main', label: 'Main', icon: Home, alwaysFlat: true, items: [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, alwaysShow: true },
+        ...(!isTenantLogin ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
+      ]});
+
+      if (selectedInstitute) {
+        groups.push({ id: 'navigate', label: 'Navigate', icon: School, alwaysFlat: true, items: [
+          ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
+        ]});
+
+        groups.push({ id: 'manage-users', label: 'Manage Users', icon: UserCog, items: [
+          { id: FEATURE_KEYS.INSTITUTE_USERS, label: 'All Users', icon: Users },
+          { id: FEATURE_KEYS.PARENTS, label: 'Parents', icon: Users },
+          { id: FEATURE_KEYS.STUDENTS, label: 'Students', icon: GraduationCap },
+          { id: FEATURE_KEYS.UNVERIFIED_STUDENTS, label: 'Pending Students', icon: UserCheck },
+          { id: FEATURE_KEYS.VERIFY_IMAGE, label: 'Verify Photos', icon: ShieldCheck },
+        ]});
+
+        groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
+          { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School },
+          { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectLabel}s`, icon: BookOpen },
+          { id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video },
+          ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video }] : []),
+          ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_SUBJECTS, label: `Class ${subjectLabel}s`, icon: BookOpen }] : []),
+          ...(selectedClass && selectedSubject ? [
+            { id: FEATURE_KEYS.LECTURES, label: 'Lectures', icon: Video },
+            { id: FEATURE_KEYS.FREE_LECTURES, label: 'Free Lectures', icon: Video },
+            { id: FEATURE_KEYS.HOMEWORK, label: 'Homework', icon: Notebook },
+            { id: FEATURE_KEYS.EXAMS, label: 'Exams', icon: Award },
+            { id: FEATURE_KEYS.STUDY_MATERIALS, label: 'Study Materials', icon: FileText },
+          ] : []),
+        ]});
+
+        groups.push({ id: 'attendance', label: 'Attendance', icon: UserCheck, items: [
+          { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode },
+          { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: 'Daily Attendance', icon: ClipboardList },
+          { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3 },
+          { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3 },
+          { id: FEATURE_KEYS.ADMIN_ATTENDANCE, label: 'Advanced Attendance', icon: BarChart3 },
+          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
+          { id: FEATURE_KEYS.CALENDAR_VIEW, label: 'Calendar', icon: Calendar },
+        ]});
+
+        groups.push({ id: 'communication', label: 'Communication', icon: MessageSquare, items: [
+          { id: FEATURE_KEYS.SMS, label: 'Send SMS', icon: MessageSquare },
+          { id: FEATURE_KEYS.SMS_HISTORY, label: 'SMS History', icon: ListChecks },
+          { id: FEATURE_KEYS.INSTITUTE_NOTIFICATIONS, label: 'Notifications', icon: Bell, badge: unreadNotifCount },
+        ]});
+
+        groups.push({ id: 'payments', label: 'Fees & Payments', icon: CreditCard, items: [
+          { id: FEATURE_KEYS.INSTITUTE_PAYMENTS, label: 'Institute Fees', icon: CreditCard },
+          { id: FEATURE_KEYS.CLASS_PAYMENTS, label: 'Class Fees', icon: Banknote },
+          { id: FEATURE_KEYS.COLLECT_PHYSICAL_PAYMENT, label: 'Collect Payment', icon: Banknote },
+          { id: FEATURE_KEYS.INSTITUTE_BILLING, label: 'Billing & Plan', icon: Receipt },
+          { id: FEATURE_KEYS.INSTITUTE_CREDITS, label: 'Institute Wallet', icon: Wallet },
+        ]});
+      }
+
+      groups.push({ id: 'account', label: 'Account', icon: User, items: [
+        selectedInstitute
+          ? { id: 'institute-profile', label: 'My Profile', icon: User, alwaysShow: true }
+          : { id: 'profile', label: 'My Profile', icon: User, alwaysShow: true },
+        { id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true },
+      ]});
 
       return groups;
     }

@@ -7,32 +7,96 @@ import { useFeatures } from '@/contexts/FeaturesContext';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock } from 'lucide-react';
+import {
+  Loader2, Lock, Building2, BookOpen, FileText,
+  GraduationCap, Users, CalendarCheck, CreditCard,
+  MessageSquare, Globe, Wrench, Truck, ChevronRight,
+  Save, AlertCircle, Info, ShieldCheck,
+} from 'lucide-react';
 
 interface CatalogFeature {
   key: string;
   label: string;
   description: string;
   scope: 'INSTITUTE' | 'CLASS' | 'SUBJECT';
-  category: 'ATTENDANCE' | 'ACADEMICS' | 'PAYMENTS' | 'COMMUNICATION' | 'BRANDING' | 'TRANSPORT' | 'SERVICES';
+  category: string;
   pricing: 'FREE' | 'PAID';
-  billingCycle: string;
   isCore: boolean;
   dependencies: string[];
   isActive: boolean;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  ACADEMICS:     'Academics',
-  ATTENDANCE:    'Attendance',
-  PAYMENTS:      'Payments & Billing',
-  COMMUNICATION: 'Communication',
-  BRANDING:      'Settings & Branding',
-  TRANSPORT:     'Transport',
-  SERVICES:      'Admin Tools & Services',
-};
+// ── Navigation tree definition ────────────────────────────────────────────────
+// Each nav node represents a scope+category combination shown in the left sidebar.
 
-const SCOPE_ORDER = ['INSTITUTE', 'CLASS', 'SUBJECT'];
+interface NavNode {
+  id: string;          // unique key used for selection
+  scope: string;
+  category: string;
+  label: string;
+  icon: React.ElementType;
+  description: string;
+}
+
+const NAV_TREE: Array<{
+  scope: string;
+  scopeLabel: string;
+  icon: React.ElementType;
+  scopeDescription: string;
+  groups: NavNode[];
+}> = [
+  {
+    scope: 'INSTITUTE',
+    scopeLabel: 'Institute Level',
+    icon: Building2,
+    scopeDescription: 'Features available across the whole institute',
+    groups: [
+      { id: 'INSTITUTE__ACADEMICS',     scope: 'INSTITUTE', category: 'ACADEMICS',     label: 'Academics',          icon: GraduationCap, description: 'Classes, subjects, lectures and structured learning' },
+      { id: 'INSTITUTE__SERVICES',      scope: 'INSTITUTE', category: 'SERVICES',      label: 'User Management',    icon: Users,         description: 'Manage all users, parents and photo verification' },
+      { id: 'INSTITUTE__ATTENDANCE',    scope: 'INSTITUTE', category: 'ATTENDANCE',    label: 'Attendance',         icon: CalendarCheck, description: 'QR, RFID, daily and lecture attendance tracking' },
+      { id: 'INSTITUTE__COMMUNICATION', scope: 'INSTITUTE', category: 'COMMUNICATION', label: 'Communication',      icon: MessageSquare, description: 'SMS, notifications and messaging features' },
+      { id: 'INSTITUTE__PAYMENTS',      scope: 'INSTITUTE', category: 'PAYMENTS',      label: 'Payments & Billing', icon: CreditCard,    description: 'Fees collection, billing and institute wallet' },
+      { id: 'INSTITUTE__TRANSPORT',     scope: 'INSTITUTE', category: 'TRANSPORT',     label: 'Transport',          icon: Truck,         description: 'Student transport and routing' },
+      { id: 'INSTITUTE__BRANDING',      scope: 'INSTITUTE', category: 'BRANDING',      label: 'Domain & Branding',  icon: Globe,         description: 'Subdomain, custom domain and login page branding' },
+      { id: 'INSTITUTE__TOOLS',         scope: 'INSTITUTE', category: 'TOOLS',         label: 'Admin Tools',        icon: Wrench,        description: 'Device management, ID cards and system tools' },
+    ],
+  },
+  {
+    scope: 'CLASS',
+    scopeLabel: 'Class Level',
+    icon: BookOpen,
+    scopeDescription: 'Features available within each class',
+    groups: [
+      { id: 'CLASS__ACADEMICS', scope: 'CLASS', category: 'ACADEMICS', label: 'Academics',      icon: GraduationCap, description: 'Subjects, lectures and student management per class' },
+      { id: 'CLASS__PAYMENTS',  scope: 'CLASS', category: 'PAYMENTS',  label: 'Class Payments', icon: CreditCard,    description: 'Per-class fee collection' },
+    ],
+  },
+  {
+    scope: 'SUBJECT',
+    scopeLabel: 'Subject Level',
+    icon: FileText,
+    scopeDescription: 'Features available within each subject',
+    groups: [
+      { id: 'SUBJECT__ACADEMICS', scope: 'SUBJECT', category: 'ACADEMICS', label: 'Academics',       icon: GraduationCap, description: 'Lectures, homework, exams, study materials' },
+      { id: 'SUBJECT__PAYMENTS',  scope: 'SUBJECT', category: 'PAYMENTS',  label: 'Subject Payments', icon: CreditCard,    description: 'Per-subject fee configuration' },
+    ],
+  },
+];
+
+// Map catalog categories to nav node IDs (handles aliases like SERVICES being split)
+function getCategoryNodeId(scope: string, category: string): string {
+  // Admin Tools + Services both go under TOOLS at institute level
+  if (scope === 'INSTITUTE' && (category === 'SERVICES' || category === 'TOOLS')) {
+    return 'INSTITUTE__TOOLS';
+  }
+  // Users go under SERVICES at institute level
+  if (scope === 'INSTITUTE' && category === 'SERVICES') {
+    return 'INSTITUTE__SERVICES';
+  }
+  return `${scope}__${category}`;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export const FeatureSettings: React.FC = () => {
   const { selectedInstitute } = useAuth();
@@ -44,25 +108,47 @@ export const FeatureSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [changes, setChanges] = useState<Record<string, boolean>>({});
+  const [selectedNodeId, setSelectedNodeId] = useState<string>('INSTITUTE__ACADEMICS');
+  const [expandedScopes, setExpandedScopes] = useState<Record<string, boolean>>({
+    INSTITUTE: true, CLASS: false, SUBJECT: false,
+  });
 
   useEffect(() => {
-    const fetchCatalog = async () => {
+    const fetch = async () => {
       setLoading(true);
       try {
-        const response = await enhancedCachedClient.get<CatalogFeature[] | { data: CatalogFeature[] }>(
-          '/features/catalog',
-        );
-        const list = Array.isArray(response) ? response : (response as any).data ?? [];
+        const res = await enhancedCachedClient.get<CatalogFeature[] | { data: CatalogFeature[] }>('/features/catalog');
+        const list = Array.isArray(res) ? res : (res as any).data ?? [];
         setCatalog(list.filter((f: CatalogFeature) => f.isActive));
-      } catch (error) {
-        console.error('Failed to fetch feature catalog:', error);
+      } catch {
         toast({ title: 'Error', description: 'Could not load feature catalog.', variant: 'destructive' });
       } finally {
         setLoading(false);
       }
     };
-    fetchCatalog();
+    fetch();
   }, [toast]);
+
+  // Group catalog features by nav node id
+  const byNodeId = useMemo(() => {
+    const map: Record<string, CatalogFeature[]> = {};
+    for (const f of catalog) {
+      // Special split: SERVICES at INSTITUTE has Users + Admin Tools depending on feature key
+      let nodeId: string;
+      if (f.scope === 'INSTITUTE' && f.category === 'SERVICES') {
+        const adminToolKeys = ['device-management', 'id-cards', 'organizations', 'system-payment'];
+        nodeId = adminToolKeys.includes(f.key) ? 'INSTITUTE__TOOLS' : 'INSTITUTE__SERVICES';
+      } else {
+        nodeId = getCategoryNodeId(f.scope, f.category);
+      }
+      if (!map[nodeId]) map[nodeId] = [];
+      map[nodeId].push(f);
+    }
+    return map;
+  }, [catalog]);
+
+  const isEnabled = (key: string) => changes[key] ?? (features[key]?.enabled ?? true);
+  const isDependencyMet = (f: CatalogFeature) => (f.dependencies ?? []).every(dep => isEnabled(dep));
 
   const handleToggle = (key: string, enabled: boolean) => {
     setChanges(prev => ({ ...prev, [key]: enabled }));
@@ -71,45 +157,21 @@ export const FeatureSettings: React.FC = () => {
   const handleSave = async () => {
     if (!instituteId || Object.keys(changes).length === 0) return;
     setSaving(true);
-    const saved = { ...changes };
     try {
       await enhancedCachedClient.patch(
         `/institutes/${instituteId}/features`,
-        { features: saved },
+        { features: changes },
         { instituteId },
       );
-      toast({ title: 'Success', description: 'Feature settings updated.' });
-      await refetchFeatures(); // wait for fresh data before clearing optimistic state
+      toast({ title: 'Saved', description: 'Feature settings updated.' });
+      await refetchFeatures();
       setChanges({});
-    } catch (error) {
-      console.error('Failed to save feature settings:', error);
+    } catch {
       toast({ title: 'Error', description: 'Failed to save feature settings.', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   };
-
-  // Group by scope → category
-  const grouped = useMemo(() => {
-    const result: Record<string, Record<string, CatalogFeature[]>> = {};
-    for (const scope of SCOPE_ORDER) {
-      const byScope = catalog.filter(f => f.scope === scope);
-      if (byScope.length === 0) continue;
-      result[scope] = {};
-      for (const f of byScope) {
-        const cat = f.category || 'SERVICES';
-        if (!result[scope][cat]) result[scope][cat] = [];
-        result[scope][cat].push(f);
-      }
-    }
-    return result;
-  }, [catalog]);
-
-  const isEnabled = (key: string) =>
-    changes[key] ?? (features[key]?.enabled ?? true);
-
-  const isDependencyMet = (f: CatalogFeature) =>
-    (f.dependencies ?? []).every(dep => isEnabled(dep));
 
   if (loading) {
     return (
@@ -119,64 +181,186 @@ export const FeatureSettings: React.FC = () => {
     );
   }
 
-  if (catalog.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">
-          No features available.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const SCOPE_LABELS: Record<string, string> = {
-    INSTITUTE: 'Institute Level',
-    CLASS: 'Class Level',
-    SUBJECT: 'Subject Level',
-  };
+  const selectedNode = NAV_TREE.flatMap(s => s.groups).find(n => n.id === selectedNodeId);
+  const visibleFeatures = byNodeId[selectedNodeId] ?? [];
+  const changesCount = Object.keys(changes).length;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Feature Management</CardTitle>
-        <CardDescription>Enable or disable features for your institute.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-8">
-        {Object.entries(grouped).map(([scope, categories]) => (
-          <div key={scope}>
-            <h2 className="text-base font-bold text-foreground mb-4 pb-1 border-b">
-              {SCOPE_LABELS[scope] ?? scope}
-            </h2>
-            <div className="space-y-6">
-              {Object.entries(categories).map(([category, featureList]) => (
-                <div key={category}>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    {CATEGORY_LABELS[category] ?? category}
-                  </h3>
-                  <div className="border rounded-lg divide-y">
-                    {featureList.map(feature => {
+    <div className="space-y-4">
+      {/* Two-layer explanation banner */}
+      <div className="rounded-xl border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 p-4">
+        <div className="flex gap-3">
+          <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="space-y-2 text-sm">
+            <p className="font-semibold text-blue-900 dark:text-blue-100">How feature control works — two layers</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="flex gap-2">
+                <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                  <span className="text-[10px] font-bold text-red-600">1</span>
+                </div>
+                <div>
+                  <p className="font-medium text-blue-800 dark:text-blue-200">Institute toggle (this page)</p>
+                  <p className="text-blue-700/80 dark:text-blue-300/80 text-xs leading-relaxed">
+                    Disabling a feature here removes it <strong>for everyone</strong> in the institute — admins, teachers, students alike. Use this to turn off features you don't need at all.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0">
+                  <ShieldCheck className="h-3 w-3 text-green-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-blue-800 dark:text-blue-200">User Type permissions</p>
+                  <p className="text-blue-700/80 dark:text-blue-300/80 text-xs leading-relaxed">
+                    Once a feature is enabled here, go to <strong>User Types &amp; Permissions</strong> to control which user roles can view, create, edit, or delete within that feature.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Header bar */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Feature Management</h2>
+          <p className="text-sm text-muted-foreground">
+            Enable or disable features at each level — institute, class or subject.
+          </p>
+        </div>
+        {changesCount > 0 && (
+          <Button onClick={handleSave} disabled={saving} size="sm">
+            {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+            Save {changesCount} change{changesCount !== 1 ? 's' : ''}
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+
+        {/* ── Left sidebar nav ── */}
+        <div className="space-y-1">
+          {NAV_TREE.map(section => {
+            const ScopeIcon = section.icon;
+            const expanded = expandedScopes[section.scope];
+            const totalInScope = section.groups.reduce((s, g) => s + (byNodeId[g.id]?.length ?? 0), 0);
+
+            return (
+              <div key={section.scope}>
+                {/* Scope header — clickable to expand/collapse */}
+                <button
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left group hover:bg-muted/50 transition-colors"
+                  onClick={() => setExpandedScopes(prev => ({ ...prev, [section.scope]: !prev[section.scope] }))}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ScopeIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span className="text-sm font-semibold">{section.scopeLabel}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">{totalInScope}</span>
+                    <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                  </div>
+                </button>
+
+                {/* Group nav items */}
+                {expanded && (
+                  <div className="ml-2 mt-0.5 space-y-0.5">
+                    {section.groups
+                      .filter(g => (byNodeId[g.id]?.length ?? 0) > 0)
+                      .map(node => {
+                        const NodeIcon = node.icon;
+                        const isSelected = selectedNodeId === node.id;
+                        const count = byNodeId[node.id]?.length ?? 0;
+                        const hasChanges = (byNodeId[node.id] ?? []).some(f => changes[f.key] !== undefined);
+
+                        return (
+                          <button
+                            key={node.id}
+                            onClick={() => setSelectedNodeId(node.id)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all text-sm ${
+                              isSelected
+                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                : 'text-foreground hover:bg-muted/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <NodeIcon className={`h-3.5 w-3.5 flex-shrink-0 ${isSelected ? 'opacity-90' : 'text-muted-foreground'}`} />
+                              <span className="truncate">{node.label}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
+                              {hasChanges && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                              )}
+                              <span className={`text-[10px] ${isSelected ? 'opacity-70' : 'text-muted-foreground'}`}>{count}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Right panel: feature list ── */}
+        <Card className="overflow-hidden">
+          {selectedNode ? (
+            <>
+              <CardHeader className="pb-3 border-b">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                    <selectedNode.icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <CardTitle className="text-base">{selectedNode.label}</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">{selectedNode.description}</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-0">
+                {visibleFeatures.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground text-sm">
+                    No features in this category.
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {visibleFeatures.map(feature => {
                       const enabled = isEnabled(feature.key);
                       const depMet = isDependencyMet(feature);
-                      const isPaid = feature.pricing === 'PAID';
-                      const isCore = feature.isCore;
+                      const blocked = feature.isCore || !depMet;
+                      const changed = changes[feature.key] !== undefined;
 
                       return (
-                        <div key={feature.key} className="flex items-center justify-between p-3">
+                        <div
+                          key={feature.key}
+                          className={`flex items-center justify-between px-4 py-3 transition-colors ${
+                            changed ? 'bg-amber-50 dark:bg-amber-950/20' : ''
+                          }`}
+                        >
                           <div className="min-w-0 pr-4 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium text-sm">{feature.label}</p>
-                              {isPaid && (
+                              <span className="font-medium text-sm">{feature.label}</span>
+                              {feature.pricing === 'PAID' && (
                                 <Badge variant="outline" className="text-amber-600 border-amber-300 text-[10px] px-1.5 py-0 gap-1">
                                   <Lock className="h-2.5 w-2.5" /> PAID
                                 </Badge>
                               )}
-                              {isCore && (
+                              {feature.isCore && (
                                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0">CORE</Badge>
                               )}
+                              {changed && (
+                                <Badge variant="outline" className="text-amber-600 border-amber-300 text-[10px] px-1.5 py-0">
+                                  unsaved
+                                </Badge>
+                              )}
                             </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">{feature.description}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{feature.description}</p>
                             {!depMet && (
-                              <p className="text-xs text-amber-600 mt-0.5">
+                              <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" />
                                 Requires: {feature.dependencies.join(', ')}
                               </p>
                             )}
@@ -184,27 +368,36 @@ export const FeatureSettings: React.FC = () => {
                           <Switch
                             checked={enabled}
                             onCheckedChange={checked => handleToggle(feature.key, checked)}
-                            disabled={isCore || !depMet}
+                            disabled={blocked}
                           />
                         </div>
                       );
                     })}
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+                )}
+              </CardContent>
+            </>
+          ) : (
+            <CardContent className="py-16 text-center text-muted-foreground text-sm">
+              Select a category from the left to manage features.
+            </CardContent>
+          )}
+        </Card>
+      </div>
 
-        <Button
-          onClick={handleSave}
-          disabled={saving || Object.keys(changes).length === 0}
-          className="w-full sm:w-auto"
-        >
-          {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Save Changes {Object.keys(changes).length > 0 && `(${Object.keys(changes).length})`}
-        </Button>
-      </CardContent>
-    </Card>
+      {/* Floating save bar — appears when there are unsaved changes */}
+      {changesCount > 0 && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <div className="flex items-center gap-3 bg-background border shadow-lg rounded-xl px-4 py-3">
+            <span className="text-sm text-muted-foreground">{changesCount} unsaved change{changesCount !== 1 ? 's' : ''}</span>
+            <Button size="sm" variant="outline" onClick={() => setChanges({})}>Discard</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+              Save
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
