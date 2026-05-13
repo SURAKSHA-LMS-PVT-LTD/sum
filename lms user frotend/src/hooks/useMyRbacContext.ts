@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { institutesApi } from '@/api/institutes.api';
+import { institutesApi } from '@/api/institute.api';
 import { PermissionMatrix, PermissionAction } from '@/types/rbac.types';
 
 interface RbacContext {
