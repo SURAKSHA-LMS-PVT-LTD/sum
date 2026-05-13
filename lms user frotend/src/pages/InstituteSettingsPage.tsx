@@ -190,6 +190,18 @@ const InstituteSettingsPage = () => {
     return `${basePath}/institute-profile`;
   })();
 
+  // Sync section state when URL tab param changes externally (e.g. sidebar navigation)
+  useEffect(() => {
+    const param = searchParams.get('tab');
+    if (!param || !VALID_TABS.includes(param)) return;
+    setActiveTab(param);
+    if (isMobile) {
+      setMobileSection(param);
+    } else {
+      setDesktopSection(param);
+    }
+  }, [searchParams, isMobile]);
+
   // Sync tab to URL when it changes
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
@@ -672,6 +684,7 @@ const InstituteSettingsPage = () => {
               {mobileSection === 'user-columns' && 'User Columns'}
               {mobileSection === 'session-limits' && 'Session Limits'}
               {mobileSection === 'features' && 'Feature Management'}
+              {mobileSection === 'user-types' && 'User Types & Permissions'}
             </h2>
           )}
           {!isMobile && desktopSection && (

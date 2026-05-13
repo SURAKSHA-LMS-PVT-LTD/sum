@@ -244,7 +244,7 @@ export const UserTypesManager: React.FC = () => {
           description: form.description,
           color: form.color,
           isPublic: form.isPublic,
-        }, instituteId);
+        });
         setUserTypes(prev => prev.map(t => t.id === updated.id ? updated : t));
         toast({ title: 'User type updated' });
       } else {
@@ -271,7 +271,7 @@ export const UserTypesManager: React.FC = () => {
     if (!instituteId || ut.isSystemType) return;
     if (!confirm(`Delete "${ut.name}"? This cannot be undone.`)) return;
     try {
-      await userTypesApi.delete(ut.id, instituteId);
+      await userTypesApi.delete(ut.id);
       setUserTypes(prev => prev.filter(t => t.id !== ut.id));
       if (selectedTypeId === ut.id) setSelectedTypeId(userTypes.find(t => t.id !== ut.id)?.id ?? null);
       toast({ title: 'User type deleted' });

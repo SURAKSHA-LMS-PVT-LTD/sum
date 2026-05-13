@@ -4,8 +4,7 @@
  * Returns the schema array, loading state, and a save function.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { instituteApi } from '@/api/institute.api';
-import { instituteSettingsApi, ExtraDataColumn } from '@/api/instituteSettings.api'; // Keep for save
+import { instituteSettingsApi, ExtraDataColumn } from '@/api/instituteSettings.api';
 
 interface UseInstituteUserColumnsResult {
   columns: ExtraDataColumn[];
@@ -28,7 +27,7 @@ export function useInstituteUserColumns(
     if (_cache[instituteId]) { setColumns(_cache[instituteId]); return; }
     let cancelled = false;
     setLoading(true);
-    instituteApi.getUserColumnSchema(instituteId)
+    instituteSettingsApi.getUserExtraDataSchema(instituteId)
       .then(data => {
         if (!cancelled) {
           const safe = Array.isArray(data) ? data : [];

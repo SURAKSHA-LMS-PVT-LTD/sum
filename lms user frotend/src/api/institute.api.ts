@@ -82,10 +82,6 @@ class InstituteApi {
     }
   }
 
-  async getUserColumnSchema(instituteId: string): Promise<any> {
-    return enhancedCachedClient.get(`/institutes/${instituteId}/user-column-schema`);
-  }
-
   // (existing methods)
 }
 

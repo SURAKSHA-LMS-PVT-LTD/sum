@@ -69,44 +69,44 @@ export class CreateRbacTables1792000000000 implements MigrationInterface {
       SELECT DISTINCT
         i.id,
         'Student',   'Students',   'student',   '#3b82f6', 1, 1, 10
-      FROM institute i
+      FROM institutes i
 
       UNION ALL
 
       SELECT DISTINCT
         i.id,
         'Teacher',   'Teachers',   'teacher',   '#10b981', 1, 1, 20
-      FROM institute i
+      FROM institutes i
 
       UNION ALL
 
       SELECT DISTINCT
         i.id,
         'Admin',     'Admins',     'institute_admin', '#ef4444', 1, 0, 30
-      FROM institute i
+      FROM institutes i
 
       UNION ALL
 
       SELECT DISTINCT
         i.id,
         'Attendance Marker', 'Attendance Markers', 'attendance_marker', '#f59e0b', 1, 0, 40
-      FROM institute i
+      FROM institutes i
 
       UNION ALL
 
       SELECT DISTINCT
         i.id,
         'Parent',    'Parents',    'parent',    '#8b5cf6', 1, 0, 50
-      FROM institute i
+      FROM institutes i
     `);
 
     // ── 5. Back-fill primary_user_type_id from existing institute_user_type enum ──
-    // Maps enum value (e.g. INSTITUTE_ADMIN) to slug (e.g. institute_admin) via LOWER()
+    // COLLATE added to resolve utf8mb4_0900_ai_ci vs utf8mb4_unicode_ci mismatch
     await queryRunner.query(`
       UPDATE institute_user iu
       JOIN institute_user_types iut
         ON iut.institute_id = iu.institute_id
-       AND iut.slug = LOWER(iu.institute_user_type)
+       AND iut.slug = LOWER(iu.institute_user_type) COLLATE utf8mb4_unicode_ci
       SET iu.primary_user_type_id = iut.id
       WHERE iu.primary_user_type_id IS NULL
     `);

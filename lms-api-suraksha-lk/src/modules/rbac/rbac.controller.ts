@@ -73,6 +73,19 @@ export class RbacController {
     return this.userTypesService.list(instituteId);
   }
 
+  // Frontend userTypesApi.create calls POST /user-types/institute/:id
+  @Post('user-types/institute/:instituteId')
+  @UseGuards(FlexibleAccessGuard)
+  @RequireAnyOfRoles({ global: [UserType.SUPERADMIN], instituteAdmin: true })
+  @ApiOperation({ summary: 'Create a custom user type (alternate path)' })
+  @ApiResponse({ status: 201, type: UserTypeResponseDto })
+  async createUserTypeAlt(
+    @Param('instituteId', ParseBigIntPipe) instituteId: string,
+    @Body() dto: CreateUserTypeDto,
+  ): Promise<UserTypeResponseDto> {
+    return this.userTypesService.create(instituteId, dto);
+  }
+
   @Get('user-types/:id')
   @UseGuards(FlexibleAccessGuard)
   @RequireAnyOfRoles({ anyInstituteRole: true })

@@ -29,7 +29,15 @@ export class RbacContextService {
     );
 
     if (!memberRow?.length) {
-      throw new NotFoundException('No active membership for this user in this institute');
+      // User is not a member of this institute — return empty context (e.g. superadmin browsing)
+      return {
+        userTypeId: '',
+        userTypeName: legacyUserType ?? '',
+        userTypeSlug: (legacyUserType ?? '').toLowerCase(),
+        userTypeColor: undefined,
+        permissions: {},
+        isSystemAdmin: false,
+      };
     }
 
     const { primary_user_type_id, institute_user_type } = memberRow[0];
