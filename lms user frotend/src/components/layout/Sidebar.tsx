@@ -14,7 +14,7 @@ import ProfileSwitcherSheet from './ProfileSwitcherSheet';
 import { AccessControl } from '@/utils/permissions';
 import {
   LayoutDashboard, Users, GraduationCap, UserCheck, BookOpen, School,
-  ClipboardList, BarChart3, Settings, User, Building2, QrCode, X,
+  ClipboardList, ClipboardCheck, BarChart3, Settings, User, Building2, QrCode, X,
   Award, Video, LogOut, Menu, FileText, ArrowLeft, Notebook, Images,
   Palette, CreditCard, Camera, AlertCircle, Truck, ImageIcon, IdCard,
   MessageSquare, MessageSquareHeart, Wifi, Lock, Bell, Calendar,
@@ -531,9 +531,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
         const teacherAttendanceLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         const teacherItemLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
-        groups.push({ id: 'attendance', label: teacherAttendanceLabel, icon: UserCheck, defaultOpen: hasActiveInGroup(['daily-attendance','my-attendance','select-attendance-mark-type','qr-attendance','rfid-attendance','institute-mark-attendance','close-attendance','lecture-live-attendance','lecture-recording-attendance'], activePage), items: [
+        groups.push({ id: 'attendance', label: teacherAttendanceLabel, icon: UserCheck, defaultOpen: hasActiveInGroup(['daily-attendance','class-attendance-sessions','my-attendance','select-attendance-mark-type','qr-attendance','rfid-attendance','institute-mark-attendance','close-attendance','lecture-live-attendance','lecture-recording-attendance'], activePage), items: [
           { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode },
           ...(selectedClass ? [{ id: FEATURE_KEYS.DAILY_ATTENDANCE, label: teacherItemLabel, icon: ClipboardList }] : []),
+          ...(selectedClass ? [{ id: 'class-attendance-sessions', label: 'Attendance Sessions', icon: ListChecks }] : []),
           ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3 }] : []),
           ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3 }] : []),
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
@@ -646,6 +647,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         const attendanceItems: NavItem[] = selectedClass ? [
           { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode },
           { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: attendanceItemLabel, icon: ClipboardList },
+          { id: 'class-attendance-sessions', label: 'Attendance Sessions', icon: ListChecks },
           { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3 },
           { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3 },
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
@@ -658,7 +660,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           { id: FEATURE_KEYS.ADMIN_ATTENDANCE, label: 'Advanced Attendance', icon: BarChart3 },
         ];
         groups.push({ id: 'attendance', label: attendanceSectionLabel, icon: UserCheck,
-          defaultOpen: hasActiveInGroup(['daily-attendance','select-attendance-mark-type','qr-attendance','rfid-attendance','institute-mark-attendance','close-attendance','admin-attendance'], activePage),
+          defaultOpen: hasActiveInGroup(['daily-attendance','class-attendance-sessions','select-attendance-mark-type','qr-attendance','rfid-attendance','institute-mark-attendance','close-attendance','admin-attendance'], activePage),
           items: attendanceItems });
 
         // Calendar

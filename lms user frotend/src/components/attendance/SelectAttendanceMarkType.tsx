@@ -182,6 +182,13 @@ const SelectAttendanceMarkType = () => {
                 desc: 'Bulk mark from institute check-ins',
                 onClick: () => navigate(buildMarkUrl('manual-class-attendance')),
               }] : []),
+              ...(selectedClass && sessionId ? [{
+                icon: <ClipboardCheck className="h-5 w-5 text-sky-600" />,
+                bg: 'bg-sky-100',
+                label: 'Inherit from Institute',
+                desc: 'Bulk mark class attendance from institute check-ins',
+                onClick: () => navigate(buildMarkUrl('manual-class-attendance')),
+              }] : []),
               {
                 icon: <QrCode className="h-5 w-5 text-cyan-600" />,
                 bg: 'bg-cyan-100',

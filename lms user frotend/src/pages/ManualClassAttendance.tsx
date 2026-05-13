@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { attendanceApi } from '@/api/attendance.api';
 import { apiClient } from '@/api/client';
@@ -351,7 +351,11 @@ const getFilterLabel = (mode: FilterMode, pageMode: PageMode) => {
 
 const ManualClassAttendance = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { selectedInstitute, selectedClass, selectedSubject, currentInstituteId } = useAuth();
+
+  const sessionId = new URLSearchParams(location.search).get('sessionId') ?? undefined;
+  const sessionName = new URLSearchParams(location.search).get('sessionName') ?? undefined;
 
   // Normalize IDs to strings to avoid useCallback re-creating when URL placeholder
   // (string "1004") is replaced by the API-loaded class object (numeric 1004).
@@ -425,9 +429,14 @@ const ManualClassAttendance = () => {
     let base = `/institute/${instituteId}`;
     if (selectedClass?.id) {
       base += `/class/${selectedClass.id}`;
-      if (selectedSubject?.id) {
-        base += `/subject/${selectedSubject.id}`;
-      }
+      if (selectedSubject?.id) base += `/subject/${selectedSubject.id}`;
+    }
+    // If we came from a session, go back to the mark-type page (which has sessionId in URL)
+    if (sessionId && selectedClass?.id) {
+      const qs = new URLSearchParams({ sessionId });
+      if (sessionName) qs.set('sessionName', sessionName);
+      navigate(`${base}/select-attendance-mark-type?${qs}`);
+      return;
     }
     navigate(`${base}/select-attendance-mark-type`);
   };
@@ -642,6 +651,7 @@ const ManualClassAttendance = () => {
           markAbsentForUnmarked,
           markingMethod: 'manual',
           eventId: null,
+          ...(sessionId ? { sessionId } : {}),
           ...(studentOverrides.length > 0 && { studentOverrides }),
         });
         setLastMessage(result.message);
@@ -667,12 +677,14 @@ const ManualClassAttendance = () => {
         </Button>
         <div>
           <h1 className="text-xl font-bold text-foreground">
-            {mode === 'subject' ? 'Manual Subject Attendance' : 'Manual Class Attendance'}
+            {mode === 'subject' ? 'Manual Subject Attendance' : 'Inherit from Institute'}
           </h1>
           <p className="text-sm text-muted-foreground">
             {mode === 'subject'
               ? 'View class check-ins and bulk mark subject attendance for the selected date'
-              : 'View institute check-ins and bulk mark class attendance for the selected date'}
+              : sessionId
+                ? `Bulk marking into session: ${sessionName || sessionId}`
+                : 'View institute check-ins and bulk mark class attendance for the selected date'}
           </p>
         </div>
       </div>

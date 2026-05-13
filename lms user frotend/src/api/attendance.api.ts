@@ -287,6 +287,7 @@ export interface BulkMarkFromInstitutePayload {
   markAbsentForUnmarked?: boolean;
   markingMethod?: string;
   eventId?: string | null;
+  sessionId?: string | null;
   studentOverrides?: { studentId: string; status: string }[];
 }
 
