@@ -13,7 +13,7 @@ import { Loader2, ChevronRight, ChevronLeft, School, BookOpen, Users } from 'luc
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { cachedApiClient } from '@/api/cachedClient';
-import AssignStudentsDialog from '@/components/forms/AssignStudentsDialog';
+import AssignUsersDialog from '@/components/forms/AssignUsersDialog';
 import AssignSubjectStudentsDialog from '@/components/forms/AssignSubjectStudentsDialog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -318,7 +318,7 @@ const StudentEnrollDrilldown: React.FC<StudentEnrollDrilldownProps> = ({
       {/* Downstream dialogs — they read institute/class/subject from AuthContext,
           so we rely on the globally selected context. If the user picked a different
           institute via this drilldown we show a note. */}
-      <AssignStudentsDialog
+      <AssignUsersDialog
         open={showAssignClass}
         onOpenChange={(v) => { setShowAssignClass(v); if (!v) onOpenChange(false); }}
         onAssignmentComplete={() => { setShowAssignClass(false); onOpenChange(false); }}
