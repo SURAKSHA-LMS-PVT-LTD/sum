@@ -1,12 +1,8 @@
-import React from 'react';
-import { AuthProvider } from './contexts/AuthContext';
-import { AppContent } from './app/AppContent';
+import InstituteSettingsPage from "./pages/InstituteSettingsPage";
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <InstituteSettingsPage />
   );
 }
 

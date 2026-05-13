@@ -52,8 +52,8 @@ export interface InstituteClassResponse {
   message: string;
 }
 
-export interface BulkAssignStudentsData {
-  studentUserIds: string[];
+export interface BulkAssignUsersData {
+  userIds: string[];
   skipVerification?: boolean;
   assignmentNotes?: string;
 }
@@ -64,13 +64,13 @@ export interface TeacherAssignResponse {
 }
 
 export interface AssignmentResult {
-  studentUserId: string;
+  userId: string;
   success: boolean;
   status: string;
   assignment?: {
     instituteId: string;
     classId: string;
-    studentUserId: string;
+    userId: string;
     isActive: boolean;
     isVerified: boolean;
     enrollmentMethod: string;
@@ -112,7 +112,7 @@ export interface EnrollmentResult {
     code: string;
   };
   enrollment: {
-    studentUserId: string;
+    userId: string;
     isVerified: boolean;
     enrollmentMethod: string;
     enrolledAt: string;
@@ -220,8 +220,8 @@ export const instituteClassesApi = {
       classId: params?.classId,
       role: params?.role
     });
-    console.log('� Full API response:', result);
-    console.log('� Response data:', result);
+    console.log(' Full API response:', result);
+    console.log(' Response data:', result);
     return result || [];
   },
 
@@ -250,18 +250,18 @@ export const instituteClassesApi = {
     });
   },
 
-  // Assign students bulk with auto-invalidation
-  assignStudentsBulk: async (classId: string, data: BulkAssignStudentsData, instituteId?: string): Promise<BulkAssignResponse> => {
-    return enhancedCachedClient.post(`/institute-classes/${classId}/assign-students-bulk`, data, {
+  // Assign users bulk with auto-invalidation
+  assignUsersBulk: async (classId: string, data: BulkAssignUsersData, instituteId?: string): Promise<BulkAssignResponse> => {
+    return enhancedCachedClient.post(`/institute-classes/${classId}/assign-users-bulk`, data, {
       classId,
       instituteId
     });
   },
 
-  // Teacher assign students with auto-invalidation
-  teacherAssignStudents: async (instituteId: string, classId: string, data: BulkAssignStudentsData): Promise<TeacherAssignResponse> => {
-    // For class-level bulk assignment (admin only). Teachers with subject context should use enrollmentApi.teacherAssignStudents.
-    return enhancedCachedClient.post(`/institute-classes/${classId}/assign-students-bulk`, data, {
+  // Teacher assign users with auto-invalidation
+  teacherAssignUsers: async (instituteId: string, classId: string, data: BulkAssignUsersData): Promise<TeacherAssignResponse> => {
+    // For class-level bulk assignment (admin only). Teachers with subject context should use enrollmentApi.teacherAssignUsers.
+    return enhancedCachedClient.post(`/institute-classes/${classId}/assign-users-bulk`, data, {
       instituteId,
       classId
     });

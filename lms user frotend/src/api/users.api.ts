@@ -77,10 +77,6 @@ export interface UserLookupResult {
   email?: string;
 }
 
-/**
- * Normalizes a Sri Lankan phone number to E.164 format (+94XXXXXXXXX).
- * Handles inputs like: 0771234567, 94771234567, +94771234567, 771234567
- */
 export function normalizePhoneNumber(input: string): string {
   const cleaned = input.trim().replace(/[\s\-()]/g, '');
   if (cleaned.startsWith('+94')) return cleaned;
@@ -97,29 +93,27 @@ export const usersApi = {
   },
   
   getBasicInfo: async (userId: string): Promise<BasicUser> => {
-    const response = await apiClient.get(`/users/basic/${userId}`);
-    return response;
+    return apiClient.get(`/users/basic/${userId}`);
   },
 
   getBasicInfoByRfid: async (rfid: string): Promise<BasicUser> => {
-    const response = await apiClient.get(`/users/basic/rfid/${rfid}`);
-    return response;
+    return apiClient.get(`/users/basic/rfid/${rfid}`);
   },
 
-  /** Lookup an existing user by normalized phone number (E.164 format) */
   lookupByPhone: async (phone: string): Promise<UserLookupResult> => {
     const normalized = normalizePhoneNumber(phone);
-    const response = await apiClient.get(`/users/basic/phone/${encodeURIComponent(normalized)}`);
-    return response;
+    return apiClient.get(`/users/basic/phone/${encodeURIComponent(normalized)}`);
   },
 
-  /** Lookup an existing user by email address */
   lookupByEmail: async (email: string): Promise<UserLookupResult> => {
-    const response = await apiClient.get(`/users/basic/email/${encodeURIComponent(email)}`);
-    return response;
+    return apiClient.get(`/users/basic/email/${encodeURIComponent(email)}`);
   },
 
   upgradeUserType: async (data: UpgradeUserTypeData): Promise<User> => {
-    return await apiClient.patch<User>('/users/upgrade-type', data);
+    return apiClient.patch<User>('/users/upgrade-type', data);
+  },
+
+  changePrimaryUserType: async (userId: string, userTypeId: string): Promise<any> => {
+    return apiClient.patch(`/users/${userId}/change-primary-type`, { userTypeId });
   },
 };

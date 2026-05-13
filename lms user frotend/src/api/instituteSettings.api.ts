@@ -140,15 +140,6 @@ class InstituteSettingsApi {
 
   // ── User Extra Data Schema ─────────────────────────────────────
 
-  /** Fetch institute-wide custom column definitions (cached). */
-  async getUserExtraDataSchema(instituteId: string, forceRefresh = false): Promise<ExtraDataColumn[]> {
-    return enhancedCachedClient.get<ExtraDataColumn[]>(
-      `/institutes/${instituteId}/user-extra-data-schema`,
-      undefined,
-      { ttl: CACHE_TTL.SETTINGS, forceRefresh, instituteId },
-    );
-  }
-
   /** Save the full schema (replaces previous). */
   async updateUserExtraDataSchema(instituteId: string, schema: ExtraDataColumn[]): Promise<ExtraDataColumn[]> {
     return apiClient.patch<ExtraDataColumn[]>(
