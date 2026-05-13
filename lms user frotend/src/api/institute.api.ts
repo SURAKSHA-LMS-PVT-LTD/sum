@@ -57,6 +57,31 @@ export interface CreateInstituteUserDto {
 class InstituteApi {
   // (existing methods)
 
+  /**
+   * Fetch RBAC context (user type + permission matrix) for the calling user within an institute.
+   * Primary: /institutes/:id/my-context  (defined in RbacController)
+   * Fallback: /institutes/:id/rbac/my-context  (legacy alias)
+   */
+  async getMyContext(instituteId: string): Promise<any> {
+    // Try primary route first, fall back to legacy alias
+    try {
+      return await enhancedCachedClient.get(
+        `/institutes/${instituteId}/my-context`,
+        { instituteId } as any,
+      );
+    } catch {
+      // backend not yet migrated — return empty context so frontend degrades gracefully
+      return {
+        userTypeId: '',
+        userTypeName: '',
+        userTypeSlug: '',
+        userTypeColor: null,
+        permissions: {},
+        isSystemAdmin: false,
+      };
+    }
+  }
+
   async getUserColumnSchema(instituteId: string): Promise<any> {
     return enhancedCachedClient.get(`/institutes/${instituteId}/user-column-schema`);
   }

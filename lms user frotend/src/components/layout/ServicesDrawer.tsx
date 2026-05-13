@@ -41,7 +41,8 @@ const ServicesDrawer: React.FC<ServicesDrawerProps> = ({ open, onOpenChange }) =
   } = useAuth();
   const userRole = useInstituteRole();
   const navigate = useNavigate();
-  const { subjectLabel, isTuition: isTuitionInstitute } = useInstituteLabels();
+  const { subjectLabel: rawSubjectLabel, isTuition: isTuitionInstitute } = useInstituteLabels();
+  const subjectLabel = rawSubjectLabel || 'Subject';
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -85,7 +86,8 @@ const ServicesDrawer: React.FC<ServicesDrawerProps> = ({ open, onOpenChange }) =
         navItems.push({ id: 'select-class', label: 'Choose Class', icon: School, color: 'bg-emerald-500', description: 'Select your class' });
       }
       if (selectedClass && !selectedSubject) {
-        navItems.push({ id: 'select-subject', label: `Choose ${subjectLabel}`, icon: BookOpen, color: 'bg-violet-500', description: `Pick a ${subjectLabel.toLowerCase()}` });
+        const sl = subjectLabel || 'Subject';
+        navItems.push({ id: 'select-subject', label: `Choose ${sl}`, icon: BookOpen, color: 'bg-violet-500', description: `Pick a ${String(sl).toLowerCase()}` });
       }
       if (navItems.length > 0) {
         sections.push({ title: 'Navigate', items: navItems });

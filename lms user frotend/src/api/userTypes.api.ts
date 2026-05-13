@@ -1,5 +1,6 @@
 import { apiClient } from './client';
-import { apiCache, CacheTTL } from '@/utils/apiCache'; // Assuming a cache utility
+import { apiCache } from '@/utils/apiCache';
+import { CACHE_TTL } from '@/config/cacheTTL';
 
 export interface UserType {
   id: string;
@@ -36,7 +37,8 @@ export const userTypesApi = {
     const response = await apiClient.get<UserType[]>(`${API_BASE_PATH}/institute/${instituteId}`);
     
     if (response) { // apiClient might return null or throw on error
-      apiCache.set(cacheKey, response, CacheTTL.MEDIUM); // Cache for 15 minutes
+      // Use CACHE_TTL.USER_TYPES as medium cache duration for user types
+      apiCache.set(cacheKey, response, undefined, CACHE_TTL.USER_TYPES); // Cache for configured minutes
       return response;
     }
 

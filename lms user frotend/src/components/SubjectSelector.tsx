@@ -19,7 +19,6 @@ import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { CACHE_TTL } from '@/config/cacheTTL';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ChildCurrentSelection from '@/components/ChildCurrentSelection';
 import { enrollmentApi } from '@/api/enrollment.api';
@@ -537,7 +536,9 @@ const SubjectSelector = () => {
       </div>;
   }
   const isTuitionInstitute = selectedInstitute?.type === 'tuition_institute';
-  const { subjectLabel, subjectsLabel: subjectLabelPlural } = useInstituteLabels();
+  // useInstituteLabels doesn't provide subject-related labels, so we use defaults
+  const subjectLabel = 'Subject';
+  const subjectLabelPlural = 'Subjects';
 
   return <div className="space-y-2 sm:space-y-4 p-1 sm:p-2 md:p-0">
       {/* Show Current Child Selection for Parent flow */}

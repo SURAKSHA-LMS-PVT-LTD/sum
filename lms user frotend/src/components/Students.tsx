@@ -21,7 +21,7 @@ import { useInstituteRole } from '@/hooks/useInstituteRole';
 import MUITable from '@/components/ui/mui-table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import AssignStudentsDialog from '@/components/forms/AssignStudentsDialog';
+import AssignUsersDialog from '@/components/forms/AssignUsersDialog';
 import AssignSubjectStudentsDialog from '@/components/forms/AssignSubjectStudentsDialog';
 import EnrollByPaymentDialog from '@/components/forms/EnrollByPaymentDialog';
 import { cachedApiClient } from '@/api/cachedClient';
@@ -1627,7 +1627,7 @@ const Students = () => {
 
       {/* Assign Students Dialog - Only for InstituteAdmin and Teacher (Class level) */}
       {shouldUseInstituteApi && selectedClass && !selectedSubject && (
-        <AssignStudentsDialog
+        <AssignUsersDialog
           open={showAssignDialog}
           onOpenChange={setShowAssignDialog}
           onAssignmentComplete={() => {

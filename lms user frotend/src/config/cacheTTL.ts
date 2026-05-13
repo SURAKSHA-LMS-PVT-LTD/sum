@@ -52,4 +52,25 @@ export const CACHE_TTL: CacheTTLConfig = {
   // ... (rest of the configuration)
 };
 
-// ... (rest of the file)
+// Simple TTL resolver used by apiCache
+export function getTTLForEndpoint(endpoint: string): number {
+  if (!endpoint) return CACHE_TTL.DEFAULT;
+  const e = endpoint.toLowerCase();
+
+  // User-related
+  if (e.includes('/me') || e.includes('/users/') || e.includes('/user')) return CACHE_TTL.USER_PROFILE;
+  if (e.includes('user-types')) return CACHE_TTL.USER_TYPES;
+
+  // Institute-related
+  if (e.includes('/institutes/') && (e.includes('/profile') || e.includes('/settings'))) return CACHE_TTL.INSTITUTE_PROFILE;
+  if (e.includes('/institutes/') && e.includes('/users')) return CACHE_TTL.INSTITUTE_USERS;
+  if (e.includes('institute-classes') || (e.includes('/class') && e.includes('institute'))) return CACHE_TTL.INSTITUTE_CLASSES;
+  if (e.includes('/institutes') && !e.includes('/profile')) return CACHE_TTL.INSTITUTES;
+
+  // Attendance and high-change endpoints should be short
+  if (e.includes('attendance') || e.includes('sessions') || e.includes('submissions')) return 5;
+
+  // Default fallback
+  return CACHE_TTL.DEFAULT;
+}
+

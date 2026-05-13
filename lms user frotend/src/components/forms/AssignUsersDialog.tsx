@@ -203,7 +203,9 @@ const AssignUsersDialog: React.FC<AssignUsersDialogProps> = ({
   }, [open]);
   
   if (!canCreate) {
-      return <AccessDenied featureName={`Assign ${usersLabel}`} />
+    // If dialog is not open, don't render the access card inline (prevents duplicate cards across pages)
+    if (!open) return null;
+    return <AccessDenied featureName={`Assign ${usersLabel}`} />;
   }
 
   return (

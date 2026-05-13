@@ -240,6 +240,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       window.open('https://org.suraksha.lk/', '_blank');
       onClose(); return;
     }
+    // User Types → open Institute Settings on the user-types tab
+    if (itemId === 'user-types' && selectedInstitute) {
+      const base = `/institute/${selectedInstitute.id}`;
+      const cls = selectedClass?.id ? `/class/${selectedClass.id}` : '';
+      navigate(`${base}${cls}/institute-settings?tab=user-types`);
+      onClose(); return;
+    }
     if (itemId === 'my-children') {
       setSelectedChild(null);
       navigate('/my-children');
@@ -819,6 +826,12 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         ...(selectedInstitute ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
         { id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true },
       ]});
+
+      if (selectedInstitute) {
+        groups.push({ id: 'rbac', label: 'Permissions', icon: ShieldCheck, items: [
+          { id: 'user-types', label: 'User Types & Permissions', icon: ShieldCheck, alwaysShow: true },
+        ]});
+      }
 
       return groups;
     }

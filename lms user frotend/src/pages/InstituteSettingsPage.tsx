@@ -26,6 +26,7 @@ import { BrandingImageUploader } from '@/components/institute-settings/BrandingI
 import { ReportBannerUploader } from '@/components/institute-settings/ReportBannerUploader';
 import { GalleryManager } from '@/components/institute-settings/GalleryManager';
 import { FeatureSettings } from '@/components/institute-settings/FeatureSettings';
+import { UserTypesManager } from '@/components/institute-settings/UserTypesManager';
 import { Separator } from '@/components/ui/separator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { tenantApi, type LoginBrandingData, type TenantSettingsResponse, type SmsSettingsResponse, type PlanInfoResponse } from '@/api/tenant.api';
@@ -98,7 +99,7 @@ interface InstituteSettings {
   defaultSessionsPerUserCount?: number | null;
 }
 
-const VALID_TABS = ['basic', 'branding', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features'];
+const VALID_TABS = ['basic', 'branding', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features', 'user-types'];
 
 const SECTION_ITEMS: Array<{
   id: string;
@@ -118,6 +119,7 @@ const SECTION_ITEMS: Array<{
   { id: 'user-columns', label: 'User Columns', description: 'Custom extra data fields for users', icon: Settings, color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
   { id: 'session-limits', label: 'Session Limits', description: 'Device limits per user, session controls', icon: ShieldCheck, color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' },
   { id: 'features', label: 'Feature Management', description: 'Enable or disable institute features', icon: Zap, color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+  { id: 'user-types', label: 'User Types & Permissions', description: 'Manage roles, permissions per feature', icon: Shield, color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' },
 ];
 
 
@@ -1674,6 +1676,19 @@ const InstituteSettingsPage = () => {
         {/* Features */}
         <TabsContent value="features">
           <FeatureSettings />
+        </TabsContent>
+
+        {/* User Types & Permissions */}
+        <TabsContent value="user-types">
+          {isInstituteAdmin ? (
+            <UserTypesManager />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+              <Shield className="h-10 w-10 mb-3 opacity-30" />
+              <p className="font-medium">Admin access required</p>
+              <p className="text-sm mt-1">Only institute administrators can manage user types and permissions.</p>
+            </div>
+          )}
         </TabsContent>
 
           </Tabs>
