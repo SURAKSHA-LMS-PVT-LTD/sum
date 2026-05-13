@@ -184,7 +184,7 @@ const ClassPayments = () => {
     if (!paymentsData?.data) return [];
     if (!searchQuery.trim()) return paymentsData.data;
     const q = searchQuery.toLowerCase();
-    return paymentsData.data.filter(p => p.title?.toLowerCase().includes(q) || p.amount?.toString().includes(searchQuery.trim()) || p.priority?.toLowerCase().includes(q));
+    return paymentsData.data.filter(p => (p.title || '').toLowerCase().includes(q) || p.amount?.toString().includes(searchQuery.trim()) || (p.priority || '').toLowerCase().includes(q));
   }, [paymentsData?.data, searchQuery]);
 
   const isPayerRole = isSubmitterRole || instituteRole === 'Parent' || isViewingAsParent;

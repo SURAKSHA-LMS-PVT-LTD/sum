@@ -92,6 +92,7 @@ const DashboardSubjectCards = () => {
   }, [subjects, searchQuery]);
 
   const { subjectsLabel: label } = useInstituteLabels();
+  const displayLabel = label || 'Subjects';
 
   if (!selectedInstitute || !selectedClass) return null;
 
@@ -101,7 +102,7 @@ const DashboardSubjectCards = () => {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-primary" />
-            {label}
+            {displayLabel}
           </h3>
         </div>
         <div className="flex gap-2.5 overflow-hidden">
@@ -117,7 +118,7 @@ const DashboardSubjectCards = () => {
     return (
       <div className="bg-card border border-border rounded-xl p-4 text-center">
         <BookOpen className="h-6 w-6 text-muted-foreground/40 mx-auto mb-1.5" />
-        <p className="text-sm text-muted-foreground">No {label.toLowerCase()} available</p>
+        <p className="text-sm text-muted-foreground">No {displayLabel.toLowerCase()} available</p>
       </div>
     );
   }
@@ -128,7 +129,7 @@ const DashboardSubjectCards = () => {
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
-          {label}
+          {displayLabel}
           <span className="text-xs font-normal text-muted-foreground">({filteredSubjects.length})</span>
         </h3>
         {subjects.length > 5 && (
@@ -147,7 +148,7 @@ const DashboardSubjectCards = () => {
 
       {filteredSubjects.length === 0 ? (
         <div className="text-center py-6 text-muted-foreground bg-card rounded-xl border border-border/50">
-          <p className="text-sm">{searchQuery ? `No ${label.toLowerCase()} found for "${searchQuery}"` : `No ${label.toLowerCase()} available`}</p>
+          <p className="text-sm">{searchQuery ? `No ${displayLabel.toLowerCase()} found for "${searchQuery}"` : `No ${displayLabel.toLowerCase()} available`}</p>
         </div>
       ) : (
         <div className="flex gap-2.5 overflow-x-auto no-scrollbar scroll-smooth pb-1">

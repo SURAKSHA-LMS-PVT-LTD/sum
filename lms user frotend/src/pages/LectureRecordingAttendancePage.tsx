@@ -127,7 +127,7 @@ export default function LectureRecordingAttendancePage() {
 
   const allLectures = [...classLectures, ...subjectLectures];
   const selectedLectures = allLectures.filter(l => selectedIds.includes(l.id));
-  const filteredStudents = students.filter(s => s.name.toLowerCase().includes(studentSearch.toLowerCase()));
+  const filteredStudents = students.filter(s => (s.name || '').toLowerCase().includes(studentSearch.toLowerCase()));
 
   const toggleLecture = (id: string) =>
     setSelectedIds(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]);

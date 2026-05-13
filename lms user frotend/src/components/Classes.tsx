@@ -338,7 +338,7 @@ const Classes = () => {
 
   // Frontend filtering
   const filteredClasses = classes.filter(classItem => {
-    const matchesSearch = !searchTerm.trim() || classItem.name.toLowerCase().includes(searchTerm.toLowerCase()) || classItem.code.toLowerCase().includes(searchTerm.toLowerCase()) || classItem.specialty.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm.trim() || (classItem.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (classItem.code || '').toLowerCase().includes(searchTerm.toLowerCase()) || (classItem.specialty || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGrade = !selectedGrade || classItem.grade.toString() === selectedGrade;
     return matchesSearch && matchesGrade;
   });

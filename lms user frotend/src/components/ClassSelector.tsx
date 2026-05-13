@@ -160,7 +160,6 @@ const ClassSelector = () => {
   } = useToast();
   const effectiveRole = useInstituteRole();
   const { navigateToPage } = useAppNavigation();
-  const { classLabel } = useInstituteLabels();
   const [classesData, setClassesData] = useState<ClassCardData[]>([]);
   const [filteredClasses, setFilteredClasses] = useState<ClassCardData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -203,8 +202,7 @@ const ClassSelector = () => {
       setLoadingEnrollableClasses(true);
       instituteClassesApi.getByInstitute(currentInstituteId, { limit: 500 })
         .then(res => {
-          const classes = Array.isArray(res) ? res : res?.data || [];
-          setEnrollableClasses(classes.map(c => ({ id: c.id, name: c.name, code: c.code, grade: c.grade })));
+          setEnrollableClasses(res.map(c => ({ id: c.id, name: c.name, code: c.code, grade: c.grade })));
         })
         .catch(err => {
           console.error('Failed to load enrollable classes:', err);
@@ -462,16 +460,16 @@ const ClassSelector = () => {
   useEffect(() => {
     let filtered = classesData;
     if (searchTerm) {
-      filtered = filtered.filter(classItem => classItem.name.toLowerCase().includes(searchTerm.toLowerCase()) || classItem.code.toLowerCase().includes(searchTerm.toLowerCase()) || classItem.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      filtered = filtered.filter(classItem => (classItem.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (classItem.code || '').toLowerCase().includes(searchTerm.toLowerCase()) || (classItem.description || '').toLowerCase().includes(searchTerm.toLowerCase()));
     }
     if (gradeFilter !== 'all') {
-      filtered = filtered.filter(classItem => classItem.name.toLowerCase().includes(`grade ${gradeFilter}`) || classItem.description.toLowerCase().includes(`grade ${gradeFilter}`));
+      filtered = filtered.filter(classItem => (classItem.name || '').toLowerCase().includes(`grade ${gradeFilter}`) || (classItem.description || '').toLowerCase().includes(`grade ${gradeFilter}`));
     }
     if (specialtyFilter !== 'all') {
-      filtered = filtered.filter(classItem => classItem.specialty.toLowerCase().includes(specialtyFilter.toLowerCase()));
+      filtered = filtered.filter(classItem => (classItem.specialty || '').toLowerCase().includes(specialtyFilter.toLowerCase()));
     }
     if (classTypeFilter !== 'all') {
-      filtered = filtered.filter(classItem => classItem.classType.toLowerCase().includes(classTypeFilter.toLowerCase()));
+      filtered = filtered.filter(classItem => (classItem.classType || '').toLowerCase().includes(classTypeFilter.toLowerCase()));
     }
     if (academicYearFilter !== 'all') {
       filtered = filtered.filter(classItem => classItem.academicYear === academicYearFilter);
@@ -671,10 +669,10 @@ const ClassSelector = () => {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1.5 sm:gap-2 mb-2 sm:mb-4">
         <div className="flex-1">
           <h1 className="text-sm sm:text-base md:text-lg font-semibold text-foreground mb-0.5">
-            Select {classLabel}
+            Select Class
           </h1>
           <p className="text-[10px] sm:text-xs text-muted-foreground">
-            Choose a class to manage lectures and attendance
+            Choose a class to manage lectures
           </p>
           {selectedInstitute && <p className="text-[9px] sm:text-[10px] text-primary mt-0.5">
               Institute: {selectedInstitute.name}
@@ -935,7 +933,7 @@ const ClassSelector = () => {
                       }}
                       className="w-full select-none rounded-md bg-primary py-2 px-4 text-center align-middle font-sans text-[10px] font-semibold uppercase text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:shadow-md hover:shadow-primary/30 active:opacity-90"
                     >
-                      Select {classLabel}
+                      Select Class
                     </button>
                   )}
                 </div>

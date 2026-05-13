@@ -53,8 +53,8 @@ export const TeacherSelectorDialog: React.FC<TeacherSelectorDialogProps> = ({
   useEffect(() => {
     if (searchTerm.trim()) {
       const filtered = teachers.filter(teacher =>
-        teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        teacher.email.toLowerCase().includes(searchTerm.toLowerCase())
+        (teacher.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (teacher.email || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredTeachers(filtered);
     } else {

@@ -528,10 +528,10 @@ export async function generateStudentClassReport(
       y += 12;
     } else {
       // Adjusted Summary Calculation
-      const validRecords = payload.physicalAttendance.filter(r => r.status.toLowerCase() !== 'left');
-      const present = validRecords.filter(r => r.status.toLowerCase() === 'present').length;
-      const late = validRecords.filter(r => r.status.toLowerCase() === 'late').length;
-      const absent = validRecords.filter(r => r.status.toLowerCase() === 'absent').length;
+      const validRecords = payload.physicalAttendance.filter(r => (r.status || '').toLowerCase() !== 'left');
+      const present = validRecords.filter(r => (r.status || '').toLowerCase() === 'present').length;
+      const late = validRecords.filter(r => (r.status || '').toLowerCase() === 'late').length;
+      const absent = validRecords.filter(r => (r.status || '').toLowerCase() === 'absent').length;
 
       let total = validRecords.length;
       if (options.physicalTotalMode === 'GROUP') {

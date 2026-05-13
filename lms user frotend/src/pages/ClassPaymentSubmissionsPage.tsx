@@ -92,8 +92,8 @@ const ClassPaymentSubmissionsPage: React.FC = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        s => s.studentName?.toLowerCase().includes(query) ||
-             s.nameWithInitials?.toLowerCase().includes(query)
+        s => (s.studentName || '').toLowerCase().includes(query) ||
+             (s.nameWithInitials || '').toLowerCase().includes(query)
       );
     }
 

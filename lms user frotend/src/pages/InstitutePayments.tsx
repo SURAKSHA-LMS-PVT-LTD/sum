@@ -222,9 +222,9 @@ const InstitutePayments = () => {
       .filter(payment => {
         if (!searchQuery.trim()) return true;
         const searchLower = searchQuery.toLowerCase();
-        const matchesPaymentType = payment.paymentType?.toLowerCase().includes(searchLower);
+        const matchesPaymentType = (payment.paymentType || '').toLowerCase().includes(searchLower);
         const matchesAmount = payment.amount?.toString().includes(searchQuery.trim());
-        const matchesPriority = payment.priority?.toLowerCase().includes(searchLower);
+        const matchesPriority = (payment.priority || '').toLowerCase().includes(searchLower);
         return matchesPaymentType || matchesAmount || matchesPriority;
       });
   }, [tableData.state.data, searchQuery]);

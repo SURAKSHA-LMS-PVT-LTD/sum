@@ -254,8 +254,8 @@ const CloseAttendance: React.FC = () => {
 
   const filteredUnmarked = searchQuery.trim()
     ? unmarkedStudents.filter((s) =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.id.toLowerCase().includes(searchQuery.toLowerCase())
+        (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.id || '').toLowerCase().includes(searchQuery.toLowerCase())
       )
     : unmarkedStudents;
 

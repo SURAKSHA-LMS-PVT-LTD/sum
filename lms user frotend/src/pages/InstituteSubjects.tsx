@@ -41,7 +41,7 @@ const InstituteSubjects = () => {
   const { toast } = useToast();
   const userRole = useInstituteRole();
   const { subjectLabel: itemLabel, subjectsLabel, isTuition: isTuitionInstitute } = useInstituteLabels();
-  const pageTitle = `Institute ${subjectsLabel}`;
+  const pageTitle = `Institute ${subjectsLabel || 'Subjects'}`;
   
   // Data states
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -188,8 +188,8 @@ const InstituteSubjects = () => {
   // Filter subjects
   const filteredSubjects = baseSubjects.filter(s => {
     const matchesSearch = !searchTerm || 
-      s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.code?.toLowerCase().includes(searchTerm.toLowerCase());
+      (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.code || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = categoryFilter === 'all' || s.category === categoryFilter;
     
@@ -565,7 +565,7 @@ const InstituteSubjects = () => {
             {pageTitle}
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
-            Manage all {subjectsLabel.toLowerCase()} for {selectedInstitute?.name || 'this institute'}
+            Manage all {(subjectsLabel || 'subjects').toLowerCase()} for {selectedInstitute?.name || 'this institute'}
           </p>
         </div>
         

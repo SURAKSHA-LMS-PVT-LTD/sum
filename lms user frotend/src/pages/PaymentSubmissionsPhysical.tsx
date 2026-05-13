@@ -244,10 +244,10 @@ const PaymentSubmissionsPhysical: React.FC = () => {
   const filtered = students.filter(Boolean).filter(s => {
     const q = searchTerm.toLowerCase();
     return !q ||
-      s.name?.toLowerCase().includes(q) ||
-      s.nameWithInitials?.toLowerCase().includes(q) ||
-      s.studentId?.toLowerCase().includes(q) ||
-      (s.userIdByInstitute ?? '').toLowerCase().includes(q);
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.nameWithInitials || '').toLowerCase().includes(q) ||
+      (s.studentId || '').toLowerCase().includes(q) ||
+      (s.userIdByInstitute || '').toLowerCase().includes(q);
   });
 
   const paginationSx = {

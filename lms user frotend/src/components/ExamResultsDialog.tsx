@@ -110,10 +110,10 @@ export const ExamResultsDialog = ({ isOpen, onClose, exam }: ExamResultsDialogPr
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
-      result.student.firstName.toLowerCase().includes(searchLower) ||
-      result.student.lastName.toLowerCase().includes(searchLower) ||
-      result.student.email.toLowerCase().includes(searchLower) ||
-      result.grade.toLowerCase().includes(searchLower) ||
+      (result.student.firstName || '').toLowerCase().includes(searchLower) ||
+      (result.student.lastName || '').toLowerCase().includes(searchLower) ||
+      (result.student.email || '').toLowerCase().includes(searchLower) ||
+      (result.grade || '').toLowerCase().includes(searchLower) ||
       (result.remarks && result.remarks.toLowerCase().includes(searchLower))
     );
   });

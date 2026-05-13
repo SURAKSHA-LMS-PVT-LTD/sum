@@ -137,7 +137,7 @@ const PaymentSubmissionsPage = () => {
   };
 
   // Filter submissions based on search term
-  const filteredSubmissions = submissions.filter(submission => submission.username?.toLowerCase().includes(searchTerm.toLowerCase()) || submission.submittedAmount?.toString().includes(searchTerm) || submission.transactionId?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+  const filteredSubmissions = submissions.filter(submission => (submission.username || '').toLowerCase().includes(searchTerm.toLowerCase()) || submission.submittedAmount?.toString().includes(searchTerm) || (submission.transactionId || '').toLowerCase().includes(searchTerm.toLowerCase()) || false);
   const handleRefresh = () => {
     setLoaded(false);
     setSearchTerm('');

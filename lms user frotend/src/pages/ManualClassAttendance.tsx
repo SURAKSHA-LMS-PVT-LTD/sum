@@ -487,8 +487,8 @@ const ManualClassAttendance = () => {
     if (mode === 'subject') {
       return subjectStudents.filter((student) => {
         const searchMatch = !searchValue
-          || student.studentName.toLowerCase().includes(searchValue)
-          || student.studentId.toLowerCase().includes(searchValue);
+          || (student.studentName || '').toLowerCase().includes(searchValue)
+          || (student.studentId || '').toLowerCase().includes(searchValue);
         if (!searchMatch) return false;
         if (filterMode === 'already-marked') return Boolean(student.subjectAttendance);
         if (filterMode === 'present-at-source') return isPresentAtClass(student.classAttendance);
@@ -503,8 +503,8 @@ const ManualClassAttendance = () => {
 
     return students.filter((student) => {
       const searchMatch = !searchValue
-        || student.studentName.toLowerCase().includes(searchValue)
-        || student.studentId.toLowerCase().includes(searchValue);
+        || (student.studentName || '').toLowerCase().includes(searchValue)
+        || (student.studentId || '').toLowerCase().includes(searchValue);
       if (!searchMatch) return false;
       if (filterMode === 'already-marked') return Boolean(student.classAttendance);
       if (filterMode === 'present-at-source') return isPresentAtInstitute(student.instituteAttendance);

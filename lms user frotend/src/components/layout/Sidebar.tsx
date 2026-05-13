@@ -222,7 +222,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   }, [selectedInstitute?.id, user?.imageUrl, isViewingAsParent, selectedChild?.user?.imageUrl]);
 
   const isTuitionInstitute = (selectedInstitute?.type || '').toLowerCase() === 'tuition_institute';
-  const { subjectLabel, classLabel } = useInstituteLabels();
   const userRole = useInstituteRole();
   const { context: rbacContext, loading: rbacLoading } = useRbac();
 
@@ -405,7 +404,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
       if (selectedInstitute && selectedClass && !selectedSubject) {
         groups.push({ id: 'class', label: 'Class', icon: School, alwaysFlat: true, items: [
-          { id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true },
+          { id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true },
           { id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video },
           { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Activity', icon: BarChart3 },
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
@@ -505,8 +504,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       if (selectedInstitute) {
         groups.push({ id: 'class-nav', label: 'Class Navigation', icon: School, alwaysFlat: true, items: [
           ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
-          ...(selectedInstitute && !selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectLabel}s`, icon: BookOpen }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
+          ...(selectedInstitute && !selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: 'Institute Subjects', icon: BookOpen }] : []),
           ...(!selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video }] : []),
           ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video }] : []),
           ...(!selectedClass && !isTuitionInstitute ? [{ id: FEATURE_KEYS.HOUSES, label: 'Houses', icon: Flag }] : []),
@@ -597,7 +596,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         // Class/Subject navigation
         groups.push({ id: 'institute-nav', label: 'Navigate', icon: School, alwaysFlat: true, items: [
           ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
         ]});
 
         // Houses
@@ -624,11 +623,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         // Academics
         const academicItems: NavItem[] = [
           { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School, alwaysShow: !selectedClass },
-          { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectLabel}s`, icon: BookOpen, alwaysShow: !selectedClass },
+          { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: 'Institute Subjects', icon: BookOpen, alwaysShow: !selectedClass },
           ...(!selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video }] : []),
           ...(selectedClass && !selectedSubject ? [
             { id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video },
-            { id: FEATURE_KEYS.CLASS_SUBJECTS, label: `Class ${subjectLabel}s`, icon: BookOpen },
+            { id: FEATURE_KEYS.CLASS_SUBJECTS, label: 'Class Subjects', icon: BookOpen },
           ] : []),
           ...(selectedClass && selectedSubject ? [
             { id: FEATURE_KEYS.LECTURES, label: 'Lectures', icon: Video },
@@ -773,7 +772,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     if (selectedChild && selectedInstitute) {
       groups.push({ id: 'child-nav', label: 'Navigate', icon: School, alwaysFlat: true, items: [
         ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-        ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
+        ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
       ]});
 
       groups.push({ id: 'academics', label: 'Academics', icon: BookOpen,
@@ -823,7 +822,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       if (selectedInstitute) {
         groups.push({ id: 'class-nav', label: 'Navigate', icon: School, alwaysFlat: true, items: [
           ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
         ]});
 
         groups.push({ id: 'attendance', label: 'Attendance', icon: UserCheck, defaultOpen: true, items: [
@@ -892,7 +891,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       if (selectedInstitute) {
         groups.push({ id: 'navigate', label: 'Navigate', icon: School, alwaysFlat: true, items: [
           ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
         ]});
 
         groups.push({ id: 'manage-users', label: 'Manage Users', icon: UserCog, items: [
@@ -905,10 +904,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
         groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
           { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School },
-          { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectLabel}s`, icon: BookOpen },
+          { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: 'Institute Subjects', icon: BookOpen },
           { id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video },
           ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video }] : []),
-          ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_SUBJECTS, label: `Class ${subjectLabel}s`, icon: BookOpen }] : []),
+          ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_SUBJECTS, label: 'Class Subjects', icon: BookOpen }] : []),
           ...(selectedClass && selectedSubject ? [
             { id: FEATURE_KEYS.LECTURES, label: 'Lectures', icon: Video },
             { id: FEATURE_KEYS.FREE_LECTURES, label: 'Free Lectures', icon: Video },
@@ -980,10 +979,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
       groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
         { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School },
-        { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectLabel}s`, icon: BookOpen },
+        { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: 'Institute Subjects', icon: BookOpen },
         ...(user?.role !== 'SystemAdmin' ? [
           { id: 'select-class', label: 'Select Class', icon: School },
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen }] : []),
         ] : []),
         { id: 'institutes', label: 'Institutes', icon: Building2 },
       ]});
@@ -1017,7 +1016,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     return groups;
   }, [userRole, selectedInstitute?.id, selectedClass?.id, selectedSubject?.id,
       selectedChild?.id, selectedOrganization?.id, selectedTransport?.id,
-      isTuitionInstitute, subjectLabel, activePage, user?.role, currentPage, unreadNotifCount]);
+      isTuitionInstitute, activePage, user?.role, currentPage, unreadNotifCount]);
 
   // Context breadcrumb
   const showContextBar = !isCollapsed && user?.role !== 'SystemAdmin'

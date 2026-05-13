@@ -307,9 +307,9 @@ const NewAttendance = () => {
 
     if (searchTerm) {
       filtered = filtered.filter(record => 
-        record.studentId.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        record.studentName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        record.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (record.studentId || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (record.studentName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (record.status || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (record.className && record.className.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (record.subjectName && record.subjectName.toLowerCase().includes(searchTerm.toLowerCase()))
       );

@@ -373,9 +373,9 @@ const AttendanceRangeViewer: React.FC = () => {
       if (search) {
         const q = search.toLowerCase();
         if (
-          !row.studentName.toLowerCase().includes(q) &&
+          !(row.studentName || '').toLowerCase().includes(q) &&
           !(row.instituteUserId || '').toLowerCase().includes(q) &&
-          !row.studentId.toLowerCase().includes(q)
+          !(row.studentId || '').toLowerCase().includes(q)
         ) return false;
       }
       return true;

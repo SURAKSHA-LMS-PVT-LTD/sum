@@ -123,9 +123,11 @@ export const SRI_LANKAN_BANKS: SriLankanBank[] = [
 ];
 
 export const getBankByName = (name: string): SriLankanBank | undefined => {
+  if (!name) return undefined;
   return SRI_LANKAN_BANKS.find(bank => bank.name.toLowerCase() === name.toLowerCase());
 };
 
 export const getBankById = (id: string): SriLankanBank | undefined => {
+  if (!id) return undefined;
   return SRI_LANKAN_BANKS.find(bank => bank.id === id.toLowerCase());
 };

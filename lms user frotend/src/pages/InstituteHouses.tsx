@@ -132,8 +132,8 @@ const InstituteHouses = () => {
 
   // ── Filtered list ─────────────────────────────────────────────────────
   const filtered = houses.filter(h =>
-    h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (h.description ?? '').toLowerCase().includes(searchTerm.toLowerCase()),
+    (h.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (h.description || '').toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // ── Create ────────────────────────────────────────────────────────────

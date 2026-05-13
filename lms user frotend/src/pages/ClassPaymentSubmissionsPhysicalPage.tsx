@@ -106,9 +106,9 @@ const ClassPaymentSubmissionsPhysicalPage: React.FC = () => {
   // Filter students
   const filteredStudents = students.filter(s => {
     const matchSearch = !searchQuery ||
-      s.studentName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.studentName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.phone?.includes(searchQuery) ||
-      s.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      (s.email || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchStatus = statusFilter === 'all' || s.submissionStatus === statusFilter;
 
