@@ -13,28 +13,28 @@ import { Label } from '@/components/ui/label';
 import { UserPlus, Loader2, Plus, X, Clipboard, Trash2, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { instituteClassesApi, BulkAssignStudentsData } from '@/api/instituteClasses.api';
-import { useInstituteRole } from '@/hooks/useInstituteRole';
+import { instituteClassesApi, BulkAssignUsersData } from '@/api/instituteClasses.api';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
+import { usePermission } from '@/hooks/usePermission';
 import { Badge } from '@/components/ui/badge';
+import { AccessDenied } from '@/components/common/AccessDenied';
 
 
-interface AssignStudentsDialogProps {
+interface AssignUsersDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAssignmentComplete: () => void;
 }
 
-const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
+const AssignUsersDialog: React.FC<AssignUsersDialogProps> = ({
   open,
   onOpenChange,
   onAssignmentComplete
 }) => {
   const { selectedInstitute, selectedClass } = useAuth();
-  const instituteRole = useInstituteRole();
+  const { studentLabel, usersLabel } = useInstituteLabels();
+  const { canCreate } = usePermission('academics.classes');
   const { toast } = useToast();
-  
-  // Check permissions - InstituteAdmin and Teacher only
-  const hasPermission = instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher';
   
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [userIds, setUserIds] = useState<string[]>([]);
@@ -73,11 +73,11 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
     setUserIds(prev => prev.filter(id => id !== idToRemove));
   };
 
-  const handleAssignStudents = async () => {
+  const handleAssignUsers = async () => {
     if (!selectedClass?.id || !selectedInstitute?.id || userIds.length === 0) {
       toast({
         title: "Error",
-        description: "Please enter at least one user ID",
+        description: `Please enter at least one ${usersLabel.toLowerCase()} ID`,
         variant: "destructive"
       });
       return;
@@ -85,13 +85,13 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
 
     setAssigning(true);
     try {
-      const assignData: BulkAssignStudentsData = {
-        studentUserIds: userIds,
+      const assignData: BulkAssignUsersData = {
+        userIds: userIds,
         skipVerification: true,
         assignmentNotes: "Batch assignment by user IDs"
       };
       
-      const result = await instituteClassesApi.teacherAssignStudents(
+      const result = await instituteClassesApi.teacherAssignUsers(
         selectedInstitute.id, 
         selectedClass.id, 
         assignData
@@ -104,7 +104,7 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
         if (failedCount === 0 && successCount > 0) {
           toast({
             title: "Success!",
-            description: `Successfully assigned ${successCount} student(s) to ${selectedClass.name}`
+            description: `Successfully assigned ${successCount} ${successCount > 1 ? usersLabel.toLowerCase() : usersLabel.toLowerCase()} to ${selectedClass.name}`
           });
           
           onAssignmentComplete();
@@ -125,7 +125,7 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
           setCurrentUserId('');
         } else if (failedCount > 0) {
           // All failed - show the specific failure reasons
-          const failedReasons = result.failed?.map((f: any) => `${f.studentUserId}: ${f.reason}`).join('\n') || 'Unknown error';
+          const failedReasons = result.failed?.map((f: any) => `${f.userId}: ${f.reason}`).join('\n') || 'Unknown error';
           toast({
             title: "Assignment Failed",
             description: failedReasons,
@@ -134,7 +134,7 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
         } else {
           toast({
             title: "Assignment Complete",
-            description: "Users have been assigned to the class"
+            description: `${usersLabel} have been assigned to the class`
           });
           
           onAssignmentComplete();
@@ -145,7 +145,7 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
       } else {
         toast({
           title: "Assignment Complete",
-          description: "Users have been assigned to the class"
+          description: `${usersLabel} have been assigned to the class`
         });
         
         onAssignmentComplete();
@@ -154,9 +154,9 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
         setCurrentUserId('');
       }
     } catch (error: any) {
-      console.error('Error assigning students:', error);
+      console.error('Error assigning users:', error);
       
-      let errorMessage = "Failed to assign users to the class";
+      let errorMessage = `Failed to assign ${usersLabel.toLowerCase()} to the class`;
       
       if (error.response?.data) {
         const errorData = error.response.data;
@@ -185,15 +185,15 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
   };
 
   useEffect(() => {
-    if (open && !hasPermission) {
+    if (open && !canCreate) {
       toast({
         title: "Access Denied",
-        description: "You don't have permission to assign students. This feature is only available for Institute Admins and Teachers.",
+        description: `You don't have permission to assign ${usersLabel.toLowerCase()}.`,
         variant: "destructive"
       });
       onOpenChange(false);
     }
-  }, [open, hasPermission]);
+  }, [open, canCreate, usersLabel, onOpenChange, toast]);
 
   useEffect(() => {
     if (!open) {
@@ -201,17 +201,20 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
       setCurrentUserId('');
     }
   }, [open]);
+  
+  if (!canCreate) {
+      return <AccessDenied featureName={`Assign ${usersLabel}`} />
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg w-[calc(100%-1rem)] mx-auto rounded-2xl sm:rounded-xl p-0 gap-0 overflow-hidden">
-        {/* Header */}
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-base">
             <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <UserPlus className="h-4 w-4 text-primary" />
             </div>
-            Assign Users to Class
+            Assign {usersLabel} to Class
           </DialogTitle>
           <DialogDescription className="text-xs mt-1">
             Assigning to <strong className="text-foreground">{selectedClass?.name}</strong>
@@ -219,14 +222,13 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
         </DialogHeader>
 
         <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-          {/* Input */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add User ID</Label>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add {usersLabel} ID</Label>
             <div className="flex gap-2">
               <Input
                 ref={inputRef}
                 id="userId"
-                placeholder="Type ID and press Enter, or paste multiple…"
+                placeholder={`Type ID and press Enter, or paste multiple…`}
                 value={currentUserId}
                 onChange={e => setCurrentUserId(e.target.value)}
                 onPaste={handlePaste}
@@ -252,12 +254,11 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
             </p>
           </div>
 
-          {/* ID List */}
           {userIds.length > 0 ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5" />Users to assign
+                  <Users className="h-3.5 w-3.5" />{usersLabel} to assign
                   <Badge className="ml-1 h-5 px-1.5 text-[10px]">{userIds.length}</Badge>
                 </Label>
                 <button
@@ -293,20 +294,19 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-5 py-4 border-t border-border bg-muted/20 flex items-center justify-between gap-3">
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="text-muted-foreground">
             Cancel
           </Button>
           <Button
-            onClick={handleAssignStudents}
+            onClick={handleAssignUsers}
             disabled={userIds.length === 0 || assigning}
             className="gap-2"
           >
             {assigning ? (
               <><Loader2 className="h-4 w-4 animate-spin" />Assigning…</>
             ) : (
-              <><UserPlus className="h-4 w-4" />Assign {userIds.length > 0 ? `${userIds.length} User${userIds.length > 1 ? 's' : ''}` : 'Users'}</>
+              <><UserPlus className="h-4 w-4" />Assign {userIds.length > 0 ? `${userIds.length} ${userIds.length > 1 ? usersLabel : usersLabel}` : usersLabel}</>
             )}
           </Button>
         </div>
@@ -315,4 +315,4 @@ const AssignStudentsDialog: React.FC<AssignStudentsDialogProps> = ({
   );
 };
 
-export default AssignStudentsDialog;
+export default AssignUsersDialog;

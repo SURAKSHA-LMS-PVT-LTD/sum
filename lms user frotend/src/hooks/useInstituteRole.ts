@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/utils/permissions';
+import { useMyRbacContext } from './useMyRbacContext';
 
 /**
  * CRITICAL: Hook that ALWAYS returns the institute-specific role
@@ -53,3 +54,9 @@ function mapInstituteUserType(instituteUserType: string): UserRole {
       return 'Student';
   }
 }
+
+// New: returns the userTypeSlug from RBAC context, falls back to legacy string
+export const useInstituteUserTypeSlug = (): string | null => {
+  const { context } = useMyRbacContext();
+  return context?.userTypeSlug ?? null;
+};

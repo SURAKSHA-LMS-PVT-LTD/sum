@@ -1,10 +1,11 @@
 import { UserTypesManager } from '@/components/institute-settings/UserTypesManager';
 import { Shield, Search } from 'lucide-react';
 import { SeoSettings } from '@/components/institute-settings/SeoSettings';
+import { usePermission } from '@/hooks/usePermission';
+import { AccessDenied } from '@/components/AccessDenied';
 
 const VALID_TABS = ['basic', 'branding', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features', 'user-types', 'seo'];
 const activeTab = 'user-types';
-const isInstituteAdmin = true;
 const instituteId = '1';
 const settings = {};
 
@@ -14,12 +15,18 @@ const SECTION_ITEMS = [
 ];
 
 const InstituteSettingsPage = () => {
+    const { canView: canViewSettings, canUpdate: canUpdateSettings } = usePermission('services.features');
+
+    if (!canViewSettings) {
+        return <AccessDenied featureName="Institute Settings" />;
+    }
+
     return (
         <div>
-            {activeTab === 'user-types' && isInstituteAdmin && (
+            {activeTab === 'user-types' && canUpdateSettings && (
                 <UserTypesManager />
             )}
-            {activeTab === 'seo' && isInstituteAdmin && instituteId && (
+            {activeTab === 'seo' && canUpdateSettings && instituteId && (
                 <SeoSettings instituteId={instituteId} settings={settings} />
             )}
         </div>

@@ -25,11 +25,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { ExtraDataFields } from '@/components/users/ExtraDataFields';
 import { useInstituteUserColumns } from '@/hooks/useInstituteUserColumns';
+import { useUserTypes } from '@/hooks/useUserTypes';
+import { UserType } from '@/api/userTypes.api';
+
 
 import type {
   CreateInstituteUserDto,
   CreateInstituteUserResponse,
-  InstituteUserType,
   Gender,
   ClassEnrollmentInput,
   InstituteStudentData,
@@ -85,13 +87,6 @@ const OCCUPATION_OPTIONS = [
   'LANDLORD', 'LANDLADY',
   'STUDENT_SCHOOL', 'STUDENT_UNIVERSITY', 'RETIRED_PERSON', 'UNEMPLOYED',
 ].map(v => ({ value: v, label: v.replace(/_/g, ' ').split(' ').map((w: string) => w[0] + w.slice(1).toLowerCase()).join(' ') }));
-
-const INSTITUTE_USER_TYPES: { value: InstituteUserType; label: string; description: string }[] = [
-  { value: 'STUDENT', label: 'Student', description: 'Student user — can be enrolled in classes & subjects' },
-  { value: 'TEACHER', label: 'Teacher', description: 'Teacher user — can manage lectures, homework, exams' },
-  { value: 'INSTITUTE_ADMIN', label: 'Institute Admin', description: 'Full administrative access to the institute' },
-  { value: 'ATTENDANCE_MARKER', label: 'Attendance Marker', description: 'Can mark attendance for classes' },
-];
 
 const BLOOD_GROUPS = ['A_POSITIVE', 'A_NEGATIVE', 'B_POSITIVE', 'B_NEGATIVE', 'O_POSITIVE', 'O_NEGATIVE', 'AB_POSITIVE', 'AB_NEGATIVE'] as const;
 
@@ -212,8 +207,24 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  // ── User types ──
+  const { userTypes, loading: typesLoading } = useUserTypes();
+  const [selectedUserTypeId, setSelectedUserTypeId] = useState<string>('');
+  const [selectedUserTypeFull, setSelectedUserTypeFull] = useState<UserType | null>(null);
+
+  useEffect(() => {
+    if (userTypes.length > 0 && !selectedUserTypeId) {
+      setSelectedUserTypeId(userTypes[0].id);
+      setSelectedUserTypeFull(userTypes[0]);
+    }
+  }, [userTypes, selectedUserTypeId]);
+
+  const handleTypeChange = (id: string) => {
+    setSelectedUserTypeId(id);
+    setSelectedUserTypeFull(userTypes.find(ut => ut.id === id) ?? null);
+  };
+
   // ── Core fields ──
-  const [instituteUserType, setInstituteUserType] = useState<InstituteUserType>('STUDENT');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [nameWithInitials, setNameWithInitials] = useState('');
@@ -333,7 +344,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
   const [showParents, setShowParents] = useState(false);
   const [showMedical, setShowMedical] = useState(false);
 
-  const isStudent = instituteUserType === 'STUDENT';
+  const showStudentFields = selectedUserTypeFull?.slug === 'student';
 
   // ── Language ──
   const [lang, setLang] = useState<Lang>('en');
@@ -462,8 +473,8 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
 
     // Validation
     const errors: Record<string, string> = {};
-    if (!isStudent && !email && !phoneNumber) errors.email = 'Email or phone number is required';
-    if (!instituteUserType) errors.instituteUserType = 'User type is required';
+    if (!showStudentFields && !email && !phoneNumber) errors.email = 'Email or phone number is required';
+    if (!selectedUserTypeId) errors.instituteUserType = 'User type is required';
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
@@ -472,7 +483,8 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
     setIsLoading(true);
     try {
       const dto: CreateInstituteUserDto = {
-        instituteUserType,
+        primaryUserTypeId: selectedUserTypeId,
+        instituteUserType: selectedUserTypeFull?.slug?.toUpperCase() as any ?? 'STUDENT',
         firstName: firstName || undefined,
         lastName: lastName || undefined,
         nameWithInitials: nameWithInitials || undefined,
@@ -509,7 +521,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
       };
 
       // Student-specific
-      if (isStudent) {
+      if (showStudentFields) {
         if (classEnrollments.length > 0) {
           dto.classEnrollments = classEnrollments.map(e => ({
             classId: e.classId,
@@ -585,7 +597,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
 
       toast({
         title: 'User Created',
-        description: response.message || `${instituteUserType} created and enrolled successfully`,
+        description: response.message || `${selectedUserTypeFull?.name} created and enrolled successfully`,
       });
       if (onSubmit) onSubmit(response);
       if (isPageMode) navigate(-1);
@@ -610,16 +622,16 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
             {/* ── Institute User Type ── */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">{L.role} *</Label>
-              <Select value={instituteUserType} onValueChange={(v: InstituteUserType) => setInstituteUserType(v)}>
+              <Select value={selectedUserTypeId} onValueChange={handleTypeChange} disabled={typesLoading}>
                 <SelectTrigger className="h-10 sm:h-9 border-border bg-background">
-                  <SelectValue placeholder={L.rolePlaceholder} />
+                  <SelectValue placeholder={typesLoading ? 'Loading...' : L.rolePlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  {INSTITUTE_USER_TYPES.map(t => (
-                    <SelectItem key={t.value} value={t.value}>
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">{t.label}</span>
-                        <span className="text-xs opacity-70">{t.description}</span>
+                  {userTypes.map(ut => (
+                    <SelectItem key={ut.id} value={ut.id}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ut.color ?? '#6B7280' }} />
+                        {ut.name}
                       </div>
                     </SelectItem>
                   ))}
@@ -673,12 +685,12 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
                   <p className="text-[10px] text-muted-foreground">{L.nameWithInitialsHint}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm">{L.email} {!isStudent && !phoneNumber && '*'}</Label>
+                  <Label className="text-sm">{L.email} {!showStudentFields && !phoneNumber && '*'}</Label>
                   <Input type="email" value={email} onChange={e => { setEmail(e.target.value); clearError('email'); }} placeholder="user@email.com" />
                   {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm">{L.phoneNumber} {!isStudent && !email && '*'}</Label>
+                  <Label className="text-sm">{L.phoneNumber} {!showStudentFields && !email && '*'}</Label>
                   <Input value={phoneNumber} onChange={e => { setPhoneNumber(e.target.value); clearError('email'); }} placeholder="07XXXXXXXX" />
                 </div>
                 <div className="space-y-1.5">
@@ -760,7 +772,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
             </div>
 
             {/* ── Class & Subject Enrollment (STUDENT only) ── */}
-            {isStudent && (
+            {showStudentFields && (
               <div className="space-y-3">
                 <h3 className="font-semibold text-sm text-foreground border-l-2 border-primary pl-3 py-1">{L.classEnrollment}</h3>
 
@@ -852,7 +864,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
             )}
 
             {/* ── Student Medical Data (STUDENT only, collapsible) ── */}
-            {isStudent && (
+            {showStudentFields && (
               <div className="space-y-2">
                 <button type="button" onClick={() => setShowMedical(!showMedical)} className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline">
                   {showMedical ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -905,7 +917,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
             )}
 
             {/* ── Parent/Guardian Info (STUDENT only, collapsible) ── */}
-            {isStudent && (
+            {showStudentFields && (
               <div className="space-y-2">
                 <button type="button" onClick={() => setShowParents(!showParents)} className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline">
                   {showParents ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -1515,7 +1527,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
                   columns={extraColumns}
                   values={extraData}
                   onChange={setExtraData}
-                  userType={instituteUserType === 'STUDENT' ? 'Student' : instituteUserType === 'TEACHER' ? 'Teacher' : undefined}
+                  userType={selectedUserTypeFull?.slug === 'student' ? 'Student' : selectedUserTypeFull?.slug === 'teacher' ? 'Teacher' : undefined}
                   className="pl-1"
                 />
               ) : (
@@ -1571,7 +1583,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
         ) : (
           <>
             <Plus className="h-4 w-4 mr-2" />
-            {L.create} {INSTITUTE_USER_TYPES.find(t => t.value === instituteUserType)?.label}
+            {`Create ${selectedUserTypeFull?.name ?? 'User'}`}
           </>
         )}
       </Button>

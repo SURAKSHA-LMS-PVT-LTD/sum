@@ -12,6 +12,7 @@ import { UserPlus, Phone, CreditCard, User, Eye, Mail, Upload, Camera, Loader2 }
 import { uploadWithSignedUrl, detectFolder } from '@/utils/signedUploadHelper';
 import PassportImageCropUpload from '@/components/common/PassportImageCropUpload';
 import { getErrorMessage } from '@/api/apiError';
+import { useUserTypes } from '@/hooks/useUserTypes';
 
 interface AssignUserMethodsDialogProps {
   open: boolean;
@@ -29,6 +30,25 @@ interface UserPreviewData {
   userType: string;
 }
 
+const UserTypeSelectField: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+  const { userTypes, loading } = useUserTypes();
+  return (
+    <Select value={value} onValueChange={onChange} disabled={loading}>
+      <SelectTrigger><SelectValue placeholder={loading ? 'Loading…' : 'Select user type'} /></SelectTrigger>
+      <SelectContent>
+        {userTypes.map(ut => (
+          <SelectItem key={ut.id} value={ut.id}>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ut.color ?? '#6B7280' }} />
+              {ut.name}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
+
 const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: AssignUserMethodsDialogProps) => {
   const { toast } = useToast();
   const [selectedMethod, setSelectedMethod] = useState<AssignMethod | null>(null);
@@ -43,10 +63,10 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
-  // Form states for different methods - changed image to imageUrl string
+  // Form states for different methods
   const [idFormData, setIdFormData] = useState({
     userId: '',
-    instituteUserType: 'STUDENT',
+    primaryUserTypeId: '',
     userIdByInstitute: '',
     instituteCardId: '',
     imageUrl: ''
@@ -54,7 +74,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
 
   const [phoneFormData, setPhoneFormData] = useState({
     phoneNumber: '+94',
-    instituteUserType: 'STUDENT',
+    primaryUserTypeId: '',
     userIdByInstitute: '',
     instituteCardId: '',
     imageUrl: ''
@@ -62,7 +82,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
 
   const [rfidFormData, setRfidFormData] = useState({
     rfid: '',
-    instituteUserType: 'STUDENT',
+    primaryUserTypeId: '',
     userIdByInstitute: '',
     instituteCardId: '',
     imageUrl: ''
@@ -70,7 +90,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
 
   const [emailFormData, setEmailFormData] = useState({
     email: '',
-    instituteUserType: 'STUDENT',
+    primaryUserTypeId: '',
     userIdByInstitute: '',
     instituteCardId: '',
     imageUrl: ''
@@ -90,7 +110,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
     try {
       const payload = {
         userId: idFormData.userId,
-        instituteUserType: idFormData.instituteUserType,
+        primaryUserTypeId: idFormData.primaryUserTypeId,
         userIdByInstitute: idFormData.userIdByInstitute,
         ...(idFormData.instituteCardId && { instituteCardId: idFormData.instituteCardId }),
         ...(idFormData.imageUrl && { instituteImage: idFormData.imageUrl })
@@ -134,14 +154,13 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
     try {
       let imageUrl = '';
       
-      // Upload image if provided using signed URL
       if (phoneFormData.imageUrl) {
         imageUrl = phoneFormData.imageUrl;
       }
 
       const payload = {
         phoneNumber: phoneFormData.phoneNumber,
-        instituteUserType: phoneFormData.instituteUserType,
+        primaryUserTypeId: phoneFormData.primaryUserTypeId,
         userIdByInstitute: phoneFormData.userIdByInstitute,
         ...(phoneFormData.instituteCardId && { instituteCardId: phoneFormData.instituteCardId }),
         ...(imageUrl && { imageUrl })
@@ -185,14 +204,13 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
     try {
       let instituteImage = '';
       
-      // Upload image if provided using signed URL
       if (rfidFormData.imageUrl) {
         instituteImage = rfidFormData.imageUrl;
       }
 
       const payload = {
         rfid: rfidFormData.rfid,
-        instituteUserType: rfidFormData.instituteUserType,
+        primaryUserTypeId: rfidFormData.primaryUserTypeId,
         userIdByInstitute: rfidFormData.userIdByInstitute,
         ...(rfidFormData.instituteCardId && { instituteCardId: rfidFormData.instituteCardId }),
         ...(instituteImage && { instituteImage })
@@ -236,14 +254,13 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
     try {
       let imageUrl = '';
       
-      // Upload image if provided using signed URL
       if (emailFormData.imageUrl) {
         imageUrl = emailFormData.imageUrl;
       }
 
       const payload = {
         email: emailFormData.email,
-        instituteUserType: emailFormData.instituteUserType,
+        primaryUserTypeId: emailFormData.primaryUserTypeId,
         userIdByInstitute: emailFormData.userIdByInstitute,
         ...(emailFormData.instituteCardId && { instituteCardId: emailFormData.instituteCardId }),
         ...(imageUrl && { instituteImage: imageUrl })
@@ -380,31 +397,26 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
 
   const resetForm = () => {
     setSelectedMethod(null);
-    setIdFormData({ userId: '', instituteUserType: 'STUDENT', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
-    setPhoneFormData({ phoneNumber: '+94', instituteUserType: 'STUDENT', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
-    setRfidFormData({ rfid: '', instituteUserType: 'STUDENT', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
-    setEmailFormData({ email: '', instituteUserType: 'STUDENT', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
+    setIdFormData({ userId: '', primaryUserTypeId: '', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
+    setPhoneFormData({ phoneNumber: '+94', primaryUserTypeId: '', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
+    setRfidFormData({ rfid: '', primaryUserTypeId: '', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
+    setEmailFormData({ email: '', primaryUserTypeId: '', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
   };
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
     
-    // Always ensure it starts with +94
     if (!value.startsWith('+94')) {
       value = '+94';
     }
     
-    // Get the part after +94
     const numberPart = value.slice(3);
     
-    // Prevent starting with 0 and only allow digits
     if (numberPart.length > 0) {
-      // Remove any non-digit characters
       const cleanNumber = numberPart.replace(/\D/g, '');
       
-      // Prevent starting with 0
       if (cleanNumber.startsWith('0')) {
-        return; // Don't update if trying to start with 0
+        return;
       }
       
       value = '+94' + cleanNumber;
@@ -427,7 +439,6 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
       setCameraStream(stream);
       setShowCamera(true);
       
-      // Wait for dialog to render, then set the stream
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -456,7 +467,6 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
             const file = new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' });
             const photoUrl = URL.createObjectURL(blob);
             
-            // Update the appropriate form data based on selected method
             if (selectedMethod === 'id') {
               setIdFormData(prev => ({ ...prev, image: file }));
             } else if (selectedMethod === 'phone') {
@@ -571,7 +581,6 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Back button */}
             <Button
               variant="ghost"
               size="sm"
@@ -613,20 +622,10 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
 
                 <div>
                   <Label htmlFor="instituteUserType">User Type *</Label>
-                  <Select
-                    value={idFormData.instituteUserType}
-                    onValueChange={(value) => setIdFormData(prev => ({ ...prev, instituteUserType: value }))}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="INSTITUTE_ADMIN">Institute Admin</SelectItem>
-                      <SelectItem value="TEACHER">Teacher</SelectItem>
-                      <SelectItem value="STUDENT">Student</SelectItem>
-                      <SelectItem value="ATTENDANCE_MARKER">Attendance Marker</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <UserTypeSelectField
+                    value={idFormData.primaryUserTypeId}
+                    onChange={v => setIdFormData(p => ({ ...p, primaryUserTypeId: v }))}
+                  />
                 </div>
 
                 <div>
@@ -709,20 +708,10 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
 
                 <div>
                   <Label htmlFor="phoneUserType">User Type *</Label>
-                  <Select
-                    value={phoneFormData.instituteUserType}
-                    onValueChange={(value) => setPhoneFormData(prev => ({ ...prev, instituteUserType: value }))}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="INSTITUTE_ADMIN">Institute Admin</SelectItem>
-                      <SelectItem value="TEACHER">Teacher</SelectItem>
-                      <SelectItem value="STUDENT">Student</SelectItem>
-                      <SelectItem value="ATTENDANCE_MARKER">Attendance Marker</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <UserTypeSelectField
+                    value={phoneFormData.primaryUserTypeId}
+                    onChange={v => setPhoneFormData(p => ({ ...p, primaryUserTypeId: v }))}
+                  />
                 </div>
 
                 <div>
@@ -801,20 +790,10 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
 
                 <div>
                   <Label htmlFor="rfidUserType">User Type *</Label>
-                  <Select
-                    value={rfidFormData.instituteUserType}
-                    onValueChange={(value) => setRfidFormData(prev => ({ ...prev, instituteUserType: value }))}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="INSTITUTE_ADMIN">Institute Admin</SelectItem>
-                      <SelectItem value="TEACHER">Teacher</SelectItem>
-                      <SelectItem value="STUDENT">Student</SelectItem>
-                      <SelectItem value="ATTENDANCE_MARKER">Attendance Marker</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <UserTypeSelectField
+                    value={rfidFormData.primaryUserTypeId}
+                    onChange={v => setRfidFormData(p => ({ ...p, primaryUserTypeId: v }))}
+                  />
                 </div>
 
                 <div>
@@ -894,20 +873,10 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
 
                 <div>
                   <Label htmlFor="emailUserType">User Type *</Label>
-                  <Select
-                    value={emailFormData.instituteUserType}
-                    onValueChange={(value) => setEmailFormData(prev => ({ ...prev, instituteUserType: value }))}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="INSTITUTE_ADMIN">Institute Admin</SelectItem>
-                      <SelectItem value="TEACHER">Teacher</SelectItem>
-                      <SelectItem value="STUDENT">Student</SelectItem>
-                      <SelectItem value="ATTENDANCE_MARKER">Attendance Marker</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <UserTypeSelectField
+                    value={emailFormData.primaryUserTypeId}
+                    onChange={v => setEmailFormData(p => ({ ...p, primaryUserTypeId: v }))}
+                  />
                 </div>
 
                 <div>
@@ -956,7 +925,6 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
           </div>
         )}
         
-        {/* User Preview Dialog */}
         <Dialog open={showUserPreview} onOpenChange={setShowUserPreview}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
@@ -982,7 +950,6 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
           </DialogContent>
         </Dialog>
 
-        {/* Camera Dialog */}
         <Dialog open={showCamera} onOpenChange={stopCamera}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
