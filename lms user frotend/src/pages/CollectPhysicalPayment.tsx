@@ -1,71 +1,94 @@
+/**
+ * CollectPhysicalPayment — POS-style payment collection page
+ *
+ * Desktop: 3-column single-screen layout (Payments | Find Student | Attendance)
+ * Mobile:  2-step flow (Search → Collect+Attendance)
+ *
+ * Features:
+ *  - Class payments + 30-day attendance in one load per student
+ *  - Post-collect dialog: SMS / Print / Both / Skip
+ *  - Thermal receipt print (window.print) — no dialog, direct
+ *  - Printer settings panel (size selector, stored in localStorage)
+ *  - SMS via /sms/send-custom — fetches phone lazily on click
+ *  - Custom SMS recipient option
+ *  - Finance account mandatory (no skip)
+ *  - Date always = today (server-side, no frontend date picker)
+ *  - Attendance enable-toggle per session (only unmarked, selectable)
+ */
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PageContainer from '@/components/layout/PageContainer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
   Banknote, Search, CheckCircle, Loader2, User, XCircle, Clock,
-  AlertCircle, RefreshCw, BookOpen, School, Phone, Mail,
-  Hash, IdCard, BarChart3, ArrowRight, ExternalLink,
-  Building2, Layers,
+  AlertCircle, RefreshCw, School, Phone, Mail, Hash, IdCard,
+  MessageSquare, Printer, CalendarDays, ChevronLeft, Settings2,
+  Monitor,
 } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/api/client';
-import { subjectPaymentsApi, SubjectPayment } from '@/api/subjectPayments.api';
 import { classPaymentsApi, ClassPayment } from '@/api/classPayments.api';
 import { instituteClassesApi } from '@/api/instituteClasses.api';
-import { instituteApi } from '@/api/institute.api';
 import { usersApi } from '@/api/users.api';
-import { subjectsApi } from '@/api/subjects.api';
 import { useAuth } from '@/contexts/AuthContext';
-import { buildSidebarUrl } from '@/utils/pageNavigation';
 import { financeApi } from '@/api/finance.api';
+import classAttendanceSessionsApi from '@/api/classAttendanceSessions.api';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { isNativePlatform } from '@/services/tokenStorageService';
+import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
+
+type SearchMode = 'id' | 'instituteId' | 'phone' | 'email';
+type PaymentTier = 'full' | 'half' | 'quarter';
+type PrintSize = '2inch' | '3inch' | '4inch' | 'a4';
+type PostAction = 'sms' | 'print' | 'both' | 'skip' | null;
 
 interface StudentInfo {
   uuid: string;
   nameWithInitials: string;
   image?: string;
-  instituteUserId: string;
-  paymentHistory?: Array<{ status: string; amount: number; date: string; note: string | null }>;
+  instituteUserId?: string;
+  phone?: string;
 }
-type PaymentScope = 'subject' | 'class' | 'institute';
-type SearchMode = 'id' | 'instituteId' | 'phone' | 'email';
-type PaymentTier = 'full' | 'half' | 'quarter';
 
-interface CollectDialogState {
-  date: string;
-  notes: string;
-  tier: PaymentTier;
-  targetAccountId?: string;
-}
 interface ClassOption { id: string; name: string; code: string; }
-interface SubjectOption { id: string; name: string; code: string; }
 
-interface InstPayment {
-  id: string;
-  paymentType: string;
-  title?: string;
-  description: string;
-  amount: string | number;
-  dueDate?: string;
-  status: string;
+interface AttendanceRow {
+  sessionId: string;
+  sessionName: string;
+  date: string;
+  startTime: string;
+  statusCode: number | null;
+  statusLabel: string;
+  markedAt: string | null;
 }
 
-// paymentId → array of submissions for the current student
-type StudentSubMap = Record<string, Array<{ status: string; submittedAmount: string; paymentId: string; id: string }>>;
+type SubMap = Record<string, { status: string; submittedAmount: string; id: string }[]>;
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+interface CollectedItem { title: string; amount: number; }
+
+interface SmsCredentials {
+  availableCredits: number;
+  activeMasks: Array<{ maskId: string; mask: string }>;
+  isActive: boolean;
+}
+
+// ─── Constants ──────────────────────────────────────────────────────────────────
 
 const TIER_LABEL: Record<PaymentTier, string> = { full: 'Full', half: 'Half (50%)', quarter: 'Quarter (25%)' };
 const TIER_MULT: Record<PaymentTier, number> = { full: 1, half: 0.5, quarter: 0.25 };
+
 const SEARCH_MODES: { id: SearchMode; label: string; icon: React.ElementType; placeholder: string }[] = [
   { id: 'id',          label: 'System ID',   icon: Hash,   placeholder: 'Student system ID…' },
   { id: 'instituteId', label: 'Institute ID', icon: IdCard, placeholder: 'Institute user ID…' },
@@ -73,88 +96,168 @@ const SEARCH_MODES: { id: SearchMode; label: string; icon: React.ElementType; pl
   { id: 'email',       label: 'Email',        icon: Mail,   placeholder: 'student@example.com…' },
 ];
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+const PRINT_SIZES: { id: PrintSize; label: string; widthMm: number }[] = [
+  { id: '2inch', label: '2 inch (58mm)', widthMm: 58 },
+  { id: '3inch', label: '3 inch (80mm)', widthMm: 80 },
+  { id: '4inch', label: '4 inch (104mm)', widthMm: 104 },
+  { id: 'a4',    label: 'A4 / Full Page', widthMm: 210 },
+];
 
-const StatusBadge = ({ status }: { status?: string | null }) => {
-  if (!status) return <Badge variant="outline" className="text-gray-400 gap-1 text-[10px]"><AlertCircle className="h-3 w-3" />Not paid</Badge>;
-  if (status === 'VERIFIED')        return <Badge className="bg-green-100 text-green-800 border-green-200 gap-1 text-[10px]"><CheckCircle className="h-3 w-3" />Verified</Badge>;
-  if (status === 'HALF_VERIFIED')   return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 gap-1 text-[10px]"><CheckCircle className="h-3 w-3" />Half paid</Badge>;
-  if (status === 'QUARTER_VERIFIED') return <Badge className="bg-teal-100 text-teal-800 border-teal-200 gap-1 text-[10px]"><CheckCircle className="h-3 w-3" />Quarter paid</Badge>;
-  if (status === 'PENDING')         return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 gap-1 text-[10px]"><Clock className="h-3 w-3" />Pending verify</Badge>;
-  if (status === 'REJECTED')        return <Badge className="bg-red-100 text-red-800 border-red-200 gap-1 text-[10px]"><XCircle className="h-3 w-3" />Rejected</Badge>;
-  return <Badge variant="outline" className="text-gray-400 gap-1 text-[10px]"><AlertCircle className="h-3 w-3" />Not paid</Badge>;
+const LS_PRINT_SIZE = 'pos_print_size';
+
+// ─── Utilities ──────────────────────────────────────────────────────────────────
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function daysAgoStr(n: number) {
+  const d = new Date(); d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+function fmtDate(iso: string) {
+  try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  catch { return iso; }
+}
+function fmtTime(t: string) {
+  const [h, m] = t.split(':');
+  const hr = parseInt(h, 10);
+  return `${hr % 12 || 12}:${m} ${hr < 12 ? 'AM' : 'PM'}`;
+}
+
+// ─── Status Badges ──────────────────────────────────────────────────────────────
+
+const PayBadge = ({ status }: { status?: string | null }) => {
+  if (!status) return <Badge variant="outline" className="gap-1 text-[10px] py-0 text-gray-400"><AlertCircle className="h-2.5 w-2.5" />Not paid</Badge>;
+  const map: Record<string, string> = {
+    VERIFIED: 'bg-green-100 text-green-800 border-green-200',
+    HALF_VERIFIED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    QUARTER_VERIFIED: 'bg-teal-100 text-teal-800 border-teal-200',
+    PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    REJECTED: 'bg-red-100 text-red-800 border-red-200',
+  };
+  const labels: Record<string, string> = {
+    VERIFIED: 'Verified', HALF_VERIFIED: 'Half paid', QUARTER_VERIFIED: 'Quarter',
+    PENDING: 'Pending', REJECTED: 'Rejected',
+  };
+  const cls = map[status] || 'bg-gray-100 text-gray-600 border-gray-200';
+  const Icon = status === 'VERIFIED' || status === 'HALF_VERIFIED' || status === 'QUARTER_VERIFIED'
+    ? CheckCircle : status === 'PENDING' ? Clock : XCircle;
+  return <Badge className={`gap-1 text-[10px] py-0 ${cls}`}><Icon className="h-2.5 w-2.5" />{labels[status] ?? status}</Badge>;
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+const AttBadge = ({ code }: { code: number | null }) => {
+  if (code === null) return <Badge variant="outline" className="text-[10px] py-0 text-gray-400">Not marked</Badge>;
+  if (code === 1) return <Badge className="bg-green-100 text-green-800 border-green-200 text-[10px] py-0">Present</Badge>;
+  if (code === 2) return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-[10px] py-0">Late</Badge>;
+  if (code === 0) return <Badge className="bg-red-100 text-red-800 border-red-200 text-[10px] py-0">Absent</Badge>;
+  return <Badge variant="outline" className="text-[10px] py-0">Code {code}</Badge>;
+};
+
+// ─── Receipt HTML builder ───────────────────────────────────────────────────────
+
+function buildReceiptHtml(opts: {
+  studentName: string; instituteId?: string; instituteName: string; className: string;
+  payments: CollectedItem[]; tier: PaymentTier; collectedBy: string; date: string;
+  notes: string; account: string; widthMm: number;
+}) {
+  const total = opts.payments.reduce((s, p) => s + p.amount * TIER_MULT[opts.tier], 0);
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title>
+<style>
+  @page { margin: 4mm; size: ${opts.widthMm}mm auto; }
+  body { font-family: 'Courier New', monospace; font-size: ${opts.widthMm < 80 ? 10 : 11}px; margin: 0; padding: 8px; width: ${opts.widthMm - 8}mm; }
+  h2  { text-align: center; margin: 0 0 2px; font-size: ${opts.widthMm < 80 ? 12 : 14}px; }
+  .c  { text-align: center; }
+  .d  { border-top: 1px dashed #000; margin: 5px 0; }
+  .r  { display: flex; justify-content: space-between; margin: 2px 0; }
+  .b  { font-weight: bold; }
+  .s  { font-size: 9px; color: #555; }
+  .notice { font-size: 8px; border: 1px dashed #999; padding: 4px; margin-top: 8px; text-align: center; }
+</style></head><body>
+<h2>${opts.instituteName}</h2>
+<p class="c s">Physical Payment Receipt</p>
+<div class="d"></div>
+<div class="r"><span>Student:</span><span>${opts.studentName}</span></div>
+${opts.instituteId ? `<div class="r"><span>ID:</span><span>${opts.instituteId}</span></div>` : ''}
+<div class="r"><span>Class:</span><span>${opts.className}</span></div>
+<div class="r"><span>Date:</span><span>${fmtDate(opts.date)}</span></div>
+<div class="r"><span>Collected by:</span><span>${opts.collectedBy}</span></div>
+<div class="r"><span>Account:</span><span>${opts.account}</span></div>
+<div class="d"></div>
+${opts.payments.map(p => `<div class="r"><span>${p.title}</span><span>Rs ${(p.amount * TIER_MULT[opts.tier]).toLocaleString()}</span></div>`).join('')}
+<div class="d"></div>
+<div class="r b"><span>TOTAL</span><span>Rs ${total.toLocaleString()}</span></div>
+${opts.tier !== 'full' ? `<div class="r s"><span>Tier:</span><span>${TIER_LABEL[opts.tier]}</span></div>` : ''}
+${opts.notes ? `<div class="r s"><span>Notes:</span><span>${opts.notes}</span></div>` : ''}
+<div class="notice">If you face any issue related to this payment in the future, present this receipt to the administration. Keep it safe.</div>
+</body></html>`;
+}
+
+function doPrint(html: string, widthMm = 80) {
+  const existing = document.getElementById('__pos_print_frame') as HTMLIFrameElement | null;
+  if (existing) existing.remove();
+
+  const iframe = document.createElement('iframe');
+  iframe.id = '__pos_print_frame';
+  // Set iframe to the exact paper width so the browser lays out content correctly
+  // before printing. Off-screen but properly sized.
+  const pxWidth = Math.round(widthMm * 3.7795); // mm → px at 96dpi
+  iframe.style.cssText = `position:fixed;top:-9999px;left:0;width:${pxWidth}px;height:200px;border:0;opacity:0;pointer-events:none;`;
+  document.body.appendChild(iframe);
+
+  // Use srcdoc when available (avoids document.write deprecation warning)
+  if ('srcdoc' in iframe) {
+    iframe.srcdoc = html;
+  } else {
+    const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
+    if (!doc) { iframe.remove(); return; }
+    doc.open(); doc.write(html); doc.close();
+  }
+
+  const doTrigger = () => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch { /* ignore — some browsers block cross-origin */ }
+    // Remove after user closes the print dialog (allow 30s)
+    setTimeout(() => { try { iframe.remove(); } catch { /* */ } }, 30000);
+  };
+
+  iframe.onload = doTrigger;
+  // Fallback if onload already fired (srcdoc on some browsers)
+  setTimeout(() => {
+    if (document.getElementById('__pos_print_frame')) doTrigger();
+  }, 600);
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────────
 
 const CollectPhysicalPayment: React.FC = () => {
   const { toast } = useToast();
-  const navigate = useNavigate();
-  const { selectedInstitute, selectedClass: ctxClass, selectedSubject: ctxSubject } = useAuth();
-  const instituteId = selectedInstitute?.id;
+  const { selectedInstitute, selectedClass: ctxClass, user } = useAuth();
+  const isMobile = useIsMobile();
+  const isNative = isNativePlatform();
+  const instituteId = selectedInstitute?.id ?? '';
 
-  // ── URL-driven tab / scope / popup ────────────────────────────────────────
-  // ?tab=overview           (default: collect)
-  // ?scope=institute        (default: subject)
-  // ?popup=collect          (collect dialog open)
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = (searchParams.get('tab') as 'collect' | 'overview') || 'collect';
-  const paymentScope = (searchParams.get('scope') as PaymentScope) || 'class';
-
-  const setActiveTab = (tab: 'collect' | 'overview') =>
-    setSearchParams(p => { p.set('tab', tab); return p; }, { replace: true });
-
-  const setPaymentScope = (scope: PaymentScope) => {
-    setSelectedPaymentIds(new Set());
-    setStudent(null); setHasSearched(false); setSearchQuery(''); setStudentSubMap({});
-    setSearchParams(p => { p.set('scope', scope); if (scope === 'institute') p.delete('tab'); return p; }, { replace: true });
-  };
-
-  // Close collect dialog and remove popup param from URL
-  const closeCollectDialog = () => {
-    setCollectDialog(null);
-    setSearchParams(p => { p.delete('popup'); return p; }, { replace: true });
-  };
-
-  // ── Class / Subject selection ──────────────────────────────────────────────
+  // ── class
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
-  const [pickedClassId, setPickedClassId] = useState<string>(ctxClass?.id || '');
+  const [pickedClassId, setPickedClassId] = useState(ctxClass?.id ?? '');
   const effectiveClassId = pickedClassId || ctxClass?.id || '';
+  const effectiveClassName = classes.find(c => c.id === effectiveClassId)?.name ?? ctxClass?.name ?? '';
 
-  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(false);
-  const [pickedSubjectId, setPickedSubjectId] = useState<string>(ctxSubject?.id || '');
-  const effectiveSubjectId = pickedSubjectId || ctxSubject?.id || '';
-
-  const effectiveClassName = classes.find(c => c.id === effectiveClassId)?.name || ctxClass?.name || '';
-  const effectiveSubjectName = subjects.find(s => s.id === effectiveSubjectId)?.name || ctxSubject?.name || '';
-
-  // ── Subject payments list ──────────────────────────────────────────────────
-  const [payments, setPayments] = useState<SubjectPayment[]>([]);
+  // ── payments
+  const [classPayments, setClassPayments] = useState<ClassPayment[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
+  const [subMap, setSubMap] = useState<SubMap>({});
+  const [loadingSubMap, setLoadingSubMap] = useState(false);
 
-  // ── Institute-level payments ───────────────────────────────────────────────
-  const [instPayments, setInstPayments] = useState<InstPayment[]>([]);
-  const [loadingInstPayments, setLoadingInstPayments] = useState(false);
+  // ── attendance
+  const ATT_START = daysAgoStr(30);
+  const ATT_END   = todayStr();
+  const [attSessions, setAttSessions] = useState<AttendanceRow[]>([]);
+  const [loadingAtt, setLoadingAtt] = useState(false);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
 
-  // ── Class-level payments ────────────────────────────────────────────────────
-  const [classPayments, setClassPayments] = useState<ClassPayment[]>([]);
-  const [loadingClassPayments, setLoadingClassPayments] = useState(false);
-  const [classStudentSubMap, setClassStudentSubMap] = useState<StudentSubMap>({});
-  const [loadingClassSubStatus, setLoadingClassSubStatus] = useState(false);
-
-  // ── Student submission status map (subjectMode) ───────────────────────────
-  const [studentSubMap, setStudentSubMap] = useState<StudentSubMap>({});
-  const [loadingSubStatus, setLoadingSubStatus] = useState(false);
-
-  // ── Overview tab state ─────────────────────────────────────────────────────
-  const [overviewSubjects, setOverviewSubjects] = useState<SubjectOption[]>([]);
-  const [overviewPayments, setOverviewPayments] = useState<SubjectPayment[]>([]);
-  const [loadingOverview, setLoadingOverview] = useState(false);
-
-  // ── Student search ─────────────────────────────────────────────────────────
+  // ── student search
   const [searchMode, setSearchMode] = useState<SearchMode>('id');
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -162,38 +265,45 @@ const CollectPhysicalPayment: React.FC = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const searchCache = useRef<Record<string, StudentInfo>>({});
 
-  // ── Collect dialog ─────────────────────────────────────────────────────────
-  const [collectDialog, setCollectDialog] = useState<CollectDialogState | null>(null);
-  const [collecting, setCollecting] = useState(false);
-
-  // ── Right panel tabs (Find Student vs Student Details) ──────────────────────
-  const [rightPanelTab, setRightPanelTab] = useState<'find' | 'details'>('find');
-
-  // ── Finance accounts (for ledger routing) ─────────────────────────────────
+  // ── finance
   const [financeAccounts, setFinanceAccounts] = useState<Array<{ id: string; name: string; type: string }>>([]);
+  const [targetAccountId, setTargetAccountId] = useState('');
 
-  // ── Institute-scope student submission status ──────────────────────────────
-  const [instStudentSubMap, setInstStudentSubMap] = useState<Record<string, string>>({});
-  const [loadingInstSubStatus, setLoadingInstSubStatus] = useState(false);
+  // ── collect
+  const [tier, setTier] = useState<PaymentTier>('full');
+  const [notes, setNotes] = useState('');
+  const [collecting, setCollecting] = useState(false);
+  const [markingAtt, setMarkingAtt] = useState(false);
 
-  // ── Summary dialog ─────────────────────────────────────────────────────────
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [summaryData, setSummaryData] = useState<Array<{
-    subject: SubjectOption;
-    payments: SubjectPayment[];
-    subMap: StudentSubMap;
-  }>>([]);
-  const [loadingSummary, setLoadingSummary] = useState(false);
+  // ── post-collect
+  const [postOpen, setPostOpen] = useState(false);
+  const [collectedItems, setCollectedItems] = useState<CollectedItem[]>([]);
+  const [postActionLoading, setPostActionLoading] = useState<PostAction>(null);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Load finance accounts for ledger routing
-  useEffect(() => {
-    if (!instituteId) return;
-    financeApi.getAccounts().then(accs => setFinanceAccounts(accs)).catch(() => {});
-  }, [instituteId]);
+  // ── SMS dialog
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [smsPhone, setSmsPhone] = useState('');
+  const [smsCustomPhone, setSmsCustomPhone] = useState('');
+  const [smsCustomName, setSmsCustomName] = useState('');
+  const [smsMaskId, setSmsMaskId] = useState('');
+  const [smsMessage, setSmsMessage] = useState('');
+  const [smsCreds, setSmsCreds] = useState<SmsCredentials | null>(null);
+  const [loadingSmsCreds, setLoadingSmsCreds] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
+  const [fetchingPhone, setFetchingPhone] = useState(false);
 
-  // Data loading
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── printer settings
+  const [printerOpen, setPrinterOpen] = useState(false);
+  const [printSize, setPrintSize] = useState<PrintSize>(() =>
+    (localStorage.getItem(LS_PRINT_SIZE) as PrintSize) ?? '3inch'
+  );
+
+  // ── mobile step
+  const [mobileStep, setMobileStep] = useState<'search' | 'collect'>('search');
+
+  // ─────────────────────────────────────────────────────────────────
+  // Loads
+  // ─────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!instituteId || ctxClass) return;
@@ -204,440 +314,390 @@ const CollectPhysicalPayment: React.FC = () => {
       .finally(() => setLoadingClasses(false));
   }, [instituteId, ctxClass]);
 
-  // Load subjects — fix: ClassSubject shape has subjectId + subject.name
   useEffect(() => {
-    if (!instituteId || !effectiveClassId || ctxSubject || paymentScope !== 'subject') return;
-    setSubjects([]); setPickedSubjectId('');
-    setLoadingSubjects(true);
-    subjectsApi.getAll(instituteId, { classId: effectiveClassId })
-      .then((res: any) => {
-        const list: SubjectOption[] = ((res as any)?.data ?? res ?? []).map((s: any) => ({
-          id: s.subjectId ?? s.subject?.id ?? s.id,
-          name: s.subject?.name ?? s.name ?? s.subjectName ?? s.subjectId,
-          code: s.subject?.code ?? s.code ?? '',
-        }));
-        setSubjects(list);
-      })
-      .catch(() => setSubjects([]))
-      .finally(() => setLoadingSubjects(false));
-  }, [instituteId, effectiveClassId, ctxSubject, paymentScope]);
+    if (!instituteId) return;
+    financeApi.getAccounts()
+      .then(accs => { setFinanceAccounts(accs); if (accs.length > 0) setTargetAccountId(accs[0].id); })
+      .catch(() => {});
+  }, [instituteId]);
 
-  // Load subject payments
+  // Payments — force-refresh on class change
   useEffect(() => {
-    if (paymentScope !== 'subject' || !instituteId || !effectiveClassId || !effectiveSubjectId) {
-      setPayments([]); setSelectedPaymentIds(new Set()); return;
-    }
+    if (!instituteId || !effectiveClassId) { setClassPayments([]); return; }
     setLoadingPayments(true);
-    subjectPaymentsApi.getSubjectPayments(instituteId, effectiveClassId, effectiveSubjectId, 1, 100)
-      .then((res: any) => {
-        const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-        setPayments(raw.filter((p: SubjectPayment) => p.status === 'ACTIVE'));
-      })
-      .catch(() => setPayments([]))
-      .finally(() => setLoadingPayments(false));
-  }, [paymentScope, instituteId, effectiveClassId, effectiveSubjectId]);
-
-  // Load institute-level payments
-  useEffect(() => {
-    if (paymentScope !== 'institute' || !instituteId) return;
-    setLoadingInstPayments(true);
-    apiClient.get(`/institute-payments/institute/${instituteId}/payments`, { page: 1, limit: 100, status: 'ACTIVE' })
-      .then((res: any) => {
-        // Response shape: { data: { payments: [...], pagination: {} } }
-        // Also handles: { data: [...] } | { payments: [...] } | direct array
-        const arr = Array.isArray(res) ? res
-          : Array.isArray(res?.data?.payments) ? res.data.payments
-          : Array.isArray(res?.data) ? res.data
-          : Array.isArray(res?.payments) ? res.payments
-          : Array.isArray(res?.items) ? res.items
-          : [];
-        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-        setInstPayments(arr.filter((p: any) => {
-          if (!p.dueDate) return true;
-          return new Date(p.dueDate) >= todayStart;
-        }));
-      })
-      .catch(() => setInstPayments([]))
-      .finally(() => setLoadingInstPayments(false));
-  }, [paymentScope, instituteId]);
-
-  // Load class-level payments
-  useEffect(() => {
-    if (paymentScope !== 'class' || !instituteId || !effectiveClassId) return;
-    setLoadingClassPayments(true);
-    classPaymentsApi.getClassPayments(instituteId, effectiveClassId, 1, 100)
+    classPaymentsApi.getClassPayments(instituteId, effectiveClassId, 1, 100, true)
       .then((res: any) => {
         const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
         setClassPayments(raw.filter((p: ClassPayment) => p.status === 'ACTIVE'));
       })
       .catch(() => setClassPayments([]))
-      .finally(() => setLoadingClassPayments(false));
-  }, [paymentScope, instituteId, effectiveClassId]);
+      .finally(() => setLoadingPayments(false));
+  }, [instituteId, effectiveClassId]);
 
-  // Load student's submission status for current subject
-  const loadStudentSubjectStatus = useCallback(async (studentUuid: string) => {
-    if (!instituteId || !effectiveClassId || !effectiveSubjectId || paymentScope !== 'subject') return;
-    setLoadingSubStatus(true);
-    try {
-      const res = await subjectPaymentsApi.getAllSubmissions(
-        instituteId, effectiveClassId, effectiveSubjectId,
-        { page: 1, limit: 100 }
-      );
-      const map: StudentSubMap = {};
-      for (const sub of res.data || []) {
-        if (sub.userId === studentUuid) {
+  // ─────────────────────────────────────────────────────────────────
+  // Per-student loads (payment status + attendance)
+  // ─────────────────────────────────────────────────────────────────
+
+  const loadStudentData = useCallback(async (s: StudentInfo) => {
+    if (!instituteId || !effectiveClassId) return;
+
+    // 1. Payment submission status
+    setLoadingSubMap(true);
+    classPaymentsApi.getStudentClassSubmissions(instituteId, effectiveClassId, s.uuid, { page: 1, limit: 200 })
+      .then(res => {
+        const map: SubMap = {};
+        for (const sub of res.data ?? []) {
           if (!map[sub.paymentId]) map[sub.paymentId] = [];
-          map[sub.paymentId].push({ status: sub.status, submittedAmount: sub.submittedAmount, paymentId: sub.paymentId, id: sub.id });
+          map[sub.paymentId].push({ status: sub.status, submittedAmount: sub.submittedAmount, id: sub.id });
         }
-      }
-      setStudentSubMap(map);
-    } catch { setStudentSubMap({}); }
-    finally { setLoadingSubStatus(false); }
-  }, [instituteId, effectiveClassId, effectiveSubjectId, paymentScope]);
+        setSubMap(map);
+      })
+      .catch(() => setSubMap({}))
+      .finally(() => setLoadingSubMap(false));
 
-  // Load institute-payment submission status for a student
-  const loadStudentInstituteStatus = useCallback(async (studentUuid: string) => {
-    if (!instituteId || paymentScope !== 'institute') return;
-    setLoadingInstSubStatus(true);
-    const map: Record<string, string> = {};
+    // 2. Attendance sessions + student status
+    setLoadingAtt(true);
     try {
-      const res: any = await apiClient.get(
-        `/institute-payment-submissions/institute/${instituteId}/student/${studentUuid}/submissions`,
-        { page: 1, limit: 100 }
-      );
-      const subs: any[] = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-      const order = ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED', 'PENDING', 'REJECTED'];
-      for (const s of subs) {
-        const pid = s.paymentId ?? s.payment_id;
-        if (!pid) continue;
-        if (!map[pid] || order.indexOf(s.status) < order.indexOf(map[pid])) {
-          map[pid] = s.status;
-        }
+      const sessions = await classAttendanceSessionsApi.getSessions(instituteId, effectiveClassId, {
+        startDate: ATT_START, endDate: ATT_END,
+      });
+      const sessionList = Array.isArray(sessions) ? sessions : [];
+      let statusMap: Record<string, { statusCode: number | null; statusLabel: string; markedAt: string | null }> = {};
+      if (sessionList.length > 0) {
+        try {
+          const grid = await classAttendanceSessionsApi.getSessionGrid(
+            instituteId, effectiveClassId, sessionList.map(x => x.id)
+          );
+          const row = grid.students.find(r => r.studentId === s.uuid);
+          if (row) statusMap = row.sessions as any;
+        } catch { /* show sessions without status */ }
       }
-    } catch { /* non-critical */ }
-    setInstStudentSubMap(map);
-    setLoadingInstSubStatus(false);
-  }, [instituteId, paymentScope]);
+      const rows: AttendanceRow[] = sessionList.map(x => ({
+        sessionId: x.id, sessionName: x.name, date: x.date, startTime: x.startTime,
+        statusCode: statusMap[x.id]?.statusCode ?? null,
+        statusLabel: statusMap[x.id]?.statusLabel ?? 'Not Marked',
+        markedAt: statusMap[x.id]?.markedAt ?? null,
+      })).sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime));
+      setAttSessions(rows);
+      // auto-select today's unmarked sessions
+      const todayUnmarked = rows.filter(r => r.date === todayStr() && r.statusCode === null);
+      if (todayUnmarked.length > 0) setSelectedSessionIds(new Set(todayUnmarked.map(r => r.sessionId)));
+    } catch {
+      setAttSessions([]);
+    } finally { setLoadingAtt(false); }
+  }, [instituteId, effectiveClassId, ATT_START, ATT_END]);
 
-  // Load student's submission status for class-level payments
-  const loadStudentClassStatus = useCallback(async (studentUuid: string) => {
-    if (!instituteId || !effectiveClassId || paymentScope !== 'class') return;
-    setLoadingClassSubStatus(true);
-    try {
-      const res = await classPaymentsApi.getStudentClassSubmissions(
-        instituteId, effectiveClassId, studentUuid,
-        { page: 1, limit: 100 }
-      );
-      const map: StudentSubMap = {};
-      for (const sub of res.data || []) {
-        if (!map[sub.paymentId]) map[sub.paymentId] = [];
-        map[sub.paymentId].push({ status: sub.status, submittedAmount: sub.submittedAmount, paymentId: sub.paymentId, id: sub.id });
-      }
-      setClassStudentSubMap(map);
-    } catch { setClassStudentSubMap({}); }
-    finally { setLoadingClassSubStatus(false); }
-  }, [instituteId, effectiveClassId, paymentScope]);
+  // ─────────────────────────────────────────────────────────────────
+  // Student search
+  // ─────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (student?.uuid) {
-      loadStudentSubjectStatus(student.uuid);
-      if (paymentScope === 'institute') loadStudentInstituteStatus(student.uuid);
-      if (paymentScope === 'class') loadStudentClassStatus(student.uuid);
-    } else {
-      setStudentSubMap({});
-      setInstStudentSubMap({});
-      setClassStudentSubMap({});
-    }
-  }, [student?.uuid, effectiveSubjectId, paymentScope]);
-
-  // Load overview when tab switches
-  useEffect(() => {
-    if (activeTab !== 'overview' || !instituteId || !effectiveClassId) return;
-    setLoadingOverview(true);
-    Promise.all([
-      subjectsApi.getAll(instituteId, { classId: effectiveClassId }).catch(() => null),
-      subjectPaymentsApi.getPaymentsByClass(instituteId, effectiveClassId, 1, 200).catch(() => null),
-      classPaymentsApi.getClassPayments(instituteId, effectiveClassId, 1, 200).catch(() => null),
-    ]).then(([subjectsRes, paymentsRes, classPaymentsRes]) => {
-      const subjectList: SubjectOption[] = ((subjectsRes as any)?.data ?? subjectsRes ?? []).map((s: any) => ({
-        id: s.subjectId ?? s.subject?.id ?? s.id,
-        name: s.subject?.name ?? s.name ?? s.subjectName ?? s.subjectId,
-        code: s.subject?.code ?? s.code ?? '',
-      }));
-      setOverviewSubjects([
-        { id: 'class-level', name: 'Class Level Payments', code: 'CLASS' },
-        ...subjectList
-      ]);
-      const praw: any = paymentsRes;
-      const parsedSubj = Array.isArray(praw) ? praw : Array.isArray(praw?.data) ? praw.data : [];
-      
-      const craw: any = classPaymentsRes;
-      const parsedClass = Array.isArray(craw) ? craw : Array.isArray(craw?.data) ? craw.data : [];
-      const classMapped = parsedClass.map((cp: any) => ({
-        ...cp,
-        subjectId: 'class-level',
-      }));
-      setOverviewPayments([...parsedSubj, ...classMapped]);
-    }).finally(() => setLoadingOverview(false));
-  }, [activeTab, instituteId, effectiveClassId]);
-
-  // Close collect dialog when browser back removes ?popup=collect
-  useEffect(() => {
-    if (!searchParams.has('popup') && collectDialog) setCollectDialog(null);
-   
-  }, [searchParams.get('popup')]);
-
-  // Reset student when class/subject context changes
-  useEffect(() => {
-    setStudent(null); setHasSearched(false); setSearchQuery('');
-    setStudentSubMap({}); setInstStudentSubMap({}); setSelectedPaymentIds(new Set());
-  }, [effectiveClassId, effectiveSubjectId]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Reload payments lists after collection
-  // ─────────────────────────────────────────────────────────────────────────
-  const reloadPayments = useCallback(async () => {
-    if (!instituteId) return;
-    if (paymentScope === 'subject' && effectiveClassId && effectiveSubjectId) {
-      try {
-        const res: any = await subjectPaymentsApi.getSubjectPayments(instituteId, effectiveClassId, effectiveSubjectId, 1, 100);
-        const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-        setPayments(raw.filter((p: SubjectPayment) => p.status === 'ACTIVE'));
-      } catch { setPayments([]); }
-    } else if (paymentScope === 'class' && effectiveClassId) {
-      try {
-        const res: any = await classPaymentsApi.getClassPayments(instituteId, effectiveClassId, 1, 100);
-        const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-        setClassPayments(raw.filter((p: ClassPayment) => p.status === 'ACTIVE'));
-      } catch { setClassPayments([]); }
-    } else if (paymentScope === 'institute') {
-      try {
-        const res: any = await apiClient.get(`/institute-payments/institute/${instituteId}/payments`, { page: 1, limit: 100, status: 'ACTIVE' });
-        const arr: any[] = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-        setInstPayments(arr.filter((p: any) => {
-          const due = p.dueDate ? new Date(p.dueDate) : null;
-          return !due || due >= new Date(new Date().toISOString().slice(0, 10));
-        }));
-      } catch { setInstPayments([]); }
-    }
-  }, [paymentScope, instituteId, effectiveClassId, effectiveSubjectId]);
-
-  // Summary loading — per subject, get student submissions
-  // ─────────────────────────────────────────────────────────────────────────
-  const openSummary = async () => {
-    if (!student) return;
-    setSummaryOpen(true);
-    if (!effectiveClassId) return;
-    setLoadingSummary(true);
-    try {
-      const [subjectsRes, paymentsRes] = await Promise.all([
-        subjectsApi.getAll(instituteId!, { classId: effectiveClassId }).catch(() => null),
-        subjectPaymentsApi.getPaymentsByClass(instituteId!, effectiveClassId, 1, 200).catch(() => null),
-      ]);
-      const allSubjects: SubjectOption[] = ((subjectsRes as any)?.data ?? subjectsRes ?? []).map((s: any) => ({
-        id: s.subjectId ?? s.subject?.id ?? s.id,
-        name: s.subject?.name ?? s.name ?? s.subjectName ?? s.subjectId,
-        code: s.subject?.code ?? s.code ?? '',
-      }));
-      const allPayments: SubjectPayment[] = (paymentsRes as any)?.data ?? [];
-
-      // Load submissions per subject
-      const result: typeof summaryData = [];
-      const uniqueSubjectIds = [...new Set(allPayments.map(p => p.subjectId))];
-      await Promise.all(
-        uniqueSubjectIds.map(async (subId) => {
-          try {
-            const res = await subjectPaymentsApi.getAllSubmissions(
-              instituteId!, effectiveClassId, subId, { page: 1, limit: 100 }
-            );
-            const subMap: StudentSubMap = {};
-            for (const sub of res.data || []) {
-              if (sub.userId === student.uuid) {
-                if (!subMap[sub.paymentId]) subMap[sub.paymentId] = [];
-                subMap[sub.paymentId].push({ status: sub.status, submittedAmount: sub.submittedAmount, paymentId: sub.paymentId, id: sub.id });
-              }
-            }
-            const subject = allSubjects.find(s => s.id === subId) ?? { id: subId, name: subId, code: '' };
-            const subjPayments = allPayments.filter(p => p.subjectId === subId);
-            result.push({ subject, payments: subjPayments, subMap });
-          } catch { /* skip subject */ }
-        })
-      );
-      setSummaryData(result.sort((a, b) => a.subject.name.localeCompare(b.subject.name)));
-    } catch { /* ignore */ }
-    finally { setLoadingSummary(false); }
-  };
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Navigation
-  // ─────────────────────────────────────────────────────────────────────────
-  const goToSubmissions = (_subjectId: string) => {
-    // Subject-level submissions page is disabled; go back to the physical payments list
-    navigate('/payment-submissions-physical');
-  };
-
-  const goToStudents = () => {
-    navigate(buildSidebarUrl('students', { instituteId, classId: effectiveClassId }));
-  };
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Search
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleSearch = async (bypass = false) => {
+  const handleSearch = async () => {
     if (!searchQuery.trim()) { toast({ title: 'Enter a search value', variant: 'destructive' }); return; }
-    if (!instituteId) { toast({ title: 'No institute selected', variant: 'destructive' }); return; }
+    if (!effectiveClassId) { toast({ title: 'Select a class first', variant: 'destructive' }); return; }
 
     const cacheKey = `${instituteId}-${searchMode}-${searchQuery.trim()}`;
-    if (!bypass && searchCache.current[cacheKey]) {
-      setStudent(searchCache.current[cacheKey]); setHasSearched(true); return;
+    if (searchCache.current[cacheKey]) {
+      const cached = searchCache.current[cacheKey];
+      setStudent(cached); setHasSearched(true);
+      resetCollectState();
+      await loadStudentData(cached);
+      if (isMobile) setMobileStep('collect');
+      return;
     }
 
-    setSearching(true); setStudent(null); setHasSearched(true); setStudentSubMap({});
+    setSearching(true); setStudent(null); setHasSearched(true); resetCollectState();
     try {
-      let resolvedStudentId = searchQuery.trim();
+      let resolvedId = searchQuery.trim();
       if (searchMode === 'phone') {
         const lu = await usersApi.lookupByPhone(searchQuery.trim());
         if (!lu?.id) throw new Error('No user found with that phone number.');
-        resolvedStudentId = lu.id;
+        resolvedId = lu.id;
       } else if (searchMode === 'email') {
         const lu = await usersApi.lookupByEmail(searchQuery.trim().toLowerCase());
         if (!lu?.id) throw new Error('No user found with that email.');
-        resolvedStudentId = lu.id;
+        resolvedId = lu.id;
       }
-      const params: Record<string, any> = { studentId: resolvedStudentId };
-      if (bypass) params._t = Date.now();
-      const res: any = await apiClient.get(`/institute-payments/institute/${instituteId}/search-student`, params);
+      const res: any = await apiClient.get(
+        `/institute-payments/institute/${instituteId}/search-student`,
+        { studentId: resolvedId }
+      );
       if (!res?.student) throw new Error('Student not found in this institute.');
       const info: StudentInfo = {
-        ...res.student,
-        paymentHistory: res.paymentHistory ?? [],
+        uuid: res.student.uuid,
+        nameWithInitials: res.student.nameWithInitials,
+        image: res.student.image,
+        instituteUserId: res.student.instituteUserId,
+        phone: res.student.phone ?? res.student.phoneNumber,
       };
       searchCache.current[cacheKey] = info;
       setStudent(info);
+      await loadStudentData(info);
+      if (isMobile) setMobileStep('collect');
     } catch (err: any) {
-      const status = err?.status ?? err?.statusCode;
+      const st = err?.status ?? err?.statusCode;
       toast({
-        title: status === 404 ? 'Not Found' : 'Error',
-        description: status === 404 ? 'Student not found in this institute.' : err?.message || 'Search failed.',
+        title: st === 404 ? 'Not Found' : 'Search Error',
+        description: st === 404 ? 'Student not found in this institute.' : err?.message || 'Search failed.',
         variant: 'destructive',
       });
     } finally { setSearching(false); }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Payment toggle helper
-  // ─────────────────────────────────────────────────────────────────────────
-  const togglePayment = (id: string) => {
-    setSelectedPaymentIds(prev => {
-      const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
+  // ─────────────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────────────
+
+  function resetCollectState() {
+    setSubMap({}); setSelectedPaymentIds(new Set());
+    setAttSessions([]); setSelectedSessionIds(new Set()); setNotes('');
+  }
+
+  const clearStudent = () => {
+    setStudent(null); setHasSearched(false); setSearchQuery('');
+    resetCollectState();
+    if (isMobile) setMobileStep('search');
   };
 
-  const rawActive = paymentScope === 'subject' ? payments : paymentScope === 'class' ? classPayments : instPayments;
-  const activePayments: any[] = Array.isArray(rawActive) ? rawActive : [];
-  const selectedPayments = activePayments.filter((p: any) => selectedPaymentIds.has(p.id));
-  const totalSelected = selectedPayments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+  const handleClassChange = (id: string) => { setPickedClassId(id); clearStudent(); };
 
-  // Best student status for a payment (pick most favorable)
-  const getBestStatus = (paymentId: string) => {
-    const subs = paymentScope === 'class' ? classStudentSubMap[paymentId] : studentSubMap[paymentId];
-    if (!subs || subs.length === 0) return null;
+  const getBestStatus = (paymentId: string): string | null => {
+    const subs = subMap[paymentId];
+    if (!subs?.length) return null;
     const order = ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED', 'PENDING', 'REJECTED'];
-    return subs.sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status))[0];
+    return [...subs].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status))[0].status;
   };
 
-  // Sum of already verified/partially-verified amounts for a payment
-  const getAlreadyPaid = (paymentId: string) => {
-    const map = paymentScope === 'class' ? classStudentSubMap : studentSubMap;
-    return (map[paymentId] ?? [])
+  const getAlreadyPaid = (paymentId: string) =>
+    (subMap[paymentId] ?? [])
       .filter(s => ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED'].includes(s.status))
       .reduce((sum, s) => sum + Number(s.submittedAmount), 0);
+
+  const getToCollect = (paymentId: string, originalAmount: number) => {
+    const paid = getAlreadyPaid(paymentId);
+    return Math.max(0, originalAmount * TIER_MULT[tier] - paid);
   };
 
-  // Amount remaining to collect, given a tier target
-  // e.g. original 3500, paid 1500, tier full → 3500 - 1500 = 2000
-  const getToCollect = (paymentId: string, originalAmount: number, tier: PaymentTier) => {
-    const paid = paymentScope === 'subject' || paymentScope === 'class' ? getAlreadyPaid(paymentId) : 0;
-    const target = originalAmount * TIER_MULT[tier];
-    return Math.max(0, target - paid);
-  };
+  const activePayments = classPayments;
+  const selectedPayments = activePayments.filter(p => selectedPaymentIds.has(p.id));
+  const grandTotal = selectedPayments.reduce((sum, p) => sum + getToCollect(p.id, Number(p.amount)), 0);
+  const selectedAccount = financeAccounts.find(a => a.id === targetAccountId);
+  const unmarkedSessions = attSessions.filter(s => s.statusCode === null);
+  const collectedBy = user?.name ?? user?.nameWithInitials ?? 'Staff';
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Collect
-  // ─────────────────────────────────────────────────────────────────────────
-  const openCollectDialog = () => {
-    if (selectedPaymentIds.size === 0) { toast({ title: 'Select at least one payment', variant: 'destructive' }); return; }
-    if (!student) { toast({ title: 'Search for a student first', variant: 'destructive' }); return; }
-    setCollectDialog({ date: new Date().toISOString().slice(0, 10), notes: '', tier: 'full' });
-    setSearchParams(p => { p.set('popup', 'collect'); return p; }, { replace: false });
-  };
+  // ─────────────────────────────────────────────────────────────────
+  // Collect payment
+  // ─────────────────────────────────────────────────────────────────
 
   const handleCollect = async () => {
-    if (!collectDialog || !student?.uuid || selectedPaymentIds.size === 0) return;
+    if (!student?.uuid || selectedPaymentIds.size === 0) return;
+    if (!targetAccountId) { toast({ title: 'Select a finance account', variant: 'destructive' }); return; }
     setCollecting(true);
-    let successCount = 0;
-    const errors: string[] = [];
+    let ok = 0; const errors: string[] = [];
+    const items: CollectedItem[] = [];
 
     for (const paymentId of selectedPaymentIds) {
-      const p: any = activePayments.find((x: any) => x.id === paymentId);
+      const p = activePayments.find(x => x.id === paymentId);
       if (!p) continue;
-      const amt = getToCollect(paymentId, Number(p.amount), collectDialog.tier);
-      if (amt <= 0) {
-        // Already fully covered by prior payments — skip silently
-        successCount++;
-        continue;
-      }
+      const amt = getToCollect(paymentId, Number(p.amount));
+      if (amt <= 0) { ok++; continue; }
       try {
-        if (paymentScope === 'subject') {
-          await subjectPaymentsApi.adminVerifyStudentCspPayment(paymentId, student.uuid, {
-            amount: amt, date: collectDialog.date, notes: collectDialog.notes || undefined, paymentTier: collectDialog.tier,
-            targetAccountId: collectDialog.targetAccountId || undefined,
-          });
-        } else if (paymentScope === 'class') {
-          await classPaymentsApi.adminVerifyStudentClassPayment(paymentId, student.uuid, {
-            amount: amt, date: collectDialog.date, notes: collectDialog.notes || undefined, paymentTier: collectDialog.tier,
-            targetAccountId: collectDialog.targetAccountId || undefined,
-          });
-        } else {
-          await apiClient.post(
-            `/institute-payments/institute/${instituteId}/payment/${paymentId}/admin-verify-student/${student.uuid}`,
-            { amount: amt, date: collectDialog.date, notes: collectDialog.notes || undefined }
-          );
-        }
-        successCount++;
+        await classPaymentsApi.adminVerifyStudentClassPayment(paymentId, student.uuid, {
+          amount: amt, date: todayStr(), notes: notes || undefined, paymentTier: tier, targetAccountId,
+        });
+        ok++;
+        items.push({ title: p.title ?? p.description ?? paymentId, amount: Number(p.amount) });
       } catch (err: any) {
-        const label = p.title ?? p.paymentType ?? p.description ?? paymentId;
-        const errorMsg = 
-          err?.status === 409 ? 'Already recorded' :
-          err?.status === 400 && err?.message?.includes('already has a verified payment') ? 'Student already has verified payment' :
-          err?.message || 'Failed';
-        errors.push(`${label}: ${errorMsg}`);
+        const label = p.title ?? p.description ?? paymentId;
+        errors.push(`${label}: ${err?.message || 'Failed'}`);
       }
     }
 
-    if (successCount > 0) {
-      toast({ title: `${successCount} payment${successCount > 1 ? 's' : ''} collected`, description: `For ${student.nameWithInitials}.` });
+    // If sessions selected too, mark attendance simultaneously
+    if (selectedSessionIds.size > 0) await doMarkAttendance(false);
+
+    setCollecting(false);
+
+    if (ok > 0) {
+      setCollectedItems(items);
+      setSelectedPaymentIds(new Set());
+      // refresh submap
+      classPaymentsApi.getStudentClassSubmissions(instituteId, effectiveClassId, student.uuid, { page: 1, limit: 200 })
+        .then(res => {
+          const map: SubMap = {};
+          for (const sub of res.data ?? []) {
+            if (!map[sub.paymentId]) map[sub.paymentId] = [];
+            map[sub.paymentId].push({ status: sub.status, submittedAmount: sub.submittedAmount, id: sub.id });
+          }
+          setSubMap(map);
+        }).catch(() => {});
+      setPostOpen(true);
     }
     if (errors.length > 0) {
-      toast({ title: 'Some failed', description: errors.slice(0, 3).join(' · '), variant: 'destructive' });
+      toast({ title: `${errors.length} payment(s) failed`, description: errors.slice(0, 3).join(' · '), variant: 'destructive' });
     }
-
-    closeCollectDialog();
-    if (successCount > 0) {
-      setSelectedPaymentIds(new Set());
-      Object.keys(searchCache.current).forEach(k => { if (k.includes(student.uuid)) delete searchCache.current[k]; });
-      if (paymentScope === 'subject') await loadStudentSubjectStatus(student.uuid);
-      if (paymentScope === 'class') await loadStudentClassStatus(student.uuid);
-      await reloadPayments();
-    }
-    setCollecting(false);
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Guards & computed
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
+  // Mark attendance (standalone, also called from collect)
+  // ─────────────────────────────────────────────────────────────────
+
+  const doMarkAttendance = async (showToast = true) => {
+    if (!student?.uuid || selectedSessionIds.size === 0) return;
+    setMarkingAtt(true);
+    let ok = 0; const errs: string[] = [];
+    for (const sid of selectedSessionIds) {
+      try {
+        await classAttendanceSessionsApi.markAttendance(instituteId, effectiveClassId, sid, {
+          studentId: student.uuid, status: 1,
+        });
+        ok++;
+      } catch (err: any) { errs.push(err?.message || 'Failed'); }
+    }
+    setMarkingAtt(false);
+    if (ok > 0) {
+      if (showToast) toast({ title: `Marked present in ${ok} session${ok > 1 ? 's' : ''}` });
+      // refresh attendance
+      loadStudentData(student).catch(() => {});
+      setSelectedSessionIds(new Set());
+    }
+    if (errs.length > 0 && showToast) {
+      toast({ title: 'Some sessions failed', description: errs[0], variant: 'destructive' });
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  // Print
+  // ─────────────────────────────────────────────────────────────────
+
+  const handlePrint = async () => {
+    const widthMm = PRINT_SIZES.find(s => s.id === printSize)?.widthMm ?? 80;
+    const html = buildReceiptHtml({
+      studentName: student?.nameWithInitials ?? '',
+      instituteId: student?.instituteUserId,
+      instituteName: selectedInstitute?.name ?? '',
+      className: effectiveClassName,
+      payments: collectedItems,
+      tier, collectedBy, date: todayStr(), notes,
+      account: selectedAccount?.name ?? '',
+      widthMm,
+    });
+
+    if (isNative) {
+      // Capacitor native: share the receipt HTML as a file so device can open
+      // in a print-capable app (native print dialog, Bluetooth printer apps, etc.)
+      try {
+        const { Share } = await import('@capacitor/share');
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        await Share.share({
+          title: 'Payment Receipt',
+          url,
+          dialogTitle: 'Print or Share Receipt',
+        });
+        URL.revokeObjectURL(url);
+        return;
+      } catch {
+        // Share not available or user cancelled — fall through to web print
+      }
+    }
+
+    doPrint(html, widthMm);
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  // SMS — lazy: fetch phone + creds only when dialog opens
+  // ─────────────────────────────────────────────────────────────────
+
+  const openSmsDialog = async () => {
+    setSmsOpen(true);
+    // Build default message
+    const total = collectedItems.reduce((s, p) => s + p.amount * TIER_MULT[tier], 0);
+    const items = collectedItems.map(p => `${p.title}: Rs ${(p.amount * TIER_MULT[tier]).toLocaleString()}`).join(', ');
+    setSmsMessage(
+      `${selectedInstitute?.name ?? 'School'} - Payment collected for ${student?.nameWithInitials ?? ''} on ${fmtDate(todayStr())}. ${items}. Total: Rs ${total.toLocaleString()}. Thank you.`
+    );
+
+    // Set phone from student if available
+    if (student?.phone) {
+      setSmsPhone(student.phone);
+    } else {
+      // Fetch phone lazily
+      setFetchingPhone(true);
+      try {
+        const res: any = await apiClient.get(
+          `/institute-payments/institute/${instituteId}/search-student`,
+          { studentId: student?.uuid }
+        );
+        const phone = res?.student?.phone ?? res?.student?.phoneNumber ?? '';
+        setSmsPhone(phone);
+      } catch { setSmsPhone(''); }
+      finally { setFetchingPhone(false); }
+    }
+
+    // Load SMS credentials
+    setLoadingSmsCreds(true);
+    try {
+      const res: any = await enhancedCachedClient.get(
+        `/sms/credentials/status`,
+        { instituteId },
+        { ttl: 60000, forceRefresh: false }
+      );
+      setSmsCreds(res);
+      if (res?.activeMasks?.length > 0) setSmsMaskId(res.activeMasks[0].maskId);
+    } catch { setSmsCreds(null); }
+    finally { setLoadingSmsCreds(false); }
+  };
+
+  const handleSendSms = async () => {
+    const recipients: Array<{ name: string; phoneNumber: string }> = [];
+    // Primary: student phone
+    const primaryPhone = smsPhone.trim() || smsCustomPhone.trim();
+    if (primaryPhone) recipients.push({ name: student?.nameWithInitials ?? 'Student', phoneNumber: primaryPhone });
+    // Custom additional
+    if (smsCustomPhone.trim() && smsCustomPhone.trim() !== smsPhone.trim() && smsCustomName.trim()) {
+      recipients.push({ name: smsCustomName.trim(), phoneNumber: smsCustomPhone.trim() });
+    }
+    if (recipients.length === 0) { toast({ title: 'Enter a phone number', variant: 'destructive' }); return; }
+    setSendingSms(true);
+    try {
+      await apiClient.post('/sms/send-custom', {
+        messageTemplate: smsMessage,
+        customRecipients: recipients,
+        maskId: smsMaskId,
+        isNow: true,
+        scheduledAt: new Date().toISOString(),
+        instituteId,
+      });
+      toast({ title: `SMS sent to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}` });
+      setSmsOpen(false);
+    } catch (err: any) {
+      toast({ title: 'SMS failed', description: err?.message || 'Could not send SMS. Check SMS credits.', variant: 'destructive' });
+    } finally { setSendingSms(false); }
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  // Post-collect action handler
+  // ─────────────────────────────────────────────────────────────────
+
+  const handlePostAction = async (action: 'sms' | 'print' | 'both' | 'skip') => {
+    if (action === 'skip') { setPostOpen(false); clearStudent(); return; }
+    setPostActionLoading(action);
+    try {
+      if (action === 'print' || action === 'both') { handlePrint(); }
+      if (action === 'sms' || action === 'both') {
+        setPostOpen(false);
+        await openSmsDialog();
+      } else {
+        setPostOpen(false);
+        clearStudent();
+      }
+    } finally { setPostActionLoading(null); }
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  // Guard
+  // ─────────────────────────────────────────────────────────────────
+
   if (!selectedInstitute) {
     return (
       <PageContainer>
@@ -651,1045 +711,789 @@ const CollectPhysicalPayment: React.FC = () => {
 
   const modeConfig = SEARCH_MODES.find(m => m.id === searchMode)!;
 
-  const overviewGrouped = overviewSubjects.map(subj => ({
-    subject: subj,
-    payments: overviewPayments.filter(p => p.subjectId === subj.id),
-  })).filter(g => g.payments.length > 0);
+  // ═══════════════════════════════════════════════════════════════════
+  // SHARED SUBCOMPONENTS
+  // ═══════════════════════════════════════════════════════════════════
 
-  const knownSubjectIds = new Set(overviewSubjects.map(s => s.id));
-  const orphanPayments = overviewPayments.filter(p => !knownSubjectIds.has(p.subjectId));
-
-  const needsClass = paymentScope === 'class';
-  const needsSubject = paymentScope === 'subject';
-  const canSearch = paymentScope === 'institute' || (paymentScope === 'class' && !!effectiveClassId) || (paymentScope === 'subject' && !!effectiveClassId && !!effectiveSubjectId);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────────────────
-  return (
-    <PageContainer maxWidth="full">
-
-      {/* ── Page Header ───────────────────────────────────────────────────── */}
-      <div className="relative mb-7">
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-6 h-40 bg-gradient-to-b from-primary/5 via-transparent to-transparent blur-2xl -z-10" />
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shrink-0 shadow-xl shadow-primary/30 ring-1 ring-white/20">
-              <Banknote className="h-7 w-7 text-primary-foreground" />
+  // Payment list item
+  const PaymentItem = ({ p }: { p: ClassPayment }) => {
+    const bestStatus = getBestStatus(p.id);
+    const isVerified = bestStatus === 'VERIFIED';
+    const selected = selectedPaymentIds.has(p.id);
+    const orig = Number(p.amount);
+    const paid = getAlreadyPaid(p.id);
+    const toCollect = getToCollect(p.id, orig);
+    return (
+      <button type="button"
+        onClick={() => {
+          if (isVerified) return;
+          setSelectedPaymentIds(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; });
+        }}
+        disabled={isVerified}
+        className={`w-full text-left rounded-lg border-2 px-3 py-2.5 transition-all ${
+          isVerified
+            ? 'border-green-200 bg-green-50/40 dark:bg-green-950/20 opacity-60 cursor-default'
+            : selected
+            ? 'border-primary bg-primary/[0.06]'
+            : 'border-border hover:border-primary/50 hover:bg-muted/40'
+        }`}>
+        <div className="flex items-start gap-2">
+          {isVerified
+            ? <CheckCircle className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+            : selected
+            ? <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            : <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 shrink-0 mt-0.5" />
+          }
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm truncate leading-tight">{p.title ?? p.description}</p>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className="font-bold text-primary text-sm">Rs {orig.toLocaleString()}</span>
+              {loadingSubMap ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /> : <PayBadge status={bestStatus} />}
             </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-primary/80 mb-1">
-                Counter · Physical Collection
+            {paid > 0 && !isVerified && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Paid: Rs {paid.toLocaleString()} · Balance: Rs {toCollect.toLocaleString()}
               </p>
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground leading-tight">
-                Collect Payment
-              </h1>
-              <p className="text-xs text-muted-foreground mt-1">{selectedInstitute.name}</p>
-            </div>
-          </div>
-
-          <div className="flex rounded-2xl border border-border/60 bg-background/60 backdrop-blur-md p-1 gap-1 shadow-sm">
-            <button type="button" onClick={() => setActiveTab('collect')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'collect' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30' : 'text-muted-foreground hover:text-foreground'}`}>
-              <Banknote className="h-4 w-4" />Collect
-            </button>
-            <button type="button" onClick={() => setActiveTab('overview')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'overview' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30' : 'text-muted-foreground hover:text-foreground'}`}>
-              <BarChart3 className="h-4 w-4" />Overview
-            </button>
+            )}
           </div>
         </div>
-        <div className="mt-5 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+      </button>
+    );
+  };
+
+  // Attendance row
+  const AttRow = ({ s }: { s: AttendanceRow }) => {
+    const notMarked = s.statusCode === null;
+    const sel = selectedSessionIds.has(s.sessionId);
+    return (
+      <button type="button"
+        onClick={() => {
+          if (!notMarked) return;
+          setSelectedSessionIds(prev => {
+            const n = new Set(prev);
+            n.has(s.sessionId) ? n.delete(s.sessionId) : n.add(s.sessionId);
+            return n;
+          });
+        }}
+        disabled={!notMarked}
+        className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors ${
+          !notMarked ? 'opacity-60 cursor-default' : sel ? 'bg-blue-50/60 dark:bg-blue-950/20' : 'hover:bg-muted/40'
+        }`}>
+        {notMarked
+          ? sel
+            ? <CheckCircle className="h-4 w-4 text-blue-600 shrink-0" />
+            : <div className="h-4 w-4 rounded-full border-2 border-blue-300 dark:border-blue-600 shrink-0" />
+          : <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+        }
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold truncate">{s.sessionName}</p>
+          <p className="text-[10px] text-muted-foreground">{fmtDate(s.date)} · {fmtTime(s.startTime)}</p>
+        </div>
+        <AttBadge code={s.statusCode} />
+      </button>
+    );
+  };
+
+  // Student avatar
+  const Avatar = ({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) => {
+    const sz = size === 'sm' ? 'h-9 w-9 text-xs' : size === 'lg' ? 'h-14 w-14 text-base' : 'h-11 w-11 text-sm';
+    const initials = student?.nameWithInitials?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?';
+    if (student?.image) return <img src={student.image} alt={student.nameWithInitials} className={`${sz} rounded-full object-cover ring-2 ring-primary/20 shrink-0`} />;
+    return <div className={`${sz} rounded-full bg-primary/15 flex items-center justify-center ring-2 ring-primary/20 shrink-0 font-bold text-primary`}>{initials}</div>;
+  };
+
+  // Bottom footer for payment column
+  const PaymentsFooter = () => (
+    <div className="px-4 py-3 border-t border-border shrink-0 space-y-2 bg-card">
+      {/* Tier */}
+      <div className="grid grid-cols-3 gap-1.5">
+        {(['full', 'half', 'quarter'] as PaymentTier[]).map(t => (
+          <button key={t} type="button" onClick={() => setTier(t)}
+            className={`rounded-md border py-1.5 text-xs font-semibold transition-all ${
+              tier === t ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'
+            }`}>
+            {TIER_LABEL[t]}
+          </button>
+        ))}
       </div>
+      {/* Account */}
+      {financeAccounts.length > 0 && (
+        <Select value={targetAccountId} onValueChange={setTargetAccountId}>
+          <SelectTrigger className="text-xs h-8 bg-muted/20 border-border/60">
+            <SelectValue placeholder="Credit to account…" />
+          </SelectTrigger>
+          <SelectContent>
+            {financeAccounts.map(a => (
+              <SelectItem key={a.id} value={a.id} className="text-xs">{a.name} ({a.type})</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      {/* Notes */}
+      <Textarea placeholder="Notes (receipt no., remarks…)" rows={2} value={notes}
+        onChange={e => setNotes(e.target.value)}
+        className="text-xs bg-muted/20 border-border/60 resize-none" />
+      {/* Total */}
+      {selectedPaymentIds.size > 0 && (
+        <div className="flex items-center justify-between text-xs font-semibold px-0.5">
+          <span className="text-muted-foreground">Total to collect</span>
+          <span className="text-primary text-sm">Rs {grandTotal.toLocaleString()}</span>
+        </div>
+      )}
+      {/* Collect button */}
+      <Button onClick={handleCollect}
+        disabled={collecting || selectedPaymentIds.size === 0 || !student}
+        className="w-full h-10 bg-green-600 hover:bg-green-700 text-white font-semibold">
+        {collecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Banknote className="h-4 w-4 mr-2" />}
+        {collecting ? 'Recording…'
+          : selectedPaymentIds.size === 0 ? 'Select payments'
+          : !student ? 'Find student first'
+          : `Collect (${selectedPaymentIds.size})`}
+      </Button>
+    </div>
+  );
 
-      {/* ── COLLECT TAB ───────────────────────────────────────────────────── */}
-      {activeTab === 'collect' && (
-        <div className="space-y-4">
+  // ═══════════════════════════════════════════════════════════════════
+  // MOBILE RENDER
+  // ═══════════════════════════════════════════════════════════════════
 
-          {/* Header with Tabs + Payment Type Selector + Class Selector */}
-          <div className="space-y-4">
-            {/* Top Row: Tabs + Payment Scope */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              {/* Tabs + Payment Type */}
-              <div className="flex gap-2 items-center flex-wrap">
-                {/* Payment Scope Selector */}
-                <div className="flex rounded-xl border border-border bg-muted/40 p-1 gap-1">
-                  <button type="button" onClick={() => setPaymentScope('class')}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                      paymentScope === 'class' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'text-muted-foreground hover:text-foreground'}`}>
-                    <School className="h-4 w-4" />Class
-                  </button>
-                  <button type="button" onClick={() => setPaymentScope('institute')}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                      paymentScope === 'institute' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'text-muted-foreground hover:text-foreground'}`}>
-                    <Building2 className="h-4 w-4" />Institute
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Class & Subject Selectors - Bigger Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Class Selector */}
-              {(needsSubject || needsClass) && !ctxClass && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground">Select Class</label>
-                  {loadingClasses ? (
-                    <div className="flex items-center gap-2 h-10 text-sm text-muted-foreground px-3 rounded-lg border border-border/60 bg-muted/20">
-                      <Loader2 className="h-4 w-4 animate-spin" />Loading
-                    </div>
-                  ) : (
-                    <Select value={pickedClassId} onValueChange={v => { setPickedClassId(v); setPickedSubjectId(''); }}>
-                      <SelectTrigger className="h-10 text-sm rounded-lg border-border/60 bg-muted/20 font-medium">
-                        <SelectValue placeholder="Choose a class…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {classes.map(c => <SelectItem key={c.id} value={c.id} className="text-sm">{c.name} ({c.code})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              )}
-
-              {/* Subject Selector */}
-              {needsSubject && effectiveClassId && !ctxSubject && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground">Select Subject</label>
-                  {loadingSubjects ? (
-                    <div className="flex items-center gap-2 h-10 text-sm text-muted-foreground px-3 rounded-lg border border-border/60 bg-muted/20">
-                      <Loader2 className="h-4 w-4 animate-spin" />Loading
-                    </div>
-                  ) : (
-                    <Select value={pickedSubjectId} onValueChange={setPickedSubjectId}>
-                      <SelectTrigger className="h-10 text-sm rounded-lg border-border/60 bg-muted/20 font-medium">
-                        <SelectValue placeholder="Choose a subject…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {subjects.map(s => <SelectItem key={s.id} value={s.id} className="text-sm">{s.name} ({s.code})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              )}
-
-              {/* Context badges */}
-              {ctxClass && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground">Class Selected</label>
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/50 h-10">
-                    <School className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span className="font-semibold text-sm text-blue-900 dark:text-blue-100 truncate">{ctxClass.name}</span>
-                  </div>
-                </div>
-              )}
-              {ctxSubject && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground">Subject Selected</label>
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/50 dark:border-purple-800/50 h-10">
-                    <BookOpen className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                    <span className="font-semibold text-sm text-purple-900 dark:text-purple-100 truncate">{ctxSubject.name}</span>
-                  </div>
-                </div>
-              )}
+  if (isMobile) {
+    return (
+      <PageContainer maxWidth="full" className="pb-4">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4 pt-1">
+          {mobileStep === 'collect' && student && (
+            <button onClick={() => setMobileStep('search')} className="p-1.5 rounded-lg hover:bg-muted transition-colors shrink-0">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Banknote className="h-5 w-5 text-primary shrink-0" />
+            <div>
+              <h1 className="font-bold text-base leading-tight">Collect Payment</h1>
+              <p className="text-[11px] text-muted-foreground">{selectedInstitute.name}</p>
             </div>
           </div>
+          <button onClick={() => setPrinterOpen(true)} className="p-2 rounded-lg hover:bg-muted transition-colors shrink-0">
+            <Settings2 className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
 
-          {/* ─────────────────────────────────────────────────────────────────────────── */}
-          {/* TWO-COLUMN LAYOUT: Select Payments (LEFT 2/3) | Find Student (RIGHT 1/3) */}
-          {/* ─────────────────────────────────────────────────────────────────────────── */}
-          {((needsSubject ? (!!effectiveClassId && !!effectiveSubjectId) : needsClass ? !!effectiveClassId : true)) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-              {/* ═══════════════════════════════════════════════════════════════════ */}
-              {/* LEFT COLUMN: Select Payments (2/3) */}
-              {/* ═══════════════════════════════════════════════════════════════════ */}
-              <div className="space-y-4">
-
-                {/* Select Payments Card */}
-                {((needsSubject ? (!!effectiveClassId && !!effectiveSubjectId) : needsClass ? !!effectiveClassId : true)) && (
-                  <Card className="rounded-xl shadow-md border border-border/60 flex flex-col h-full">
-                    <CardHeader className="p-5 pb-3 border-b border-border/40 bg-gradient-to-r from-primary/5 to-transparent">
-                      <CardTitle className="text-base font-bold flex items-center gap-2.5">
-                        <Banknote className="h-5 w-5 text-primary" />
-                        Select Payments
-                        {selectedPaymentIds.size > 0 && (
-                          <Badge className="ml-auto bg-primary/20 text-primary border-primary/30 text-sm px-3 py-1 font-semibold">
-                            {selectedPaymentIds.size} selected
-                          </Badge>
-                        )}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-5 pt-4 flex-1 overflow-hidden flex flex-col">
-                      {(loadingPayments || loadingInstPayments || loadingClassPayments) ? (
-                        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-8">
-                          <Loader2 className="h-4 w-4 animate-spin" />Loading…
-                        </div>
-                      ) : activePayments.length === 0 ? (
-                        <div className="flex items-center justify-center text-center py-12">
-                          <div>
-                            <AlertCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                            <p className="text-sm text-muted-foreground">No active payments</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-                          {activePayments.map((p: any) => {
-                            const selected = selectedPaymentIds.has(p.id);
-                            const bestSub = (paymentScope === 'subject' || paymentScope === 'class') ? getBestStatus(p.id) : null;
-                            const isVerified = bestSub?.status === 'VERIFIED';
-                            return (
-                              <button key={p.id} type="button" onClick={() => togglePayment(p.id)}
-                                disabled={isVerified}
-                                className={`w-full text-left rounded-lg border-2 px-4 py-3 transition-all text-sm font-medium ${
-                                  isVerified ? 'border-green-200 bg-green-50/60 dark:bg-green-950/20 opacity-60 cursor-default text-green-900 dark:text-green-100' :
-                                  selected ? 'border-primary bg-primary/10 text-foreground' : 'border-border hover:border-primary/60 hover:bg-muted/50 text-foreground'
-                                }`}>
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                    {selected && !isVerified && <CheckCircle className="h-5 w-5 text-primary shrink-0" />}
-                                    {isVerified && <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />}
-                                    <span className="font-semibold truncate text-sm">{p.title ?? p.paymentType ?? p.description}</span>
-                                  </div>
-                                  <span className="font-bold shrink-0 text-base text-primary">Rs {Number(p.amount).toLocaleString()}</span>
-                                </div>
-                                {bestSub && bestSub.status !== 'VERIFIED' && (
-                                  <div className="mt-2 ml-7">
-                                    <StatusBadge status={bestSub.status} />
-                                  </div>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-              {/* ═══════════════════════════════════════════════════════════════════ */}
-              {/* RIGHT COLUMN: Tabbed Interface (Find Student | Student Details) */}
-              {/* ═══════════════════════════════════════════════════════════════════ */}
+        {/* Class selector */}
+        {!ctxClass && (
+          <div className="mb-3">
+            {loadingClasses ? (
+              <div className="flex items-center gap-2 h-10 text-sm text-muted-foreground px-3 rounded-lg border border-border/60 bg-muted/20">
+                <Loader2 className="h-4 w-4 animate-spin" />Loading classes…
               </div>
-              {canSearch && (
-                <Card className="rounded-xl shadow-md border border-border/40 h-full flex flex-col">
-                  {/* Modern Tab Header */}
-                  <div className="border-b border-border bg-gradient-to-r from-primary/5 to-transparent p-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      {/* Tab Buttons */}
-                      <div className="flex rounded-lg border border-border/60 bg-muted/30 p-1 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setRightPanelTab('find')}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-all ${
-                            rightPanelTab === 'find'
-                              ? 'bg-white dark:bg-slate-800 text-primary shadow-sm'
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}>
-                          <Search className="h-4 w-4" />
-                          Find Student
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setRightPanelTab('details')}
-                          disabled={!student}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-all ${
-                            rightPanelTab === 'details' && student
-                              ? 'bg-white dark:bg-slate-800 text-primary shadow-sm'
-                              : !student
-                              ? 'text-muted-foreground/40 cursor-not-allowed'
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}>
-                          <User className="h-4 w-4" />
-                          Student Details
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+            ) : (
+              <Select value={pickedClassId} onValueChange={handleClassChange}>
+                <SelectTrigger className="h-10 text-sm bg-muted/20 border-border/60">
+                  <SelectValue placeholder="Select class…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.code})</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
 
-                  {/* Tab Content */}
-                  <CardContent className="p-5 flex-1 overflow-y-auto space-y-4">
-                    {/* Find Student Tab */}
-                    {rightPanelTab === 'find' && (
-                      <div className="space-y-4 animate-in fade-in-50 duration-200">
-                        <div>
-                          <label className="text-xs font-semibold text-muted-foreground mb-2 block">Search Mode</label>
-                          <Select value={searchMode} onValueChange={m => { setSearchMode(m as SearchMode); setSearchQuery(''); setStudent(null); setHasSearched(false); }}>
-                            <SelectTrigger className="h-9 text-sm rounded-lg border-border/60 bg-muted/20">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {SEARCH_MODES.map(m => (
-                                <SelectItem key={m.id} value={m.id} className="text-sm">
-                                  <div className="flex items-center gap-2">
-                                    <m.icon className="h-4 w-4" />
-                                    {m.label}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+        {/* STEP 1: Search */}
+        {mobileStep === 'search' && (
+          <div className="space-y-3">
+            <Select value={searchMode} onValueChange={m => { setSearchMode(m as SearchMode); setSearchQuery(''); }}>
+              <SelectTrigger className="h-9 text-sm bg-muted/20 border-border/60"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {SEARCH_MODES.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                    <div className="flex items-center gap-2"><m.icon className="h-4 w-4" />{m.label}</div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <modeConfig.icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input className="pl-9 text-sm h-11 bg-muted/20 border-border/60"
+                  placeholder={modeConfig.placeholder} value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearch()} />
+              </div>
+              <Button onClick={handleSearch} disabled={searching || !effectiveClassId} className="h-11 px-4">
+                {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              </Button>
+            </div>
+            {!effectiveClassId && (
+              <p className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
+                Select a class above first.
+              </p>
+            )}
+            {hasSearched && !searching && !student && (
+              <div className="text-center py-10 rounded-xl bg-muted/40 border border-border/50">
+                <User className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm font-medium">No student found</p>
+                <p className="text-xs text-muted-foreground mt-1">Try different search details</p>
+              </div>
+            )}
+          </div>
+        )}
 
-                        <div>
-                          <label className="text-xs font-semibold text-muted-foreground mb-2 block">Enter Details</label>
-                          <div className="relative">
-                            <modeConfig.icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              className="pl-10 text-sm h-10 rounded-lg border-border/60 bg-muted/20"
-                              placeholder={modeConfig.placeholder}
-                              value={searchQuery}
-                              onChange={e => setSearchQuery(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                            />
-                          </div>
-                          {searchMode === 'phone' && (
-                            <p className="text-[11px] text-muted-foreground mt-1.5">Format: 0771234567 or +94771234567</p>
-                          )}
-                        </div>
+        {/* STEP 2: Collect */}
+        {mobileStep === 'collect' && student && (
+          <div className="space-y-3">
+            {/* Student card */}
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20">
+              <Avatar size="md" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm truncate">{student.nameWithInitials}</p>
+                {student.instituteUserId && <p className="text-[11px] text-muted-foreground">ID: {student.instituteUserId}</p>}
+                {effectiveClassName && <p className="text-[11px] text-muted-foreground">{effectiveClassName}</p>}
+              </div>
+              <button onClick={clearStudent} className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors">
+                <XCircle className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
 
-                        <Button
-                          onClick={() => handleSearch()}
-                          disabled={searching}
-                          size="lg"
-                          className="w-full h-10 text-sm font-semibold rounded-lg bg-primary hover:bg-primary/90">
-                          {searching ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              Searching…
-                            </>
-                          ) : (
-                            <>
-                              <Search className="h-4 w-4 mr-2" />
-                              Find Student
-                            </>
-                          )}
-                        </Button>
-
-                        {/* No result state */}
-                        {hasSearched && !searching && !student && (
-                          <div className="text-center py-8 px-4 rounded-lg bg-muted/40 border border-border/50">
-                            <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center mx-auto mb-3">
-                              <User className="h-6 w-6 text-muted-foreground/40" />
-                            </div>
-                            <p className="text-sm font-medium text-foreground">No student found</p>
-                            <p className="text-xs text-muted-foreground mt-1">Try searching with different details</p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="mt-3 h-8"
-                              onClick={() => {
-                                setHasSearched(false);
-                                setSearchQuery('');
-                              }}>
-                              Try Again
-                            </Button>
-                          </div>
-                        )}
-
-                        {/* Student found summary */}
-                        {student && (
-                          <div className="rounded-lg bg-gradient-to-br from-green-50/80 to-emerald-50/60 dark:from-green-950/30 dark:to-emerald-950/20 border border-green-200/60 dark:border-green-800/40 p-4 space-y-2">
-                            <div className="flex items-center gap-3">
-                              {student.image ? (
-                                <img
-                                  src={student.image}
-                                  alt={student.nameWithInitials}
-                                  className="h-12 w-12 rounded-full object-cover ring-2 ring-green-200/40 dark:ring-green-800/40"
-                                />
-                              ) : (
-                                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center ring-2 ring-green-200/40 dark:ring-green-800/40">
-                                  <span className="text-sm font-bold text-green-700 dark:text-green-300">
-                                    {(student.nameWithInitials?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()) || '?'}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <p className="font-semibold text-sm text-green-900 dark:text-green-100 truncate">
-                                  {student.nameWithInitials}
-                                </p>
-                                {student.instituteUserId && (
-                                  <p className="text-[11px] text-green-700 dark:text-green-200 truncate">
-                                    ID: {student.instituteUserId}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full h-8 text-xs rounded-lg border-green-200/40 dark:border-green-800/40"
-                              onClick={() => setRightPanelTab('details')}>
-                              View Details
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Student Details Tab */}
-                    {rightPanelTab === 'details' && student && (
-                      <div className="space-y-4 animate-in fade-in-50 duration-200">
-                        {/* Student Header */}
-                        <div className="rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-4 space-y-3">
-                          <div className="flex items-center gap-3">
-                            {student.image ? (
-                              <img
-                                src={student.image}
-                                alt={student.nameWithInitials}
-                                className="h-14 w-14 rounded-lg object-cover ring-2 ring-primary/30"
-                              />
-                            ) : (
-                              <div className="h-14 w-14 rounded-lg bg-primary/20 flex items-center justify-center ring-2 ring-primary/30">
-                                <span className="text-base font-bold text-primary">
-                                  {(student.nameWithInitials?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()) || '?'}
-                                </span>
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-sm text-foreground truncate">{student.nameWithInitials}</p>
-                              {student.instituteUserId && (
-                                <p className="text-[11px] text-muted-foreground truncate">ID: {student.instituteUserId}</p>
-                              )}
-                              <p className="text-[10px] text-muted-foreground font-mono mt-1 truncate">{student.uuid}</p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full h-8 text-xs rounded-lg"
-                            onClick={goToStudents}>
-                            <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                            View Full Profile
-                          </Button>
-                        </div>
-
-                        {/* Selected Payments Summary */}
-                        {selectedPayments.length > 0 && (
-                          <div>
-                            <label className="text-xs font-semibold text-muted-foreground mb-2 block flex items-center gap-1.5">
-                              <Banknote className="h-3.5 w-3.5" />
-                              Selected Payments
-                              <Badge className="ml-auto bg-primary/20 text-primary border-primary/30 text-[10px] px-2 py-0.5">
-                                {selectedPayments.length}
-                              </Badge>
-                            </label>
-                            <div className="rounded-lg border border-border/50 divide-y divide-border/50 bg-muted/15 max-h-48 overflow-y-auto">
-                              {selectedPayments.map((p: any) => {
-                                const original = Number(p.amount);
-                                const paid =
-                                  paymentScope === 'subject' || paymentScope === 'class' ? getAlreadyPaid(p.id) : 0;
-                                const balance = Math.max(0, original - paid);
-                                return (
-                                  <div key={p.id} className="px-3 py-2.5">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="truncate font-medium text-xs flex-1">
-                                        {p.title ?? p.paymentType ?? p.description}
-                                      </span>
-                                      <span className="font-bold text-xs shrink-0 text-primary">
-                                        Rs {original.toLocaleString()}
-                                      </span>
-                                    </div>
-                                    {paid > 0 && (
-                                      <div className="flex items-center justify-between text-[10px] mt-1.5 text-muted-foreground gap-2">
-                                        <span className="text-green-700 dark:text-green-300 font-medium">
-                                          Paid: Rs {paid.toLocaleString()}
-                                        </span>
-                                        <span className="text-amber-700 dark:text-amber-300 font-semibold">
-                                          Bal: Rs {balance.toLocaleString()}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="space-y-2.5 pt-2">
-                          {(() => {
-                            const hasVerified =
-                              selectedPaymentIds.size > 0 &&
-                              selectedPayments.some((p: any) => {
-                                if (paymentScope === 'subject' || paymentScope === 'class') {
-                                  const best = getBestStatus(p.id);
-                                  return best?.status &&
-                                    ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED'].includes(best.status);
-                                } else {
-                                  const status = instStudentSubMap[p.id];
-                                  return status && ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED'].includes(status);
-                                }
-                              });
-
-                            return (
-                              <Button
-                                className={`w-full h-10 text-sm font-semibold rounded-lg transition-all ${
-                                  hasVerified
-                                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                                    : 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
-                                }`}
-                                onClick={hasVerified ? undefined : openCollectDialog}
-                                disabled={selectedPaymentIds.size === 0 || hasVerified}>
-                                {hasVerified ? (
-                                  <>
-                                    <CheckCircle className="h-4 w-4 mr-2" />
-                                    Already Verified
-                                  </>
-                                ) : (
-                                  <>
-                                    <Banknote className="h-4 w-4 mr-2" />
-                                    Collect Payment
-                                  </>
-                                )}
-                              </Button>
-                            );
-                          })()}
-
-                          {effectiveClassId && (
-                            <Button
-                              variant="outline"
-                              size="lg"
-                              className="w-full h-10 text-sm font-semibold rounded-lg border-primary/30 hover:bg-primary/10"
-                              onClick={openSummary}>
-                              <BarChart3 className="h-4 w-4 mr-2" />
-                              View Summary
-                            </Button>
-                          )}
-
-                          <Button
-                            variant="ghost"
-                            size="lg"
-                            className="w-full h-10 text-sm text-muted-foreground hover:text-foreground"
-                            onClick={() => {
-                              setStudent(null);
-                              setHasSearched(false);
-                              setSearchQuery('');
-                              setStudentSubMap({});
-                              setRightPanelTab('find');
-                            }}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Clear & Search New
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+            {/* Payments */}
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="px-3 py-2 bg-muted/40 flex items-center gap-2">
+                <Banknote className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">Payments</span>
+                {(loadingPayments || loadingSubMap) && <Loader2 className="h-3.5 w-3.5 animate-spin ml-auto" />}
+              </div>
+              {loadingPayments ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">Loading…</div>
+              ) : activePayments.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">No active payments</div>
+              ) : (
+                <div className="divide-y divide-border/50">
+                  {activePayments.map(p => (
+                    <div key={p.id} className="px-1 py-0.5"><PaymentItem p={p} /></div>
+                  ))}
+                </div>
               )}
             </div>
-          )}
-        </div>
-      )}
 
-      {/* ── OVERVIEW TAB ─────────────────────────────────────────────────── */}
-      {activeTab === 'overview' && (
-        <div className="space-y-5">
-          {/* Class selector for overview */}
-          {!ctxClass && (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="max-w-xs">
-                  <Label className="text-xs mb-1.5 block font-medium">Class</Label>
-                  {loadingClasses ? (
-                    <div className="flex items-center gap-2 h-9 text-xs text-muted-foreground px-3 rounded-md border">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />Loading…
-                    </div>
-                  ) : (
-                    <Select value={pickedClassId} onValueChange={v => { setPickedClassId(v); }}>
-                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select class…" /></SelectTrigger>
-                      <SelectContent>
-                        {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.code})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
+            {/* Attendance */}
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="px-3 py-2 bg-muted/40 flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-blue-600" />
+                <span className="font-semibold text-sm">Attendance (30 days)</span>
+                {loadingAtt && <Loader2 className="h-3.5 w-3.5 animate-spin ml-auto" />}
+                {selectedSessionIds.size > 0 && (
+                  <Badge className="ml-auto bg-blue-100 text-blue-800 border-blue-200 text-[10px]">{selectedSessionIds.size} sel.</Badge>
+                )}
+              </div>
+              {loadingAtt ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">Loading…</div>
+              ) : attSessions.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">No sessions in range</div>
+              ) : (
+                <div className="max-h-52 overflow-y-auto divide-y divide-border/40">
+                  {attSessions.map(s => <AttRow key={s.sessionId} s={s} />)}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {!effectiveClassId ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-              <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center">
-                <School className="h-10 w-10 text-muted-foreground/40" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">No class selected</p>
-                <p className="text-sm text-muted-foreground mt-1">Select a class to view the payment overview</p>
-              </div>
+              )}
             </div>
-          ) : loadingOverview ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Loading payment overview…</p>
-            </div>
-          ) : overviewGrouped.length === 0 && orphanPayments.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-              <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center">
-                <BarChart3 className="h-10 w-10 text-muted-foreground/40" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">No payments found</p>
-                <p className="text-sm text-muted-foreground mt-1">No payments have been created for this class yet</p>
-              </div>
-            </div>
-          ) : (() => {
-            // Compute summary stats
-            const allPmts = [...overviewGrouped.flatMap(g => g.payments), ...orphanPayments];
-            const totalAmount = allPmts.reduce((s, p) => s + Number(p.amount), 0);
-            const totalVerified = allPmts.reduce((s, p) => s + (p.verifiedSubmissionsCount ?? 0), 0);
-            const totalPending = allPmts.reduce((s, p) => s + (p.pendingSubmissionsCount ?? 0), 0);
-            const totalSubs = allPmts.reduce((s, p) => s + (p.submissionsCount ?? 0), 0);
-            return (
-              <>
-                {/* ── Stat Cards ── */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="rounded-2xl border bg-gradient-to-br from-blue-50 to-blue-100/60 dark:from-blue-950/40 dark:to-blue-900/20 p-4 flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                      <BarChart3 className="h-4 w-4" />
-                      <span className="text-xs font-medium">Total Payments</span>
-                    </div>
-                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{allPmts.length}</p>
-                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70">{overviewGrouped.length} subject{overviewGrouped.length !== 1 ? 's' : ''}</p>
-                  </div>
-                  <div className="rounded-2xl border bg-gradient-to-br from-emerald-50 to-emerald-100/60 dark:from-emerald-950/40 dark:to-emerald-900/20 p-4 flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                      <Banknote className="h-4 w-4" />
-                      <span className="text-xs font-medium">Total Amount</span>
-                    </div>
-                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">Rs {totalAmount.toLocaleString()}</p>
-                    <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70">{totalSubs} submission{totalSubs !== 1 ? 's' : ''}</p>
-                  </div>
-                  <div className="rounded-2xl border bg-gradient-to-br from-green-50 to-green-100/60 dark:from-green-950/40 dark:to-green-900/20 p-4 flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                      <CheckCircle className="h-4 w-4" />
-                      <span className="text-xs font-medium">Verified</span>
-                    </div>
-                    <p className="text-2xl font-bold text-green-700 dark:text-green-300">{totalVerified}</p>
-                    <p className="text-xs text-green-600/70 dark:text-green-400/70">
-                      {totalSubs > 0 ? Math.round(totalVerified / totalSubs * 100) : 0}% of submissions
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border bg-gradient-to-br from-amber-50 to-amber-100/60 dark:from-amber-950/40 dark:to-amber-900/20 p-4 flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                      <Clock className="h-4 w-4" />
-                      <span className="text-xs font-medium">Pending</span>
-                    </div>
-                    <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{totalPending}</p>
-                    <p className="text-xs text-amber-600/70 dark:text-amber-400/70">awaiting verification</p>
-                  </div>
-                </div>
 
-                {/* ── Payment Groups ── */}
-                <div className="space-y-4">
-                  {overviewGrouped.map(({ subject, payments: sPayments }) => (
-                    <div key={subject.id} className="rounded-2xl border border-border shadow-sm overflow-hidden">
-                      {/* Subject header */}
-                      <div className="px-5 py-3.5 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent border-b border-border flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                          <BookOpen className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-foreground">{subject.name}</span>
-                            {subject.code && <Badge variant="outline" className="text-[10px] px-1.5">{subject.code}</Badge>}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{sPayments.length} payment{sPayments.length !== 1 ? 's' : ''}</p>
-                        </div>
-                        <div className="shrink-0 text-right hidden sm:block">
-                          <p className="text-sm font-bold text-foreground">
-                            Rs {sPayments.reduce((s, p) => s + Number(p.amount), 0).toLocaleString()}
-                          </p>
-                          <p className="text-xs text-muted-foreground">total</p>
-                        </div>
-                      </div>
-                      {/* Payment rows */}
-                      <div className="divide-y divide-border/60">
-                        {sPayments.map(p => (
-                          <PaymentRow key={p.id} payment={p} onViewSubmissions={() => goToSubmissions(subject.id)} />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-
-                  {orphanPayments.length > 0 && (
-                    <div className="rounded-2xl border border-border shadow-sm overflow-hidden">
-                      <div className="px-5 py-3.5 bg-muted/40 border-b border-border flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                          <BookOpen className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <span className="font-semibold text-muted-foreground">Other Payments</span>
-                      </div>
-                      <div className="divide-y divide-border/60">
-                        {orphanPayments.map(p => (
-                          <PaymentRow key={p.id} payment={p} onViewSubmissions={() => goToSubmissions(p.subjectId)} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* ── Collect Dialog ────────────────────────────────────────────────── */}
-      <Dialog open={!!collectDialog} onOpenChange={open => { if (!open) closeCollectDialog(); }}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-md sm:max-w-sm mx-auto max-h-[90dvh] flex flex-col overflow-hidden p-0">
-          <DialogHeader className="px-4 pt-4 pb-2 shrink-0">
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Banknote className="h-5 w-5 text-green-600" />Collect Payment
-            </DialogTitle>
-          </DialogHeader>
-          {student && collectDialog && (
-            <div className="flex-1 overflow-y-auto px-4 pb-1 space-y-3">
-              <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs space-y-1">
-                <p className="font-semibold">{student.nameWithInitials}</p>
-                {student.instituteUserId && <p className="text-muted-foreground">Institute ID: {student.instituteUserId}</p>}
-              </div>
-
-              {/* Selected payments — balance breakdown */}
-              <div className="rounded-lg border border-border divide-y divide-border text-xs overflow-hidden">
-                {selectedPayments.map((p: any) => {
-                  const original = Number(p.amount);
-                  const paid = paymentScope === 'subject' || paymentScope === 'class' ? getAlreadyPaid(p.id) : 0;
-                  const toCollect = getToCollect(p.id, original, collectDialog.tier);
-                  const hasPrior = paid > 0;
-                  return (
-                    <div key={p.id} className="px-3 py-2 space-y-1.5">
-                      <p className="font-medium truncate">{p.title ?? p.paymentType ?? p.description}</p>
-                      {hasPrior ? (
-                        <div className="space-y-0.5">
-                          <div className="flex items-center justify-between text-muted-foreground">
-                            <span>Total</span>
-                            <span>Rs {original.toLocaleString()}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-green-700 dark:text-green-400">
-                            <span>Already paid</span>
-                            <span>− Rs {paid.toLocaleString()}</span>
-                          </div>
-                          <div className="h-px bg-border my-0.5" />
-                          <div className="flex items-center justify-between font-semibold">
-                            <span>{toCollect === 0 ? 'Balance (fully paid)' : 'Balance'}</span>
-                            <span className={toCollect === 0 ? 'text-green-600' : 'text-foreground'}>
-                              {toCollect === 0 ? '✓ Covered' : `Rs ${toCollect.toLocaleString()}`}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between font-semibold">
-                          <span className="text-muted-foreground font-normal">Amount</span>
-                          <span>Rs {toCollect.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {/* Grand total row */}
-                {(() => {
-                  const grandTotal = selectedPayments.reduce(
-                    (sum: number, p: any) => sum + getToCollect(p.id, Number(p.amount), collectDialog.tier), 0
-                  );
-                  const hasPriorAny = (paymentScope === 'subject' || paymentScope === 'class') && selectedPayments.some((p: any) => getAlreadyPaid(p.id) > 0);
-                  return selectedPayments.length > 1 || hasPriorAny ? (
-                    <div className="px-3 py-2 flex items-center justify-between bg-primary/5">
-                      <span className="font-semibold text-primary">
-                        {selectedPayments.length > 1 ? 'Total to collect' : 'To collect'}
-                      </span>
-                      <span className="font-bold text-primary text-sm">Rs {grandTotal.toLocaleString()}</span>
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Payment Tier</Label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['full', 'half', 'quarter'] as PaymentTier[]).map(t => (
-                    <button key={t} type="button"
-                      onClick={() => setCollectDialog(d => d ? { ...d, tier: t } : d)}
-                      className={`rounded-lg border py-2 text-xs font-medium transition-all ${
-                        collectDialog.tier === t ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border hover:bg-muted'
-                      }`}>
-                      {TIER_LABEL[t]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Payment Date</Label>
-                <Input type="date" value={collectDialog.date}
-                  onChange={e => setCollectDialog(d => d ? { ...d, date: e.target.value } : d)} />
+            {/* Controls */}
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['full', 'half', 'quarter'] as PaymentTier[]).map(t => (
+                  <button key={t} type="button" onClick={() => setTier(t)}
+                    className={`rounded-lg border py-2 text-xs font-semibold transition-all ${
+                      tier === t ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'
+                    }`}>
+                    {TIER_LABEL[t]}
+                  </button>
+                ))}
               </div>
               {financeAccounts.length > 0 && (
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Credit to Account (Finance)</Label>
-                  <Select
-                    value={collectDialog.targetAccountId || 'skip'}
-                    onValueChange={v => setCollectDialog(d => d ? { ...d, targetAccountId: v === 'skip' ? undefined : v } : d)}
-                  >
-                    <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="skip">Skip — don't record in ledger</SelectItem>
-                      {financeAccounts.map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.name} ({a.type})</SelectItem>
+                <Select value={targetAccountId} onValueChange={setTargetAccountId}>
+                  <SelectTrigger className="text-sm h-10 bg-muted/20 border-border/60">
+                    <SelectValue placeholder="Select account…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {financeAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name} ({a.type})</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              <Textarea placeholder="Notes (optional)…" rows={2} value={notes}
+                onChange={e => setNotes(e.target.value)}
+                className="text-sm bg-muted/20 border-border/60 resize-none" />
+            </div>
+
+            {selectedPaymentIds.size > 0 && (
+              <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
+                <span className="text-xs text-muted-foreground">Total</span>
+                <span className="font-bold text-primary">Rs {grandTotal.toLocaleString()}</span>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={handleCollect}
+                disabled={collecting || selectedPaymentIds.size === 0}
+                className="h-12 bg-green-600 hover:bg-green-700 text-white font-semibold">
+                {collecting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Banknote className="h-4 w-4 mr-1.5" />}
+                Collect{selectedPaymentIds.size > 0 ? ` (${selectedPaymentIds.size})` : ''}
+              </Button>
+              <Button onClick={() => doMarkAttendance(true)}
+                disabled={markingAtt || selectedSessionIds.size === 0}
+                variant="outline"
+                className="h-12 border-blue-300 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-700 dark:hover:bg-blue-950/30 font-semibold">
+                {markingAtt ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <CalendarDays className="h-4 w-4 mr-1.5" />}
+                Mark{selectedSessionIds.size > 0 ? ` (${selectedSessionIds.size})` : ''}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Dialogs shared */}
+        <SharedDialogs />
+      </PageContainer>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // DESKTOP RENDER
+  // ═══════════════════════════════════════════════════════════════════
+
+  return (
+    <PageContainer maxWidth="full">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+            <Banknote className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-primary/70">Counter · Physical Collection</p>
+            <h1 className="text-xl font-bold tracking-tight">Collect Payment</h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {effectiveClassId && (
+            <span className="text-[11px] text-muted-foreground bg-muted/50 border border-border/50 rounded-md px-2.5 py-1">
+              <CalendarDays className="inline h-3 w-3 mr-1" />
+              {fmtDate(ATT_START)} – {fmtDate(ATT_END)}
+            </span>
+          )}
+          <button onClick={() => setPrinterOpen(true)}
+            className="p-2 rounded-lg hover:bg-muted border border-border/60 transition-colors"
+            title="Printer settings">
+            <Settings2 className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <Badge variant="outline" className="gap-1 text-xs">
+            <Monitor className="h-3.5 w-3.5" />{selectedInstitute.name}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Class selector */}
+      {!ctxClass && (
+        <div className="flex items-center gap-2 mb-4">
+          <School className="h-4 w-4 text-muted-foreground shrink-0" />
+          {loadingClasses ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Select value={pickedClassId} onValueChange={handleClassChange}>
+              <SelectTrigger className="h-9 text-sm w-56 bg-muted/20 border-border/60">
+                <SelectValue placeholder="Select class…" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.code})</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {effectiveClassName && <Badge variant="secondary" className="text-xs">{effectiveClassName}</Badge>}
+        </div>
+      )}
+      {ctxClass && (
+        <div className="flex items-center gap-2 mb-4 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200/50 w-fit">
+          <School className="h-3.5 w-3.5 text-blue-600" />
+          <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">{ctxClass.name}</span>
+        </div>
+      )}
+
+      {/* 3-column layout */}
+      {effectiveClassId ? (
+        <div className="grid grid-cols-[1fr_300px_1fr] gap-3 h-[calc(100vh-12rem)] min-h-0">
+
+          {/* ═══ LEFT: Payments ═══ */}
+          <div className="flex flex-col min-h-0 rounded-xl border border-border shadow-sm overflow-hidden bg-card">
+            <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-primary/5 to-transparent flex items-center gap-2 shrink-0">
+              <Banknote className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-sm">Select Payments</span>
+              {selectedPaymentIds.size > 0 && (
+                <Badge className="ml-auto bg-primary/15 text-primary border-primary/25 text-xs">{selectedPaymentIds.size} selected</Badge>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 min-h-0">
+              {loadingPayments ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-10">
+                  <Loader2 className="h-4 w-4 animate-spin" />Loading…
+                </div>
+              ) : activePayments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                  <AlertCircle className="h-7 w-7 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No active payments</p>
+                </div>
+              ) : activePayments.map(p => <PaymentItem key={p.id} p={p} />)}
+            </div>
+            <PaymentsFooter />
+          </div>
+
+          {/* ═══ CENTRE: Student Search ═══ */}
+          <div className="flex flex-col min-h-0 rounded-xl border border-border shadow-sm overflow-hidden bg-card">
+            <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-muted/60 to-transparent shrink-0 flex items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <span className="font-semibold text-sm">Find Student</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
+              <Select value={searchMode} onValueChange={m => { setSearchMode(m as SearchMode); setSearchQuery(''); }}>
+                <SelectTrigger className="h-8 text-xs bg-muted/20 border-border/60"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SEARCH_MODES.map(m => (
+                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                      <div className="flex items-center gap-2"><m.icon className="h-3.5 w-3.5" />{m.label}</div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                  <modeConfig.icon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input className="pl-8 text-sm h-9 bg-muted/20 border-border/60"
+                    placeholder={modeConfig.placeholder} value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()} />
+                </div>
+                <Button onClick={handleSearch} disabled={searching} size="sm" className="h-9 px-3">
+                  {searching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+
+              {hasSearched && !searching && !student && (
+                <div className="text-center py-6 rounded-xl bg-muted/40 border border-border/50">
+                  <User className="h-7 w-7 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-xs font-medium text-muted-foreground">No student found</p>
+                </div>
+              )}
+
+              {student && (
+                <div className="rounded-xl bg-gradient-to-br from-primary/8 to-primary/5 border border-primary/20 p-3 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar size="md" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">{student.nameWithInitials}</p>
+                      {student.instituteUserId && <p className="text-[11px] text-muted-foreground">ID: {student.instituteUserId}</p>}
+                    </div>
+                    <button onClick={clearStudent} className="p-1 rounded-md hover:bg-muted/50 transition-colors">
+                      <XCircle className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </div>
+                  {/* Payment status mini-list */}
+                  {activePayments.length > 0 && (
+                    <div className="space-y-1">
+                      {activePayments.slice(0, 5).map(p => (
+                        <div key={p.id} className="flex items-center justify-between gap-1 text-[11px]">
+                          <span className="truncate text-muted-foreground">{p.title ?? p.description}</span>
+                          {loadingSubMap ? <Loader2 className="h-3 w-3 animate-spin" /> : <PayBadge status={getBestStatus(p.id)} />}
+                        </div>
                       ))}
+                      {activePayments.length > 5 && <p className="text-[10px] text-muted-foreground">+{activePayments.length - 5} more</p>}
+                    </div>
+                  )}
+                  <button onClick={clearStudent}
+                    className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5 py-1.5 rounded-lg hover:bg-muted/40 transition-colors">
+                    <RefreshCw className="h-3.5 w-3.5" />Clear & find new student
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══ RIGHT: Attendance ═══ */}
+          <div className="flex flex-col min-h-0 rounded-xl border border-border shadow-sm overflow-hidden bg-card">
+            <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-blue-500/5 to-transparent flex items-center gap-2 shrink-0">
+              <CalendarDays className="h-4 w-4 text-blue-600" />
+              <span className="font-semibold text-sm">Attendance</span>
+              <span className="text-[10px] text-muted-foreground ml-0.5">30-day</span>
+              {selectedSessionIds.size > 0 && (
+                <Badge className="ml-auto bg-blue-100 text-blue-800 border-blue-200 text-xs">{selectedSessionIds.size} sel.</Badge>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {!student ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
+                  <User className="h-8 w-8 text-muted-foreground/20" />
+                  <p className="text-xs text-muted-foreground">Find a student to see attendance</p>
+                </div>
+              ) : loadingAtt ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-10">
+                  <Loader2 className="h-4 w-4 animate-spin" />Loading…
+                </div>
+              ) : attSessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
+                  <CalendarDays className="h-8 w-8 text-muted-foreground/20" />
+                  <p className="text-xs text-muted-foreground">No sessions in last 30 days</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border/40">
+                  {attSessions.map(s => <AttRow key={s.sessionId} s={s} />)}
+                </div>
+              )}
+            </div>
+            {/* Attendance footer */}
+            <div className="px-4 py-3 border-t border-border shrink-0 space-y-2 bg-card">
+              {student && unmarkedSessions.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setSelectedSessionIds(new Set(unmarkedSessions.map(s => s.sessionId)))}
+                    className="text-[11px] text-blue-600 hover:underline">
+                    Select all unmarked ({unmarkedSessions.length})
+                  </button>
+                  {selectedSessionIds.size > 0 && <>
+                    <span className="text-muted-foreground text-[10px]">·</span>
+                    <button onClick={() => setSelectedSessionIds(new Set())} className="text-[11px] text-muted-foreground hover:underline">Clear</button>
+                  </>}
+                </div>
+              )}
+              <Button onClick={() => doMarkAttendance(true)}
+                disabled={markingAtt || selectedSessionIds.size === 0 || !student}
+                variant="outline"
+                className="w-full h-10 border-blue-300 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-700 dark:hover:bg-blue-950/30 font-semibold text-sm">
+                {markingAtt ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CalendarDays className="h-4 w-4 mr-2" />}
+                {markingAtt ? 'Marking…'
+                  : selectedSessionIds.size === 0 ? 'Select sessions to mark'
+                  : !student ? 'Find student first'
+                  : `Mark Present (${selectedSessionIds.size})`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+          <div className="h-20 w-20 rounded-2xl bg-muted/50 flex items-center justify-center">
+            <School className="h-10 w-10 text-muted-foreground/30" />
+          </div>
+          <p className="font-medium">No class selected</p>
+          <p className="text-sm text-muted-foreground">Select a class above to start collecting payments</p>
+        </div>
+      )}
+
+      <SharedDialogs />
+    </PageContainer>
+  );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // SHARED DIALOGS (used by both mobile and desktop renders)
+  // ═══════════════════════════════════════════════════════════════════
+
+  function SharedDialogs() {
+    const total = collectedItems.reduce((s, p) => s + p.amount * TIER_MULT[tier], 0);
+
+    return (
+      <>
+        {/* ── Post-collect dialog ── */}
+        <Dialog open={postOpen} onOpenChange={v => { if (!v && !postActionLoading) { setPostOpen(false); clearStudent(); } }}>
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-md mx-auto p-0 gap-0">
+            <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <CheckCircle className="h-5 w-5 text-green-600" />Payment Recorded!
+              </DialogTitle>
+            </DialogHeader>
+            <div className="px-5 py-4 space-y-4">
+              {/* Receipt summary */}
+              <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-3 py-3 space-y-1.5">
+                <p className="font-semibold text-sm text-green-900 dark:text-green-100">{student?.nameWithInitials}</p>
+                {student?.instituteUserId && <p className="text-[11px] text-green-700 dark:text-green-300">ID: {student.instituteUserId}</p>}
+                {collectedItems.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs text-green-800 dark:text-green-200">
+                    <span className="truncate">{p.title}</span>
+                    <span className="font-medium ml-2 shrink-0">Rs {(p.amount * TIER_MULT[tier]).toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between font-bold text-sm text-green-900 dark:text-green-100 border-t border-green-200 dark:border-green-700 pt-1.5 mt-1">
+                  <span>Total</span><span>Rs {total.toLocaleString()}</span>
+                </div>
+                {selectedAccount && <p className="text-[10px] text-green-700 dark:text-green-400">Account: {selectedAccount.name}</p>}
+                {notes && <p className="text-[10px] text-green-700 dark:text-green-400">Notes: {notes}</p>}
+              </div>
+              {/* Receipt notice */}
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
+                If there is any payment-related issue in future, present this receipt to administration. Keep it safe.
+              </p>
+              {/* Actions */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What would you like to do?</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={() => handlePostAction('sms')} disabled={!!postActionLoading} variant="outline"
+                    className="h-12 flex-col gap-0.5 text-xs border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/30">
+                    {postActionLoading === 'sms' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4 text-blue-600" />}
+                    Send SMS
+                  </Button>
+                  <Button onClick={() => handlePostAction('print')} disabled={!!postActionLoading} variant="outline"
+                    className="h-12 flex-col gap-0.5 text-xs border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/30">
+                    {postActionLoading === 'print' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 text-green-600" />}
+                    Print
+                  </Button>
+                  <Button onClick={() => handlePostAction('both')} disabled={!!postActionLoading}
+                    className="h-12 flex-col gap-0.5 text-xs bg-primary hover:bg-primary/90">
+                    {postActionLoading === 'both' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                    SMS + Print
+                  </Button>
+                  <Button onClick={() => handlePostAction('skip')} disabled={!!postActionLoading} variant="ghost"
+                    className="h-12 flex-col gap-0.5 text-xs text-muted-foreground hover:text-foreground">
+                    <XCircle className="h-4 w-4" />
+                    Skip — Next
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── SMS dialog ── */}
+        <Dialog open={smsOpen} onOpenChange={v => { if (!v && !sendingSms) { setSmsOpen(false); } }}>
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-lg mx-auto p-0 gap-0">
+            <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <MessageSquare className="h-5 w-5 text-blue-600" />Send SMS Receipt
+              </DialogTitle>
+            </DialogHeader>
+            <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Credits */}
+              {loadingSmsCreds ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />Loading SMS info…
+                </div>
+              ) : smsCreds ? (
+                <div className="flex items-center justify-between text-xs bg-muted/40 rounded-lg px-3 py-2">
+                  <span className="text-muted-foreground">SMS Credits</span>
+                  <span className={`font-semibold ${smsCreds.availableCredits < 10 ? 'text-red-600' : 'text-green-700 dark:text-green-400'}`}>
+                    {smsCreds.availableCredits} remaining
+                  </span>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
+                  SMS credentials not available. Contact admin.
+                </p>
+              )}
+
+              {/* Sender mask */}
+              {smsCreds?.activeMasks && smsCreds.activeMasks.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Sender ID</Label>
+                  <Select value={smsMaskId} onValueChange={setSmsMaskId}>
+                    <SelectTrigger className="text-xs h-9 bg-muted/20"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {smsCreds.activeMasks.map(m => <SelectItem key={m.maskId} value={m.maskId} className="text-xs">{m.mask}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               )}
-              <div className="space-y-1 pb-1">
-                <Label className="text-xs font-medium">Notes (optional)</Label>
-                <Textarea placeholder="Receipt no., remarks…" rows={2} value={collectDialog.notes}
-                  onChange={e => setCollectDialog(d => d ? { ...d, notes: e.target.value } : d)} />
+
+              {/* Primary recipient */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Student Phone</Label>
+                <div className="relative">
+                  {fetchingPhone && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                  <Input value={smsPhone} onChange={e => setSmsPhone(e.target.value)}
+                    placeholder="Phone number…" className="text-sm h-9 bg-muted/20 border-border/60 pr-8" />
+                </div>
+                {!smsPhone && !fetchingPhone && (
+                  <p className="text-[10px] text-amber-600">No phone on file — enter manually or use custom below.</p>
+                )}
+              </div>
+
+              {/* Custom additional recipient */}
+              <div className="rounded-lg border border-border/50 p-3 space-y-2 bg-muted/10">
+                <p className="text-xs font-semibold text-muted-foreground">Custom / Additional Recipient</p>
+                <Input value={smsCustomName} onChange={e => setSmsCustomName(e.target.value)}
+                  placeholder="Name (optional)…" className="text-xs h-8 bg-background border-border/60" />
+                <Input value={smsCustomPhone} onChange={e => setSmsCustomPhone(e.target.value)}
+                  placeholder="Phone number…" className="text-xs h-8 bg-background border-border/60" />
+              </div>
+
+              {/* Message */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Message</Label>
+                <Textarea value={smsMessage} onChange={e => setSmsMessage(e.target.value)}
+                  rows={4} className="text-xs bg-muted/20 border-border/60 resize-none" />
+                <p className="text-[10px] text-muted-foreground text-right">{smsMessage.length} chars</p>
               </div>
             </div>
-          )}
-          <DialogFooter className="px-4 py-3 border-t border-border shrink-0 flex-col-reverse gap-2 sm:flex-row sm:gap-2">
-            <Button variant="outline" className="w-full sm:w-auto" onClick={closeCollectDialog} disabled={collecting}>Cancel</Button>
-            <Button onClick={handleCollect} disabled={collecting} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white">
-              {collecting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <CheckCircle className="h-4 w-4 mr-1.5" />}
-              {collecting ? 'Recording…' : `Confirm${selectedPaymentIds.size > 1 ? ` (${selectedPaymentIds.size})` : ''}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter className="px-5 pb-5 pt-3 border-t border-border gap-2">
+              <Button variant="outline" onClick={() => { setSmsOpen(false); clearStudent(); }} disabled={sendingSms} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleSendSms} disabled={sendingSms || (!smsPhone && !smsCustomPhone)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                {sendingSms ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+                {sendingSms ? 'Sending…' : 'Send'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* ── Summary Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={summaryOpen} onOpenChange={v => { setSummaryOpen(v); if (!v) setSummaryData([]); }}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Layers className="h-5 w-5 text-primary" />Payment Summary
-            </DialogTitle>
-          </DialogHeader>
-          {student && (
-            <div className="space-y-4">
-              {/* Student header */}
-              <div className="flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
-                {student.image ? (
-                  <img src={student.image} alt={student.nameWithInitials} className="h-10 w-10 rounded-full object-cover ring-2 ring-border shrink-0" />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-border shrink-0">
-                    <span className="text-sm font-bold text-primary">
-                      {(student.nameWithInitials?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()) || '?'}
-                    </span>
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-sm">{student.nameWithInitials}</p>
-                  {student.instituteUserId && <p className="text-xs text-muted-foreground">Institute: <span className="font-mono">{student.instituteUserId}</span></p>}
-                  {(effectiveClassName || effectiveSubjectName) && (
-                    <p className="text-xs text-muted-foreground">
-                      {effectiveClassName}{effectiveClassName && effectiveSubjectName ? ' · ' : ''}{effectiveSubjectName}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {loadingSummary ? (
-                <div className="flex items-center gap-3 py-6 justify-center text-muted-foreground text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" />Loading payment history…
-                </div>
-              ) : summaryData.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No payment data available.</p>
-              ) : (
-                <div className="space-y-3">
-                  {summaryData.map(({ subject, payments: sPayments, subMap }) => (
-                    <div key={subject.id}>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span className="text-xs font-semibold">{subject.name}</span>
-                        {subject.code && <Badge variant="outline" className="text-[10px] px-1">{subject.code}</Badge>}
+        {/* ── Printer settings ── */}
+        <Dialog open={printerOpen} onOpenChange={setPrinterOpen}>
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-sm mx-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <Printer className="h-5 w-5" />Printer Settings
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Paper Size</Label>
+                <div className="space-y-1.5">
+                  {PRINT_SIZES.map(s => (
+                    <button key={s.id} type="button"
+                      onClick={() => { setPrintSize(s.id); localStorage.setItem(LS_PRINT_SIZE, s.id); }}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
+                        printSize === s.id ? 'border-primary bg-primary/8' : 'border-border hover:bg-muted/50'
+                      }`}>
+                      <div className="flex items-center justify-between">
+                        <span>{s.label}</span>
+                        {printSize === s.id && <CheckCircle className="h-4 w-4 text-primary" />}
                       </div>
-                      <div className="space-y-1 pl-5">
-                        {sPayments.length === 0 ? (
-                          <p className="text-[11px] text-muted-foreground">No payments</p>
-                        ) : sPayments.map(p => {
-                          const subs = subMap[p.id] ?? [];
-                          const best = subs.sort((a, b) => {
-                            const order = ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED', 'PENDING', 'REJECTED'];
-                            return order.indexOf(a.status) - order.indexOf(b.status);
-                          })[0];
-                          return (
-                            <div key={p.id} className="rounded-lg border border-border px-3 py-2 text-xs">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="font-medium truncate">{p.title}</p>
-                                  <p className="text-muted-foreground text-[10px]">
-                                    Rs {Number(p.amount).toLocaleString()} · Due {new Date(p.lastDate).toLocaleDateString()}
-                                  </p>
-                                </div>
-                                <div className="shrink-0 text-right">
-                                  <StatusBadge status={best?.status} />
-                                  {best && (
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                                      Rs {Number(best.submittedAmount).toLocaleString()}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                              {/* All submissions for this payment */}
-                              {subs.length > 1 && (
-                                <div className="mt-1 pt-1 border-t border-border/50 space-y-0.5">
-                                  {subs.map((sub, i) => (
-                                    <div key={i} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                      <StatusBadge status={sub.status} />
-                                      <span>Rs {Number(sub.submittedAmount).toLocaleString()}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
+              </div>
+              {isNative ? (
+                <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2">
+                  App mode: Print opens your device share/print sheet. Send to a Bluetooth printer app, AirPrint, or any print service on your device.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+                  Browser: The print dialog will open with the receipt sized to the selected paper width.
+                </p>
               )}
-
-              {/* Institute-level payment history if any */}
-              {student.paymentHistory && student.paymentHistory.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-xs font-semibold text-muted-foreground">Institute Payments</span>
-                  </div>
-                  <div className="space-y-1 pl-5">
-                    {student.paymentHistory.map((h, i) => (
-                      <div key={i} className="rounded-lg border border-border px-3 py-2 text-xs flex items-center justify-between">
-                        <div>
-                          <StatusBadge status={h.status} />
-                          {h.note && <p className="text-[10px] text-muted-foreground mt-0.5">{h.note}</p>}
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">Rs {Number(h.amount).toLocaleString()}</p>
-                          <p className="text-[10px] text-muted-foreground">{new Date(h.date).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <Button onClick={() => {
+                const widthMm = PRINT_SIZES.find(s => s.id === printSize)?.widthMm ?? 80;
+                if (collectedItems.length > 0) {
+                  handlePrint();
+                } else {
+                  doPrint(buildReceiptHtml({
+                    studentName: 'Test Student', instituteId: 'TEST-001',
+                    instituteName: selectedInstitute?.name ?? 'Institute',
+                    className: effectiveClassName || 'Class',
+                    payments: [{ title: 'Test Payment', amount: 1000 }],
+                    tier: 'full', collectedBy, date: todayStr(),
+                    notes: 'Test print', account: 'Cash', widthMm,
+                  }), widthMm);
+                }
+              }} variant="outline" className="w-full">
+                <Printer className="h-4 w-4 mr-2" />Print Test Page
+              </Button>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setSummaryOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </PageContainer>
-  );
-};
-
-// ─── Payment Row (Overview tab) ───────────────────────────────────────────────
-
-const PaymentRow = ({
-  payment: p,
-  onViewSubmissions,
-}: {
-  payment: SubjectPayment;
-  onViewSubmissions: () => void;
-}) => {
-  const verified = p.verifiedSubmissionsCount ?? 0;
-  const pending = p.pendingSubmissionsCount ?? 0;
-  const total = p.submissionsCount ?? (verified + pending);
-  const verifiedPct = total > 0 ? Math.round((verified / total) * 100) : 0;
-  const pendingPct  = total > 0 ? Math.round((pending  / total) * 100) : 0;
-  const isOverdue   = p.lastDate ? new Date(p.lastDate) < new Date() : false;
-
-  return (
-    <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-muted/20 transition-colors group">
-      {/* Left: title + meta */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium text-sm text-foreground truncate">{p.title}</p>
-          {p.priority === 'MANDATORY' && (
-            <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] px-1.5 py-0">Mandatory</Badge>
-          )}
-          {p.priority === 'OPTIONAL' && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">Optional</Badge>
-          )}
-          {p.status === 'INACTIVE' && (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Inactive</Badge>
-          )}
-        </div>
-        {p.description && (
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.description}</p>
-        )}
-        {/* Progress bar */}
-        {total > 0 && (
-          <div className="mt-2 space-y-1">
-            <div className="h-1.5 w-full max-w-[260px] rounded-full bg-muted overflow-hidden flex">
-              <div
-                className="h-full bg-green-500 transition-all"
-                style={{ width: `${verifiedPct}%` }}
-              />
-              <div
-                className="h-full bg-amber-400 transition-all"
-                style={{ width: `${pendingPct}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Right: stats */}
-      <div className="flex items-center gap-5 shrink-0">
-        {/* Amount */}
-        <div className="text-right">
-          <p className="font-bold text-sm text-foreground">Rs {Number(p.amount).toLocaleString()}</p>
-          <p className={`text-[10px] mt-0.5 ${
-            isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'
-          }`}>
-            {p.lastDate
-              ? (isOverdue ? 'Overdue · ' : 'Due · ') + new Date(p.lastDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-              : '—'}
-          </p>
-        </div>
-
-        {/* Submission counts */}
-        <div className="text-right min-w-[72px]">
-          <div className="flex items-center gap-2 justify-end">
-            <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
-              <CheckCircle className="h-3.5 w-3.5" />{verified}
-            </span>
-            {pending > 0 && (
-              <span className="flex items-center gap-1 text-xs font-semibold text-amber-600">
-                <Clock className="h-3.5 w-3.5" />{pending}
-              </span>
-            )}
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">of {total} total</p>
-        </div>
-
-        {/* Action */}
-        <div className="min-w-[80px] flex justify-end">
-          {pending > 0 ? (
-            <button
-              onClick={onViewSubmissions}
-              className="flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5 rounded-lg transition-colors"
-            >
-              {pending} pending <ArrowRight className="h-3 w-3" />
-            </button>
-          ) : total > 0 ? (
-            <button
-              onClick={onViewSubmissions}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors"
-            >
-              View <ArrowRight className="h-3 w-3" />
-            </button>
-          ) : (
-            <span className="text-xs text-muted-foreground/50 px-2.5">No submissions</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 };
 
 export default CollectPhysicalPayment;
