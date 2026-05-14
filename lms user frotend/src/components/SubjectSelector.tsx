@@ -99,6 +99,7 @@ const SubjectSelector = () => {
   const [enrollSubject, setEnrollSubject] = useState<SubjectCardData | null>(null);
   const [enrollmentKey, setEnrollmentKey] = useState('');
   const [isEnrolling, setIsEnrolling] = useState(false);
+  const [freeCardClaimingFor, setFreeCardClaimingFor] = useState<string | null>(null);
   const [pendingSubjects, setPendingSubjects] = useState<Set<string>>(new Set());
   const [enrolledSubjects, setEnrolledSubjects] = useState<Set<string>>(new Set());
   const [rejectedSubjects, setRejectedSubjects] = useState<Set<string>>(new Set());

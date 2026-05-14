@@ -55,8 +55,8 @@ const CreateSubjectForm = ({ onSubmit, onCancel, initialData }: CreateSubjectFor
   const userRole = useInstituteRole();
   const hasPermission = user?.role === 'SystemAdmin' || userRole === 'InstituteAdmin';
   
-  const form = useForm<SubjectFormData>({
-    resolver: zodResolver(subjectSchema),
+  const form = useForm<any>({
+    resolver: zodResolver(subjectSchema) as any,
     defaultValues: {
       name: initialData?.name || '',
       code: initialData?.code || '',

@@ -199,7 +199,7 @@ const ClassPaymentSubmissionsPage: React.FC = () => {
                 placeholder="Search by name or ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                icon={<Search className="h-4 w-4" />}
+                {...({ icon: <Search className="h-4 w-4" /> } as any)}
               />
             </div>
             <div className="w-40">

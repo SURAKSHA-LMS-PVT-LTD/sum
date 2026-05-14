@@ -281,6 +281,8 @@ export interface MarkByInstituteCardPayload {
   eventId?: string
   latitude?: number;
   longitude?: number;
+  subjectId?: string;
+  subjectName?: string;
 }
 
 // ============= RESPONSE INTERFACES =============

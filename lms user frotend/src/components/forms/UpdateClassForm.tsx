@@ -56,7 +56,7 @@ const UpdateClassForm: React.FC<UpdateClassFormProps> = ({ classData, onSubmit, 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
 
   const form = useForm<UpdateClassFormData>({
-    resolver: zodResolver(updateClassSchema),
+    resolver: zodResolver(updateClassSchema) as any,
     defaultValues: {
       instituteId: classData.instituteId || '',
       name: classData.name || '',

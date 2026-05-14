@@ -30,13 +30,6 @@ export type {
 
 // Institute API
 export { instituteApi } from './institute.api';
-export type { 
-  Institute, 
-  Class, 
-  Subject, 
-  Teacher, 
-  InstituteQueryParams 
-} from './institute.api';
 
 // Organization API
 export { organizationApi } from './organization.api';

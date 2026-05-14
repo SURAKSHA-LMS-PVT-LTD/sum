@@ -18,9 +18,7 @@ import { getErrorMessage } from '@/api/apiError';
 
 const assignParentByPhoneSchema = z.object({
   phoneNumber: z.string().min(1, 'Phone number is required'),
-  parentRole: z.enum(['father', 'mother', 'guardian'], {
-    required_error: 'Please select a parent role',
-  }),
+  parentRole: z.enum(['father', 'mother', 'guardian'] as const).refine(v => !!v, { message: 'Please select a parent role' }),
 });
 
 type AssignParentByPhoneFormData = z.infer<typeof assignParentByPhoneSchema>;
@@ -50,7 +48,7 @@ const AssignParentByPhoneForm: React.FC<AssignParentByPhoneFormProps> = ({
   const [isLoadingPreview, setIsLoadingPreview] = React.useState(false);
   
   const form = useForm<AssignParentByPhoneFormData>({
-    resolver: zodResolver(assignParentByPhoneSchema),
+    resolver: zodResolver(assignParentByPhoneSchema) as any,
     defaultValues: {
       phoneNumber: '+94',
       parentRole: 'father',

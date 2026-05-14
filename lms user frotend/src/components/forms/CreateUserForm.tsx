@@ -103,7 +103,7 @@ const CreateUserForm = ({ onSubmit, onCancel, loading = false, initialData }: Cr
     setIsLoading(true);
     try {
       if (!initialData) {
-        const result = await usersApi.create(formData);
+        const result = await usersApi.create(formData as any);
         toast.success('User created successfully!');
         onSubmit(result);
       } else {

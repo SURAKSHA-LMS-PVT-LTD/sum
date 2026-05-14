@@ -17,7 +17,7 @@ const DesktopDashboard = () => {
   const showChildrenCard = userRole === 'Parent' || (user?.userType?.toUpperCase() !== 'USER_WITHOUT_PARENT');
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 max-w-6xl mx-auto pb-12">
+    <div className="w-full p-4 sm:p-8 space-y-8 pb-12">
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">

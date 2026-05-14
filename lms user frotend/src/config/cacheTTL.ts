@@ -16,7 +16,7 @@ export interface CacheTTLConfig {
   USER_PERMISSIONS: number;
   USER_ROLES: number;
   USER_LOOKUP: number;
-  USER_TYPES: number; // <-- New
+  USER_TYPES: number;
 
   // Institute Data
   INSTITUTES: number;
@@ -27,7 +27,8 @@ export interface CacheTTLConfig {
   INSTITUTE_ORGANIZATIONS: number;
   ORGANIZATION_MEMBERS: number;
 
-  // ... (rest of the interface)
+  // Allow arbitrary cache keys defined ad-hoc by feature APIs
+  [key: string]: number;
 }
 
 /**
@@ -35,21 +36,32 @@ export interface CacheTTLConfig {
  * All values in minutes
  */
 export const CACHE_TTL: CacheTTLConfig = {
-  // ==========================================
-  // DEFAULT: 60 minutes (1 hour)
-  // ==========================================
   DEFAULT: 60,
 
-  // ==========================================
-  // USER & AUTHENTICATION DATA: 60 minutes
-  // ==========================================
   USER_PROFILE: 60,
   USER_PERMISSIONS: 60,
   USER_ROLES: 60,
   USER_LOOKUP: 30,
-  USER_TYPES: 120, // <-- New: User types rarely change
+  USER_TYPES: 120,
 
-  // ... (rest of the configuration)
+  INSTITUTES: 60,
+  INSTITUTE_DETAILS: 60,
+  INSTITUTE_PROFILE: 60,
+  INSTITUTE_USERS: 30,
+  INSTITUTE_CLASSES: 60,
+  INSTITUTE_ORGANIZATIONS: 60,
+  ORGANIZATION_MEMBERS: 30,
+
+  // Feature-specific TTLs referenced across the api/ layer
+  SETTINGS: 60,
+  SUBJECT_PAYMENTS: 15,
+  PAYMENT_SUBMISSIONS: 5,
+  INSTITUTE_PAYMENTS: 15,
+  HOMEWORK: 15,
+  LECTURES: 15,
+  STUDENTS: 30,
+  ORGANIZATIONS: 60,
+  UNVERIFIED_STUDENTS: 5,
 };
 
 // Simple TTL resolver used by apiCache

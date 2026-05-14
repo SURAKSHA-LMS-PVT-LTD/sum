@@ -134,7 +134,7 @@ async function request<T>(method: string, path: string, body?: any, params?: Rec
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(parseApiError(data) || `Finance API error ${res.status}`);
+  if (!res.ok) throw new Error((data && (data.message || data.error)) || `Finance API error ${res.status}`);
   return data as T;
 }
 

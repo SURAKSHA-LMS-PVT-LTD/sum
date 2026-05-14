@@ -23,6 +23,7 @@ import {
   Calendar,
   Settings2,
   AlertTriangle,
+  HardDrive,
 } from 'lucide-react';
 
 const GoogleDriveIcon = ({ className = 'h-5 w-5' }: { className?: string }) => (

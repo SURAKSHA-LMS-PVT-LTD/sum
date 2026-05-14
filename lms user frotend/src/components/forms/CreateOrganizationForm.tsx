@@ -47,7 +47,7 @@ const CreateOrganizationForm = ({ onSuccess, onCancel, instituteId, instituteNam
   const { toast } = useToast();
 
   const form = useForm<OrganizationFormData>({
-    resolver: zodResolver(organizationSchema),
+    resolver: zodResolver(organizationSchema) as any,
     defaultValues: {
       name: '',
       type: 'INSTITUTE',

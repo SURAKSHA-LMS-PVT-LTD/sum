@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { classPaymentsApi, ClassPayment, ClassPaymentsResponse } from '@/api/classPayments.api';
+import { classPaymentsApi, ClassPayment, ClassPaymentsResponse, ClassPaymentSubmission as PaymentSubmission } from '@/api/classPayments.api';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -509,7 +509,7 @@ const ClassPayments = () => {
 
       {/* Dialogs */}
       {selectedInstitute && isAdminRole && (
-        <VerifySubmissionDialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen} submission={selectedSubmission} instituteId={selectedInstitute.id} onSuccess={() => { setVerifyDialogOpen(false); setSelectedSubmission(null); loadPayments(); }} />
+        <VerifySubmissionDialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen} submission={selectedSubmission as any} instituteId={selectedInstitute.id} onSuccess={() => { setVerifyDialogOpen(false); setSelectedSubmission(null); loadPayments(); }} />
       )}
 
       {selectedInstitute && selectedClass && (

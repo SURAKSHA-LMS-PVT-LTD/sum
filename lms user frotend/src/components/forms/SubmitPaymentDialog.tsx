@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, FileText, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/api/apiError';
 import { institutePaymentsApi, SubmitPaymentRequest, InstitutePayment } from '@/api/institutePayments.api';
 import { uploadWithSignedUrl } from '@/utils/signedUploadHelper';
 

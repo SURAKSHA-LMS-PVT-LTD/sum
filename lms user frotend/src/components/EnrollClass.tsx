@@ -54,7 +54,7 @@ const EnrollClass = () => {
   );
 
   const form = useForm<EnrollFormValues>({
-    resolver: zodResolver(enrollFormSchema),
+    resolver: zodResolver(enrollFormSchema) as any,
     defaultValues: {
       enrollmentCode: '',
     },

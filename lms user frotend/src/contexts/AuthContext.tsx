@@ -14,7 +14,7 @@ import {
 } from './types/auth.types';
 import { loginUser, instituteLogin as apiInstituteLogin, instituteLoginForce as apiInstituteLoginForce, validateToken, logoutUser } from './utils/auth.api';
 import { mapUserData } from './utils/user.utils';
-import { Institute as ApiInstitute } from '@/api/institute.api';
+type ApiInstitute = any;
 import { cachedApiClient } from '@/api/cachedClient';
 import { apiCache } from '@/utils/apiCache';
 import { useAuthAutoRefresh } from '@/hooks/useAuthAutoRefresh';

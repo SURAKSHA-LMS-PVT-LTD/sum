@@ -11,7 +11,7 @@ export const useScrollDirection = (threshold: number = 50): ScrollState => {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollPosition = useRef(0);
-  const rafId = useRef<number>();
+  const rafId = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const handleScroll = () => {

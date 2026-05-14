@@ -245,8 +245,8 @@ const StudentSubjectProfilePage: React.FC = () => {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-bold flex items-center gap-1.5">{icon} {label}</p>
-                      {data?.imageUrl ? (
-                        <img src={data.imageUrl} alt={data?.name || label} className="h-6 w-6 sm:h-8 sm:w-8 rounded-md sm:rounded-lg object-cover shrink-0 ring-1 ring-border" />
+                      {(data as any)?.imageUrl ? (
+                        <img src={(data as any).imageUrl} alt={data?.name || label} className="h-6 w-6 sm:h-8 sm:w-8 rounded-md sm:rounded-lg object-cover shrink-0 ring-1 ring-border" />
                       ) : (
                         <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-md sm:rounded-lg bg-muted flex items-center justify-center text-xs sm:text-sm shrink-0 ring-1 ring-border">{icon}</div>
                       )}

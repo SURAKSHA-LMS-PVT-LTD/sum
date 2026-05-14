@@ -337,7 +337,7 @@ const ChildAttendancePage = () => {
                             {capVisKeys.has('institute') && <TableCell style={{ width: getCAPColWidth('institute'), maxWidth: getCAPColWidth('institute'), overflow: 'hidden' }}>{record.instituteName || '-'}</TableCell>}
                             {capVisKeys.has('class') && <TableCell style={{ width: getCAPColWidth('class'), maxWidth: getCAPColWidth('class'), overflow: 'hidden' }}>{record.className || '-'}</TableCell>}
                             {capVisKeys.has('subject') && <TableCell style={{ width: getCAPColWidth('subject'), maxWidth: getCAPColWidth('subject'), overflow: 'hidden' }}>{record.subjectName || '-'}</TableCell>}
-                            {capVisKeys.has('location') && <TableCell style={{ width: getCAPColWidth('location'), maxWidth: getCAPColWidth('location'), overflow: 'hidden' }} className="text-muted-foreground">{record.location || record.address || '-'}</TableCell>}
+                            {capVisKeys.has('location') && <TableCell style={{ width: getCAPColWidth('location'), maxWidth: getCAPColWidth('location'), overflow: 'hidden' }} className="text-muted-foreground">{String((record.location || record.address) ?? '-')}</TableCell>}
                             {capVisKeys.has('method') && <TableCell style={{ width: getCAPColWidth('method'), maxWidth: getCAPColWidth('method'), overflow: 'hidden' }}><Badge variant="outline" className="text-xs font-normal">{record.markingMethod}</Badge></TableCell>}
                           </TableRow>
                         ))}

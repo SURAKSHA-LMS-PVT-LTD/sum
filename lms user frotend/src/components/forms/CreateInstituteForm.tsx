@@ -36,7 +36,7 @@ const CreateInstituteForm = ({ onSubmit, onCancel, initialData }: CreateInstitut
   console.log('Form initialData:', initialData);
   
   const form = useForm<InstituteFormData>({
-    resolver: zodResolver(instituteSchema),
+    resolver: zodResolver(instituteSchema) as any,
     defaultValues: {
       name: initialData?.name || '',
       code: initialData?.code || '',

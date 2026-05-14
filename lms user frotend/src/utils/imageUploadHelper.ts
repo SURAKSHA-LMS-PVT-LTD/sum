@@ -118,7 +118,7 @@ export const uploadToSignedUrl = async (
   } catch (error: any) {
     console.error('❌ Upload failed:', error);
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      throw new Error('Network error: Unable to upload file. Check your internet connection.', { cause: error });
+      throw new Error('Network error: Unable to upload file. Check your internet connection.');
     }
     throw error;
   }

@@ -44,6 +44,7 @@ const PaymentSubmissions = () => {
     user
   } = useAuth();
   const role = useInstituteRole();
+  const canVerifySubmissions = role === 'InstituteAdmin';
   const navigate = useNavigate();
   const {
     paymentId
@@ -209,8 +210,7 @@ const PaymentSubmissions = () => {
     setSearchType('studentName');
   };
 
-  // Check if current user can verify submissions (only institute admins)
-  const canVerifySubmissions = role === 'InstituteAdmin';
+  // (canVerifySubmissions hoisted above)
   const handleVerifySubmission = (submission: PaymentSubmission | SubjectPaymentSubmission) => {
     setSelectedSubmission(submission);
     setVerifyDialogOpen(true);

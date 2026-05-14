@@ -39,7 +39,7 @@ interface CreateAttendanceMarkerFormProps {
 
 const CreateAttendanceMarkerForm = ({ onSubmit, onCancel }: CreateAttendanceMarkerFormProps) => {
   const form = useForm<AttendanceMarkerFormData>({
-    resolver: zodResolver(attendanceMarkerSchema),
+    resolver: zodResolver(attendanceMarkerSchema) as any,
     defaultValues: {
       status: 'Active'
     }

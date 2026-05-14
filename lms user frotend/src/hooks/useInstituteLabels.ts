@@ -10,5 +10,11 @@ export const useInstituteLabels = () => {
     studentLabel: studentType?.name ?? 'Student',
     teacherLabel: teacherType?.name ?? 'Teacher',
     usersLabel:   'Users',
+    subjectLabel: 'Subject',
+    subjectsLabel: 'Subjects',
+    classLabel: 'Class',
+    classesLabel: 'Classes',
+    isTuition: false,
+    instituteLabel: 'Institute',
   };
 };

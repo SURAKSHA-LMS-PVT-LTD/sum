@@ -9,9 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 const assignParentSchema = z.object({
-  parentType: z.enum(['father', 'mother', 'guardian'], {
-    required_error: 'Please select a parent type'
-  }),
+  parentType: z.enum(['father', 'mother', 'guardian'] as const).refine(v => !!v, { message: 'Please select a parent type' }),
   parentUserId: z.string().min(1, 'Parent User ID is required')
 });
 
@@ -24,7 +22,7 @@ interface AssignParentFormProps {
 
 const AssignParentForm = ({ onSubmit, onCancel }: AssignParentFormProps) => {
   const form = useForm<AssignParentFormData>({
-    resolver: zodResolver(assignParentSchema),
+    resolver: zodResolver(assignParentSchema) as any,
     defaultValues: {
       parentType: undefined,
       parentUserId: ''

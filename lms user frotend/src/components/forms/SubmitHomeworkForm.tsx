@@ -32,7 +32,7 @@ const SubmitHomeworkForm = ({ homework, onClose, onSuccess }: SubmitHomeworkForm
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
 
   const { register, handleSubmit, formState: { errors } } = useForm<SubmissionFormData>({
-    resolver: zodResolver(submissionSchema),
+    resolver: zodResolver(submissionSchema) as any,
     defaultValues: {
       submissionDate: new Date().toISOString().split('T')[0],
       remarks: ''

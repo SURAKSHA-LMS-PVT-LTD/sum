@@ -39,10 +39,12 @@ import AssignUserMethodsDialog from '@/components/forms/AssignUserMethodsDialog'
 import { usersApi, BasicUser } from '@/api/users.api';
 import { housesApi, InstituteHouse } from '@/api/houses.api';
 import { profileImageApi } from '@/api/profileImage.api';
+import { instituteUsersApi } from '@/api/instituteUsers.api';
 import UserInfoDialog from '@/components/forms/UserInfoDialog';
 import UserOrganizationsDialog from '@/components/forms/UserOrganizationsDialog';
 import { getBaseUrl, getApiHeadersAsync } from '@/contexts/utils/auth.api';
 import { setInstituteUserPassword } from '@/contexts/utils/auth.api';
+import { getErrorMessage } from '@/api/apiError';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { uploadWithSignedUrl } from '@/utils/signedUploadHelper';
 import InstituteUsersFilters, { InstituteUserFilterParams } from '@/components/InstituteUsersFilters';
@@ -239,8 +241,10 @@ const InstituteUsers = () => {
   const tableConfig = { pagination: { defaultLimit: 50, availableLimits: [25, 50, 100] }, autoLoad: false };
   
   // Table for regular users by type (call hook at top level, always)
+  // Backend expects user type SLUG (e.g. STUDENT, TEACHER), not numeric id
+  const selectedUserTypeSlug = userTypes.find(ut => ut.id === selectedUserTypeId)?.slug?.toUpperCase() || '';
   const usersByTypeTable = useTableData<InstituteUserData>({
-    endpoint: currentInstituteId && selectedUserTypeId ? `/institute-users/institute/${currentInstituteId}/users/${selectedUserTypeId}` : null,
+    endpoint: currentInstituteId && selectedUserTypeSlug ? `/institute-users/institute/${currentInstituteId}/users/${selectedUserTypeSlug}` : null,
     defaultParams: filters[selectedUserTypeId] || {},
     dependencies: [],
     ...tableConfig
@@ -378,7 +382,7 @@ const InstituteUsers = () => {
         result = await profileImageApi.submitProfileImage(target.userId, relativePath, 'GLOBAL');
       } else {
         const headers = await getApiHeadersAsync();
-        const res = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/users/${target.userId}/upload-image`, {
+        const res = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/user/${target.userId}/upload-image`, {
           method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: relativePath })
         });
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || `Server error: ${res.status}`);
@@ -406,7 +410,7 @@ const InstituteUsers = () => {
     setActivatingUserId(userId);
     try {
       const headers = await getApiHeadersAsync();
-      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/users/${userId}/activate`, { method: 'PATCH', headers });
+      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/user/${userId}/activate`, { method: 'PATCH', headers });
       if (!response.ok) throw new Error('Failed to activate user');
       const result = await response.json();
       toast({ title: "Success", description: result.message || "User activated" });
@@ -422,7 +426,7 @@ const InstituteUsers = () => {
     setDeactivatingUserId(userId);
     try {
       const headers = await getApiHeadersAsync();
-      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/users/${userId}/deactivate`, { method: 'PATCH', headers });
+      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/user/${userId}/deactivate`, { method: 'PATCH', headers });
       if (!response.ok) throw new Error('Failed to deactivate user');
       const result = await response.json();
       toast({ title: "Success", description: result.message || "User deactivated" });
@@ -437,7 +441,7 @@ const InstituteUsers = () => {
     setChangingRole(true);
     try {
       const headers = await getApiHeadersAsync();
-      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/users/${changeRoleDialog.user.id}/change-role`, {
+      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/user/${changeRoleDialog.user.id}/change-role`, {
         method: 'PATCH', headers, body: JSON.stringify({ primaryUserTypeId: newRoleValue })
       });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || 'Failed to change role');
@@ -490,7 +494,7 @@ const InstituteUsers = () => {
         const filtered = extraDataRows.filter(r => r.key.trim() !== '');
         dataToSave = filtered.length > 0 ? Object.fromEntries(filtered.map(r => [r.key.trim(), r.value])) : null;
       }
-      await instituteApi.updateInstituteUserExtraData(currentInstituteId, editExtraDataDialog.user.id, dataToSave);
+      await instituteUsersApi.updateInstituteUserExtraData(currentInstituteId, editExtraDataDialog.user.id, dataToSave);
       toast({ title: 'Success', description: 'Extra data updated successfully' });
       setEditExtraDataDialog({ open: false, user: null });
       getCurrentTable()?.actions.refresh();
@@ -508,10 +512,13 @@ const InstituteUsers = () => {
   useEffect(() => {
     if (!currentInstituteId || !selectedUserTypeId) return;
     const table = getCurrentTable();
-    if (table && !table.state.loading && !table.state.lastRefresh) {
+    if (table && !table.state.loading) {
+      // Always reload when the selected user type or view changes so users
+      // for the newly-picked type are fetched from the API.
       table.actions.loadData(false);
     }
-  }, [selectedUserTypeId, activeView, pendingUserTypeId, currentInstituteId, tables]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUserTypeId, activeView, pendingUserTypeId, currentInstituteId]);
 
   const handleFiltersChange = (newFilters: InstituteUserFilterParams) => setCurrentFilters(newFilters);
 
@@ -658,7 +665,7 @@ const InstituteUsers = () => {
             <SheetContent side="bottom" className="md:hidden flex flex-col max-h-[80vh]">
               <SheetHeader><SheetTitle>User Filters</SheetTitle></SheetHeader>
               <div className="flex-1 overflow-y-auto py-4">
-                <InstituteUsersFilters filters={getCurrentFilters()} onFiltersChange={handleFiltersChange} onApplyFilters={() => { handleApplyFilters(); setIsFilterSheetOpen(false); }} onClearFilters={handleClearFilters} userType={activeView === 'USERS' ? currentType?.slug : activeView.toLowerCase()} houseOptions={houseOptions} isApplying={isApplyingFilters} />
+                <InstituteUsersFilters filters={getCurrentFilters()} onFiltersChange={handleFiltersChange} onApplyFilters={() => { handleApplyFilters(); setIsFilterSheetOpen(false); }} onClearFilters={handleClearFilters} userType={activeView === 'USERS' ? currentType?.slug as any : (activeView as any)} houseOptions={houseOptions} isApplying={isApplyingFilters} />
               </div>
             </SheetContent>
           </Sheet>
@@ -666,7 +673,7 @@ const InstituteUsers = () => {
       </div>
 
       <ScrollAnimationWrapper animationType="slide-up" className="hidden md:block">
-        <InstituteUsersFilters filters={getCurrentFilters()} onFiltersChange={handleFiltersChange} onApplyFilters={handleApplyFilters} onClearFilters={handleClearFilters} userType={activeView === 'USERS' ? currentType?.slug : activeView.toLowerCase()} houseOptions={houseOptions} isApplying={isApplyingFilters} />
+        <InstituteUsersFilters filters={getCurrentFilters()} onFiltersChange={handleFiltersChange} onApplyFilters={handleApplyFilters} onClearFilters={handleClearFilters} userType={activeView === 'USERS' ? currentType?.slug as any : (activeView as any)} houseOptions={houseOptions} isApplying={isApplyingFilters} />
       </ScrollAnimationWrapper>
 
       <Tabs value={activeView} onValueChange={value => setActiveView(value as ViewType)}>

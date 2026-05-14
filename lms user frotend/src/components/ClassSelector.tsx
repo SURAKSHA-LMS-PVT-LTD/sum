@@ -171,7 +171,7 @@ const ClassSelector = () => {
   const [loadingEnrollableClasses, setLoadingEnrollableClasses] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const enrollForm = useForm<z.infer<typeof enrollFormSchema>>({
-    resolver: zodResolver(enrollFormSchema),
+    resolver: zodResolver(enrollFormSchema) as any,
     defaultValues: {
       classId: '',
       enrollmentCode: ''

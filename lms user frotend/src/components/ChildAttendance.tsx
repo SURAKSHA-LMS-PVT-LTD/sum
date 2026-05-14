@@ -275,8 +275,8 @@ const ChildAttendance = () => {
         return (
           <div className="flex items-center gap-1 text-sm">
             <MapPin className="h-3 w-3 text-muted-foreground" />
-            <span className="max-w-[150px] truncate" title={record.address}>
-              {record.address}
+            <span className="max-w-[150px] truncate" title={String(record.address ?? '')}>
+              {String(record.address ?? '')}
             </span>
           </div>
         );
@@ -735,7 +735,7 @@ const ChildAttendance = () => {
                         outerRadius={100}
                         paddingAngle={5}
                         dataKey="value"
-                        label={({ name, percentage }) => `${name}: ${percentage}%`}
+                        label={(props: any) => `${props.name}: ${props.percentage}%`}
                       >
                         {pieChartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />

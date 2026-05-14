@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   ArrowLeft, Search, RefreshCw, CheckCircle, Loader2, User,
-  Banknote, XCircle, Clock, AlertCircle, LayoutGrid, Table2, CircleDollarSign,
+  Banknote, XCircle, Clock, AlertCircle, LayoutGrid, Table2, CircleDollarSign, Calendar,
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -550,61 +550,95 @@ const PaymentSubmissionsPhysical: React.FC = () => {
 
       {/* Record Payment Dialog */}
       <Dialog open={!!recordDialog} onOpenChange={open => { if (!open) setRecordDialog(null); }}>
-        <DialogContent className="max-w-sm w-[calc(100%-2rem)] mx-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Banknote className="h-5 w-5 text-green-600" />Record Physical Payment
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] mx-auto">
+          <DialogHeader className="bg-gradient-to-r from-green-50/80 to-emerald-50/80 -mx-6 -mt-6 px-6 py-4 border-b border-green-200/40 rounded-t-lg">
+            <DialogTitle className="flex items-center gap-3 text-lg font-bold text-green-900">
+              <div className="bg-green-100 rounded-lg p-2">
+                <Banknote className="h-5 w-5 text-green-600" />
+              </div>
+              Record Physical Payment
             </DialogTitle>
           </DialogHeader>
           {recordDialog && (
-            <div className="space-y-3">
-              <div className="rounded-lg bg-muted/50 px-3 py-2">
-                <p className="text-sm font-medium">{recordDialog.student.name}</p>
-                {recordDialog.student.nameWithInitials && (
-                  <p className="text-xs text-muted-foreground">{recordDialog.student.nameWithInitials}</p>
-                )}
+            <div className="space-y-5 py-4">
+              {/* Student Card */}
+              <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/40 border border-blue-100/50 p-4">
+                <div className="flex items-center gap-3">
+                  {recordDialog.student.profileImage ? (
+                    <img src={getImageUrl(recordDialog.student.profileImage)} alt={recordDialog.student.name}
+                      className="h-12 w-12 rounded-full object-cover ring-2 ring-blue-200" />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center ring-2 ring-blue-200">
+                      <span className="text-lg font-bold text-white">{(recordDialog.student.name?.[0] ?? '?').toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-foreground">{recordDialog.student.name}</p>
+                    {recordDialog.student.nameWithInitials && (
+                      <p className="text-xs text-muted-foreground">{recordDialog.student.nameWithInitials}</p>
+                    )}
+                    {recordDialog.student.userIdByInstitute && (
+                      <p className="text-xs text-blue-600 font-mono">ID: {recordDialog.student.userIdByInstitute}</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Payment Tier</Label>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <CircleDollarSign className="h-4 w-4 text-primary" />
+                  Payment Tier
+                </Label>
+                <div className="grid grid-cols-3 gap-3">
                   {(['full', 'half', 'quarter'] as const).map(tier => (
                     <button key={tier} type="button"
                       onClick={() => setRecordDialog(d => d ? { ...d, paymentTier: tier } : d)}
-                      className={`py-2 px-1 rounded-lg border text-xs font-semibold transition-colors ${
+                      className={`py-3 px-2 rounded-lg border-2 text-sm font-bold transition-all ${
                         recordDialog.paymentTier === tier
-                          ? tier === 'full' ? 'bg-green-100 border-green-500 text-green-800' : tier === 'half' ? 'bg-orange-100 border-orange-500 text-orange-800' : 'bg-purple-100 border-purple-500 text-purple-800'
-                          : 'bg-muted/40 border-border text-foreground hover:bg-muted'
+                          ? tier === 'full' ? 'bg-green-100 border-green-500 text-green-800 shadow-sm' : tier === 'half' ? 'bg-orange-100 border-orange-500 text-orange-800 shadow-sm' : 'bg-purple-100 border-purple-500 text-purple-800 shadow-sm'
+                          : 'bg-slate-50 border-border text-foreground hover:bg-slate-100'
                       }`}>
-                      {tier === 'full' ? 'Full' : tier === 'half' ? 'Half' : 'Quarter'}
+                      {tier === 'full' ? '💯 Full' : tier === 'half' ? '⚡ Half' : '❄️ Quarter'}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Amount (Rs) *</Label>
+              <div className="space-y-2">
+                <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Banknote className="h-4 w-4 text-primary" />
+                  Amount (Rs) *
+                </Label>
                 <Input type="number" min={0} placeholder="e.g. 5000" value={recordDialog.amount}
-                  onChange={e => setRecordDialog(d => d ? { ...d, amount: e.target.value } : d)} />
+                  onChange={e => setRecordDialog(d => d ? { ...d, amount: e.target.value } : d)}
+                  className="text-base font-semibold h-11 rounded-lg" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Payment Date</Label>
+              <div className="space-y-2">
+                <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  Payment Date
+                </Label>
                 <Input type="date" value={recordDialog.date}
-                  onChange={e => setRecordDialog(d => d ? { ...d, date: e.target.value } : d)} />
+                  onChange={e => setRecordDialog(d => d ? { ...d, date: e.target.value } : d)}
+                  className="text-base h-11 rounded-lg" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Notes (optional)</Label>
-                <Textarea placeholder="Receipt no., remarks..." rows={2} value={recordDialog.notes}
-                  onChange={e => setRecordDialog(d => d ? { ...d, notes: e.target.value } : d)} />
+              <div className="space-y-2">
+                <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  Notes (optional)
+                </Label>
+                <Textarea placeholder="Receipt no., remarks, payment method..." rows={3} value={recordDialog.notes}
+                  onChange={e => setRecordDialog(d => d ? { ...d, notes: e.target.value } : d)}
+                  className="rounded-lg resize-none text-sm" />
               </div>
             </div>
           )}
-          <DialogFooter className="gap-2 pt-1">
-            <Button variant="outline" onClick={() => setRecordDialog(null)} disabled={recording}>Cancel</Button>
-            <Button onClick={handleRecord} disabled={recording} className={`text-white ${
+          <DialogFooter className="gap-2 pt-4 border-t border-slate-200/60 mt-2">
+            <Button variant="outline" onClick={() => setRecordDialog(null)} disabled={recording} className="rounded-lg h-11 font-semibold">Cancel</Button>
+            <Button onClick={handleRecord} disabled={recording} className={`rounded-lg h-11 font-semibold text-white shadow-md ${
               recordDialog?.paymentTier === 'half' ? 'bg-orange-500 hover:bg-orange-600' :
               recordDialog?.paymentTier === 'quarter' ? 'bg-purple-600 hover:bg-purple-700' :
               'bg-green-600 hover:bg-green-700'
             }`}>
-              {recording ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <CheckCircle className="h-4 w-4 mr-1.5" />}
+              {recording ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
               {recording ? 'Recording...' : recordDialog?.paymentTier === 'half' ? 'Record Half Payment' : recordDialog?.paymentTier === 'quarter' ? 'Record Quarter Payment' : 'Record Full Payment'}
             </Button>
           </DialogFooter>
@@ -613,74 +647,121 @@ const PaymentSubmissionsPhysical: React.FC = () => {
 
       {/* Verify / Reject Dialog */}
       <Dialog open={!!verifyDialog} onOpenChange={open => { if (!open) setVerifyDialog(null); }}>
-        <DialogContent className="max-w-sm w-[calc(100%-2rem)] mx-auto">
-          <DialogHeader>
-            <DialogTitle className={`flex items-center gap-2 text-base ${
-              verifyDialog?.targetStatus === 'REJECTED' ? 'text-red-600' :
-              verifyDialog?.targetStatus === 'HALF_VERIFIED' ? 'text-orange-700' :
-              verifyDialog?.targetStatus === 'QUARTER_VERIFIED' ? 'text-purple-700' :
-              'text-green-700'
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] mx-auto">
+          <DialogHeader className={`-mx-6 -mt-6 px-6 py-4 border-b rounded-t-lg ${
+            verifyDialog?.targetStatus === 'REJECTED' ? 'bg-gradient-to-r from-red-50/80 to-rose-50/80 border-red-200/40' :
+            verifyDialog?.targetStatus === 'HALF_VERIFIED' ? 'bg-gradient-to-r from-orange-50/80 to-amber-50/80 border-orange-200/40' :
+            verifyDialog?.targetStatus === 'QUARTER_VERIFIED' ? 'bg-gradient-to-r from-purple-50/80 to-indigo-50/80 border-purple-200/40' :
+            'bg-gradient-to-r from-green-50/80 to-emerald-50/80 border-green-200/40'
+          }`}>
+            <DialogTitle className={`flex items-center gap-3 text-lg font-bold ${
+              verifyDialog?.targetStatus === 'REJECTED' ? 'text-red-900' :
+              verifyDialog?.targetStatus === 'HALF_VERIFIED' ? 'text-orange-900' :
+              verifyDialog?.targetStatus === 'QUARTER_VERIFIED' ? 'text-purple-900' :
+              'text-green-900'
             }`}>
-              {verifyDialog?.targetStatus === 'VERIFIED' && <><CheckCircle className="h-5 w-5" />Verify Submission</>}
-              {verifyDialog?.targetStatus === 'HALF_VERIFIED' && <><CircleDollarSign className="h-5 w-5" />Mark as Half Paid</>}
-              {verifyDialog?.targetStatus === 'QUARTER_VERIFIED' && <><CircleDollarSign className="h-5 w-5" />Mark as Quarter Paid</>}
-              {verifyDialog?.targetStatus === 'REJECTED' && <><XCircle className="h-5 w-5" />Reject Submission</>}
+              <div className={`rounded-lg p-2 ${
+                verifyDialog?.targetStatus === 'REJECTED' ? 'bg-red-100' :
+                verifyDialog?.targetStatus === 'HALF_VERIFIED' ? 'bg-orange-100' :
+                verifyDialog?.targetStatus === 'QUARTER_VERIFIED' ? 'bg-purple-100' :
+                'bg-green-100'
+              }`}>
+                {verifyDialog?.targetStatus === 'VERIFIED' && <CheckCircle className="h-5 w-5 text-green-600" />}
+                {verifyDialog?.targetStatus === 'HALF_VERIFIED' && <CircleDollarSign className="h-5 w-5 text-orange-600" />}
+                {verifyDialog?.targetStatus === 'QUARTER_VERIFIED' && <CircleDollarSign className="h-5 w-5 text-purple-600" />}
+                {verifyDialog?.targetStatus === 'REJECTED' && <XCircle className="h-5 w-5 text-red-600" />}
+              </div>
+              {verifyDialog?.targetStatus === 'VERIFIED' && 'Verify Payment'}
+              {verifyDialog?.targetStatus === 'HALF_VERIFIED' && 'Mark as Half Paid'}
+              {verifyDialog?.targetStatus === 'QUARTER_VERIFIED' && 'Mark as Quarter Paid'}
+              {verifyDialog?.targetStatus === 'REJECTED' && 'Reject Payment'}
             </DialogTitle>
           </DialogHeader>
           {verifyDialog && (
-            <div className="space-y-3">
-              <div className="rounded-lg bg-muted/50 px-3 py-2">
-                <p className="text-sm font-medium">{verifyDialog.student.name}</p>
+            <div className="space-y-5 py-4">
+              {/* Student Card */}
+              <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/40 border border-blue-100/50 p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  {verifyDialog.student.profileImage ? (
+                    <img src={getImageUrl(verifyDialog.student.profileImage)} alt={verifyDialog.student.name}
+                      className="h-12 w-12 rounded-full object-cover ring-2 ring-blue-200" />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center ring-2 ring-blue-200">
+                      <span className="text-lg font-bold text-white">{(verifyDialog.student.name?.[0] ?? '?').toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-foreground">{verifyDialog.student.name}</p>
+                    {verifyDialog.student.nameWithInitials && (
+                      <p className="text-xs text-muted-foreground">{verifyDialog.student.nameWithInitials}</p>
+                    )}
+                  </div>
+                </div>
                 {verifyDialog.student.amount != null && (
-                  <p className="text-xs text-muted-foreground">Submitted: Rs {Number(verifyDialog.student.amount).toLocaleString()}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white/60 rounded-lg p-2.5 border border-blue-100/50">
+                      <p className="text-xs text-muted-foreground font-medium">Amount Submitted</p>
+                      <p className="text-base font-bold text-blue-600">Rs {Number(verifyDialog.student.amount).toLocaleString()}</p>
+                    </div>
+                    <div className="bg-white/60 rounded-lg p-2.5 border border-blue-100/50">
+                      <p className="text-xs text-muted-foreground font-medium">Submitted Date</p>
+                      <p className="text-base font-bold text-blue-600">{verifyDialog.student.submittedAt ? new Date(verifyDialog.student.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}</p>
+                    </div>
+                  </div>
                 )}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Decision</Label>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  Verification Decision
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
                   {([
-                    { value: 'VERIFIED', label: 'Full Verified', cls: 'bg-green-100 border-green-500 text-green-800', hover: 'hover:bg-green-50' },
-                    { value: 'HALF_VERIFIED', label: 'Half Paid', cls: 'bg-orange-100 border-orange-500 text-orange-800', hover: 'hover:bg-orange-50' },
-                    { value: 'QUARTER_VERIFIED', label: 'Quarter Paid', cls: 'bg-purple-100 border-purple-500 text-purple-800', hover: 'hover:bg-purple-50' },
-                    { value: 'REJECTED', label: 'Reject', cls: 'bg-red-100 border-red-500 text-red-800', hover: 'hover:bg-red-50' },
+                    { value: 'VERIFIED', label: '✓ Full Verified', cls: 'bg-green-100 border-green-500 text-green-800', hover: 'hover:bg-green-50' },
+                    { value: 'HALF_VERIFIED', label: '⚡ Half Paid', cls: 'bg-orange-100 border-orange-500 text-orange-800', hover: 'hover:bg-orange-50' },
+                    { value: 'QUARTER_VERIFIED', label: '❄️ Quarter Paid', cls: 'bg-purple-100 border-purple-500 text-purple-800', hover: 'hover:bg-purple-50' },
+                    { value: 'REJECTED', label: '✕ Reject', cls: 'bg-red-100 border-red-500 text-red-800', hover: 'hover:bg-red-50' },
                   ] as const).map(opt => (
                     <button key={opt.value} type="button"
                       onClick={() => setVerifyDialog(d => d ? { ...d, targetStatus: opt.value } : d)}
-                      className={`py-2 px-2 rounded-lg border text-xs font-semibold transition-colors ${
-                        verifyDialog.targetStatus === opt.value ? opt.cls : `bg-muted/40 border-border text-foreground ${opt.hover}`
+                      className={`py-3 px-2 rounded-lg border-2 text-sm font-bold transition-all ${
+                        verifyDialog.targetStatus === opt.value ? opt.cls + ' shadow-sm' : `bg-slate-50 border-border text-foreground ${opt.hover}`
                       }`}>
                       {opt.label}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">
-                  Notes {verifyDialog.targetStatus === 'REJECTED' ? '(reason for rejection)' : '(optional)'}
+              <div className="space-y-2">
+                <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  {verifyDialog.targetStatus === 'REJECTED' ? 'Reason for Rejection *' : 'Notes (optional)'}
                 </Label>
-                <Textarea placeholder={verifyDialog.targetStatus === 'REJECTED' ? 'Reason for rejection...' : 'Optional notes...'}
-                  rows={2} value={verifyDialog.notes}
-                  onChange={e => setVerifyDialog(d => d ? { ...d, notes: e.target.value } : d)} />
+                <Textarea placeholder={verifyDialog.targetStatus === 'REJECTED' ? 'Please explain why this submission is being rejected...' : 'Add any additional notes or observations...'}
+                  rows={3} value={verifyDialog.notes}
+                  onChange={e => setVerifyDialog(d => d ? { ...d, notes: e.target.value } : d)}
+                  className="rounded-lg resize-none text-sm" />
               </div>
             </div>
           )}
-          <DialogFooter className="gap-2 pt-1">
-            <Button variant="outline" onClick={() => setVerifyDialog(null)} disabled={verifying}>Cancel</Button>
-            <Button onClick={handleVerify} disabled={verifying}
-              className={`text-white ${
-                verifyDialog?.targetStatus === 'REJECTED' ? 'bg-red-600 hover:bg-red-700' :
-                verifyDialog?.targetStatus === 'HALF_VERIFIED' ? 'bg-orange-500 hover:bg-orange-600' :
-                verifyDialog?.targetStatus === 'QUARTER_VERIFIED' ? 'bg-purple-600 hover:bg-purple-700' :
-                'bg-green-600 hover:bg-green-700'
-              }`}>
-              {verifying ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> :
-                verifyDialog?.targetStatus === 'REJECTED' ? <XCircle className="h-4 w-4 mr-1.5" /> :
-                <CheckCircle className="h-4 w-4 mr-1.5" />}
+          <DialogFooter className="gap-2 pt-4 border-t border-slate-200/60 mt-2">
+            <Button variant="outline" onClick={() => setVerifyDialog(null)} disabled={verifying} className="rounded-lg h-11 font-semibold">Cancel</Button>
+            <Button onClick={handleVerify} disabled={verifying} className="rounded-lg h-11 font-semibold text-white shadow-md"
+              style={{
+                backgroundColor: 
+                  verifyDialog?.targetStatus === 'REJECTED' ? '#dc2626' :
+                  verifyDialog?.targetStatus === 'HALF_VERIFIED' ? '#ea580c' :
+                  verifyDialog?.targetStatus === 'QUARTER_VERIFIED' ? '#9333ea' :
+                  '#16a34a'
+              }}>
+              {verifying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> :
+                verifyDialog?.targetStatus === 'REJECTED' ? <XCircle className="h-4 w-4 mr-2" /> :
+                <CheckCircle className="h-4 w-4 mr-2" />}
               {verifying ? 'Processing...' :
-                verifyDialog?.targetStatus === 'VERIFIED' ? 'Verify' :
+                verifyDialog?.targetStatus === 'VERIFIED' ? 'Verify Payment' :
                 verifyDialog?.targetStatus === 'HALF_VERIFIED' ? 'Mark Half Paid' :
                 verifyDialog?.targetStatus === 'QUARTER_VERIFIED' ? 'Mark Quarter Paid' :
-                'Reject'}
+                'Reject Payment'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -662,7 +662,7 @@ export async function generateStudentClassReport(
         didDrawCell: (data: any) => {
           if (data.section === 'body' && data.column.index === 4) {
             const isPresent = payload.liveAttendance[data.row.index]?.totalDurationMinutes > 0;
-            const rgb = isPresent ? [22, 163, 74] : [220, 38, 38] as [number, number, number];
+            const rgb = (isPresent ? [22, 163, 74] : [220, 38, 38]) as [number, number, number];
             const lightRgb = mixWithWhite(rgb);
             const cell = data.cell;
             doc.setFillColor(...lightRgb);
@@ -734,7 +734,7 @@ export async function generateStudentClassReport(
         didDrawCell: (data: any) => {
           if (data.section === 'body' && data.column.index === 5) {
             const isWatched = payload.recordingAttendance[data.row.index]?.totalWatchedSeconds > 0;
-            const rgb = isWatched ? [124, 58, 237] : [107, 114, 128] as [number, number, number];
+            const rgb = (isWatched ? [124, 58, 237] : [107, 114, 128]) as [number, number, number];
             const lightRgb = mixWithWhite(rgb);
             const cell = data.cell;
             doc.setFillColor(...lightRgb);
@@ -859,7 +859,7 @@ export async function generateStudentClassReport(
   }
 
   if (printOptions.returnUint8Array) {
-    return doc.output('uint8array');
+    return (doc as any).output('uint8array');
   }
 
   const safe = (payload.student.name ?? 'student').replace(/[^a-z0-9]/gi, '_').toLowerCase();

@@ -41,6 +41,7 @@ interface ClassSubjectStudent {
   motherId?: string;
   guardianId?: string;
   extraData?: Record<string, any> | null;
+  nameWithInitials?: string;
 }
 
 interface ClassSubjectStudentsResponse {

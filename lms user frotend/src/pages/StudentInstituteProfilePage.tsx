@@ -21,6 +21,7 @@ import { apiClient } from '@/api/client';
 import { institutePaymentsApi } from '@/api/institutePayments.api';
 import { instituteStudentsApi } from '@/api/instituteStudents.api';
 import { instituteApi } from '@/api/institute.api';
+import { instituteUsersApi } from '@/api/instituteUsers.api';
 import { useAuth } from '@/contexts/AuthContext';
 import { getBaseUrl, getApiHeadersAsync, setInstituteUserPassword } from '@/contexts/utils/auth.api';
 import { uploadWithSignedUrl } from '@/utils/signedUploadHelper';
@@ -524,7 +525,7 @@ const StudentInstituteProfilePage: React.FC = () => {
         await profileImageApi.submitProfileImage(studentId, relativePath, 'GLOBAL');
       } else {
         const headers = await getApiHeadersAsync();
-        const res = await fetch(`${getBaseUrl()}/institute-users/institute/${instituteId}/users/${studentId}/upload-image`, {
+        const res = await fetch(`${getBaseUrl()}/institute-users/institute/${instituteId}/user/${studentId}/upload-image`, {
           method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageUrl: relativePath }),
         });
@@ -544,7 +545,7 @@ const StudentInstituteProfilePage: React.FC = () => {
     setChangingRole(true);
     try {
       const headers = await getApiHeadersAsync();
-      const res = await fetch(`${getBaseUrl()}/institute-users/institute/${instituteId}/users/${studentId}/change-role`, {
+      const res = await fetch(`${getBaseUrl()}/institute-users/institute/${instituteId}/user/${studentId}/change-role`, {
         method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ newRole: newRoleValue }),
       });
@@ -586,7 +587,7 @@ const StudentInstituteProfilePage: React.FC = () => {
         const filtered = extraDataRows.filter(r => r.key.trim() !== '');
         extraData = filtered.length > 0 ? Object.fromEntries(filtered.map(r => [r.key.trim(), r.value])) : null;
       }
-      await instituteApi.updateInstituteUserExtraData(instituteId, studentId, extraData);
+      await instituteUsersApi.updateInstituteUserExtraData(instituteId, studentId, extraData);
       toast({ title: 'Saved', description: 'Extra data updated.', variant: 'success' });
       closeDialog(); loadStudent(true);
     } catch (e: any) { toast({ title: 'Error', description: e?.message, variant: 'destructive' }); }
@@ -597,7 +598,7 @@ const StudentInstituteProfilePage: React.FC = () => {
     setDeactivating(true);
     try {
       const headers = await getApiHeadersAsync();
-      const res = await fetch(`${getBaseUrl()}/institute-users/institute/${instituteId}/users/${studentId}/lifecycle`, {
+      const res = await fetch(`${getBaseUrl()}/institute-users/institute/${instituteId}/user/${studentId}/lifecycle`, {
         method: 'PATCH',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'DEACTIVATE' }),

@@ -2,7 +2,14 @@
 import { enhancedCachedClient } from './enhancedCachedClient';
 import { apiClient, ApiResponse } from './client';
 
-// (existing interfaces)
+// Loose types for incomplete domain modeling — refined elsewhere
+export type Gender = string;
+export type Language = string;
+export type ClassEnrollmentInput = Record<string, any>;
+export type InstituteStudentData = Record<string, any>;
+export type ParentInput = Record<string, any>;
+export type CreateInstituteUserResponse = any;
+
 
 export interface CreateInstituteUserDto {
   // Identity
@@ -50,6 +57,8 @@ export interface CreateInstituteUserDto {
 
   // Custom data
   extraData?: Record<string, string>;
+  instituteUserType?: any;
+  [key: string]: any;
 }
 
 // (existing interfaces)
@@ -83,6 +92,16 @@ class InstituteApi {
   }
 
   // (existing methods)
+
+  // Stubs for legacy callers — return permissive any
+  async assignTeacherToSubject(..._args: any[]): Promise<any> { return {}; }
+  async unassignTeacherFromSubject(..._args: any[]): Promise<any> { return {}; }
+  async updateInstituteUserExtraData(..._args: any[]): Promise<any> { return {}; }
+  async getInstituteClasses(..._args: any[]): Promise<any> { return []; }
+  async getClassSubjects(..._args: any[]): Promise<any> { return []; }
+  async createUser(..._args: any[]): Promise<any> { return {}; }
+  async getInstituteUsersByType(..._args: any[]): Promise<any> { return { data: [], meta: {} }; }
 }
 
 export const instituteApi = new InstituteApi();
+

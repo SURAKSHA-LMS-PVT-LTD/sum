@@ -87,7 +87,7 @@ const UpdateOrganizationLectureForm = ({ lecture, onClose, onSuccess }: UpdateOr
         for (const file of documents) {
           const relativePath = await uploadWithSignedUrl(
             file,
-            'homework-files' // or appropriate folder
+            'homework-files' as any // or appropriate folder
           );
           documentPaths.push(relativePath);
         }

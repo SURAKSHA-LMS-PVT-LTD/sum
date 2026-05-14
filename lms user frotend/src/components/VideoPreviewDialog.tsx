@@ -3,14 +3,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import VideoPlayer from './VideoPlayer';
 
 interface VideoPreviewDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  videoUrl: string;
-  videoType: string;
-  title: string;
+  isOpen?: boolean;
+  open?: boolean;
+  onClose?: () => void;
+  onOpenChange?: (open: boolean) => void;
+  videoUrl?: string;
+  url?: string;
+  videoType?: string;
+  title?: string;
+  description?: string;
+  materials?: any;
 }
 
-const VideoPreviewDialog: React.FC<VideoPreviewDialogProps> = ({ isOpen, onClose, videoUrl, videoType, title }) => {
+const VideoPreviewDialog: React.FC<VideoPreviewDialogProps> = ({ isOpen, open, onClose, onOpenChange, videoUrl, url, videoType, title }) => {
+  const dialogOpen = isOpen ?? open ?? false;
+  const handleOpenChange = (v: boolean) => { onOpenChange?.(v); if (!v) onClose?.(); };
+  const src = videoUrl ?? url ?? '';
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl w-full p-4">

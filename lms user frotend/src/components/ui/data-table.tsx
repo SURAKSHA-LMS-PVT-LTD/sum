@@ -15,7 +15,7 @@ import {
 
 interface Column {
   key: string;
-  header: string;
+  header: React.ReactNode;
   render?: (value: any, row: any) => React.ReactNode;
   width?: string;
 }

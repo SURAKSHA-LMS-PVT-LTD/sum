@@ -522,14 +522,14 @@ export const profileImageApi = {
   },
 
   // ─── INSTITUTE ADMIN: VERIFY USER IMAGE ──────
-  /** POST /institute-users/institute/:instituteId/users/:userId/verify-image */
+  /** POST /institute-users/institute/:instituteId/user/:userId/verify-image */
   verifyInstituteUserImage: async (
     instituteId: string,
     userId: string,
     dto: VerifyInstituteUserImageDto
   ): Promise<{ success: boolean; message: string; status: ImageVerificationStatus }> => {
     return apiClient.post(
-      `/institute-users/institute/${instituteId}/users/${userId}/verify-image`,
+      `/institute-users/institute/${instituteId}/user/${userId}/verify-image`,
       dto
     );
   },

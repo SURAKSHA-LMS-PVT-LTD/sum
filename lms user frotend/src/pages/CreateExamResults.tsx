@@ -176,7 +176,7 @@ const CreateExamResults = () => {
       // Auto-calculate grade and remarks when score changes
       if (field === 'score' && value) {
         const { grade, remarks } = calculateGradeAndRemarks(value);
-        updatedResult.grade = grade;
+        updatedResult.grade = grade as any;
         updatedResult.remarks = remarks;
       }
       

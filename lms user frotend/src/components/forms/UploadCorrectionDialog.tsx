@@ -118,7 +118,7 @@ const UploadCorrectionDialog = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Reusable File Upload Zone - same component as homework submission */}
           <FileUploadZone
-            folder="correction-files"
+            folder={"correction-files" as any}
             drivePurpose="HOMEWORK_CORRECTION"
             driveReferenceType="homework_submission"
             driveReferenceId={submissionId || submission?.id}

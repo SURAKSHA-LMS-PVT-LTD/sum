@@ -274,7 +274,7 @@ const InstituteSettingsPage = () => {
         enhancedCachedClient.get<InstituteSettings>(
           `/institutes/${currentInstituteId}/settings`,
           {},
-          { ttl: CACHE_TTL.SETTINGS, forceRefresh: true, instituteId: currentInstituteId }
+          { ttl: CACHE_TTL.INSTITUTE_PROFILE, forceRefresh: true, instituteId: currentInstituteId }
         ),
         tenantApi.getSmsSettings(currentInstituteId).catch(() => null),
         tenantApi.getPlanInfo(currentInstituteId, true).catch(() => null),
@@ -567,8 +567,9 @@ const InstituteSettingsPage = () => {
     return true;
   });
 
+  const isFullWidthTab = activeTab === 'features' || activeTab === 'user-types';
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto">
+    <div className={`p-4 sm:p-6 space-y-6 ${isFullWidthTab ? 'max-w-none' : 'max-w-5xl mx-auto'}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

@@ -522,7 +522,7 @@ const VerifyImage = () => {
                 onClick={handleRejectImage}
                 disabled={!rejectionReason.trim() || (selectedStudent ? rejectingIds.has(selectedStudent.userId) : false)}
               >
-                {selectedStudent && rejectingIds.has(selectedStudent.id) ? (
+                {selectedStudent && rejectingIds.has(selectedStudent.userId) ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                     Rejecting...

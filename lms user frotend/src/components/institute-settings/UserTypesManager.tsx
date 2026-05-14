@@ -477,13 +477,14 @@ export const UserTypesManager: React.FC = () => {
 
               <CardContent className="p-0">
                 {/* Sticky column header */}
-                <div className="grid grid-cols-[1fr_repeat(6,36px)] gap-0 px-4 py-2 bg-muted/40 border-b sticky top-0 z-10">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase">Feature</div>
+                <div className="grid grid-cols-[1fr_repeat(6,90px)] gap-0 bg-muted/40 border-b border-border sticky top-0 z-10 divide-x divide-border">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase px-4 py-2 flex items-center">Feature</div>
                   {ACTIONS.map(a => (
                     <Tooltip key={a.key}>
                       <TooltipTrigger asChild>
-                        <div className={`flex justify-center items-center ${a.color}`}>
-                          <a.Icon className="h-3.5 w-3.5" />
+                        <div className={`w-full h-full flex flex-col items-center justify-center py-2 ${a.color} cursor-help`}>
+                          <a.Icon className="h-4 w-4" />
+                          <span className="text-[10px] font-semibold leading-tight mt-0.5">{a.label}</span>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>{a.label}</TooltipContent>
@@ -499,37 +500,37 @@ export const UserTypesManager: React.FC = () => {
                     if (!cats.length) return null;
                     return (
                       <div key={scope}>
-                        <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border-b border-t">
-                          <ScopeIcon className="h-3.5 w-3.5 text-primary" />
-                          <div>
-                            <p className="text-xs font-bold text-primary uppercase tracking-wide">{scopeLabel}</p>
-                            <p className="text-[10px] text-muted-foreground">{scopeDesc}</p>
+                        <div className="grid grid-cols-[1fr_repeat(6,90px)] gap-0 bg-primary/5 border-b border-t border-border">
+                          <div className="flex items-center gap-2 px-4 py-2 col-span-1">
+                            <ScopeIcon className="h-3.5 w-3.5 text-primary" />
+                            <div>
+                              <p className="text-xs font-bold text-primary uppercase tracking-wide">{scopeLabel}</p>
+                              <p className="text-[10px] text-muted-foreground">{scopeDesc}</p>
+                            </div>
                           </div>
+                          <div className="col-span-6" />
                         </div>
 
                         {cats.map(cat => (
                           <div key={cat}>
-                            <div className="px-4 py-1.5 bg-muted/20 border-b border-t">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                {CATEGORY_LABELS[cat] ?? cat}
-                              </p>
+                            <div className="grid grid-cols-[1fr_repeat(6,90px)] gap-0 bg-muted/20 border-b border-t border-border">
+                              <div className="px-4 py-1.5 col-span-1">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  {CATEGORY_LABELS[cat] ?? cat}
+                                </p>
+                              </div>
+                              <div className="col-span-6" />
                             </div>
 
                             {(scopeGroups[cat] ?? []).map((feat: CatalogFeature, idx: number) => {
                               const row = permMap[feat.key] ?? initRow(feat.key);
                               const isReadOnly = selectedType.isSystemType;
-                              // For custom types: only allow actions that are applicable to this feature
                               const applicableActions = ACTIONS.filter(a => isActionApplicable(feat.key, a.key));
                               const allOn = applicableActions.every(a => row[a.key]);
 
                               return (
-                                <div
-                                  key={feat.key}
-                                  className={`grid grid-cols-[1fr_repeat(6,36px)] gap-0 px-4 py-2 items-center border-b last:border-b-0 ${
-                                    idx % 2 === 0 ? '' : 'bg-muted/10'
-                                  } ${isReadOnly ? 'opacity-60' : ''}`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0 pr-2">
+                                <div key={feat.key} className={`grid grid-cols-[1fr_repeat(6,90px)] gap-0 border-b border-border last:border-b-0 divide-x divide-border ${idx % 2 === 0 ? '' : 'bg-muted/10'} ${isReadOnly ? 'opacity-60' : ''}`}>
+                                  <div className="flex items-center gap-2 min-w-0 px-4 py-2.5">
                                     {!isReadOnly && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
@@ -557,18 +558,19 @@ export const UserTypesManager: React.FC = () => {
                                   {ACTIONS.map(action => {
                                     const applicable = isActionApplicable(feat.key, action.key);
                                     return (
-                                      <div key={action.key} className="flex justify-center">
+                                      <div key={action.key} className="w-full h-full flex flex-col items-center justify-center gap-1 py-2">
                                         {applicable ? (
-                                          <Switch
-                                            checked={row[action.key]}
-                                            onCheckedChange={() => !isReadOnly && handleToggle(selectedType.id, feat.key, action.key)}
-                                            disabled={isReadOnly}
-                                            className="scale-75"
-                                          />
+                                          <>
+                                            <action.Icon className={`h-3.5 w-3.5 ${action.color}`} />
+                                            <Switch
+                                              checked={row[action.key]}
+                                              onCheckedChange={() => !isReadOnly && handleToggle(selectedType.id, feat.key, action.key)}
+                                              disabled={isReadOnly}
+                                              className="scale-75"
+                                            />
+                                          </>
                                         ) : (
-                                          <div className="w-8 h-4 flex items-center justify-center">
-                                            <span className="text-[10px] text-muted-foreground/30">—</span>
-                                          </div>
+                                          <span className="text-[10px] text-muted-foreground/30">—</span>
                                         )}
                                       </div>
                                     );

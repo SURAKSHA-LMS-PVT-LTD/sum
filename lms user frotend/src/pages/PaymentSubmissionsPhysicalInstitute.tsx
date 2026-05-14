@@ -61,17 +61,25 @@ interface RecordDialogState {
 }
 
 const statusBadge = (status: string) => {
+  const base = "gap-1.5 px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider text-[10px] border";
   switch (status) {
     case 'VERIFIED':
-      return <Badge className="bg-green-100 text-green-800 border-green-200 gap-1"><CheckCircle className="h-3 w-3" />Verified</Badge>;
+      return <Badge className={`${base} bg-green-100 text-green-700 border-green-300 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800`}><CheckCircle className="h-3 w-3" />Verified</Badge>;
     case 'PENDING':
-      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 gap-1"><Clock className="h-3 w-3" />Pending</Badge>;
+      return <Badge className={`${base} bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800`}><Clock className="h-3 w-3" />Pending</Badge>;
     case 'REJECTED':
-      return <Badge className="bg-red-100 text-red-800 border-red-200 gap-1"><XCircle className="h-3 w-3" />Rejected</Badge>;
+      return <Badge className={`${base} bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800`}><XCircle className="h-3 w-3" />Rejected</Badge>;
     default:
-      return <Badge variant="outline" className="text-gray-600 gap-1"><AlertCircle className="h-3 w-3" />Not Submitted</Badge>;
+      return <Badge variant="outline" className={`${base} text-muted-foreground`}><AlertCircle className="h-3 w-3" />Not Submitted</Badge>;
   }
 };
+
+const DetailRow: React.FC<{ label: string; children: React.ReactNode; mono?: boolean }> = ({ label, children, mono }) => (
+  <div className="flex items-center justify-between gap-3 py-2.5 border-b border-border/40 last:border-0">
+    <span className="text-[11px] uppercase tracking-[0.14em] font-medium text-muted-foreground/80">{label}</span>
+    <span className={`text-sm font-medium text-foreground text-right ${mono ? 'font-mono' : ''}`}>{children}</span>
+  </div>
+);
 
 //  Component 
 const PaymentSubmissionsPhysicalInstitute: React.FC = () => {
@@ -188,225 +196,329 @@ const PaymentSubmissionsPhysicalInstitute: React.FC = () => {
 
   return (
     <AppLayout>
-      <div className="space-y-4 px-2 sm:px-4 py-3 sm:py-4">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" onClick={() => navigate(-1)} size="sm" className="shrink-0 px-2">
-            <ArrowLeft className="h-4 w-4" /><span className="ml-1 hidden sm:inline text-xs">Back</span>
-          </Button>
-          <div className="flex items-center gap-2 min-w-0">
-            <Banknote className="h-5 w-5 text-green-600 shrink-0" />
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-semibold text-foreground truncate">Institute Physical Payment</h1>
-              <p className="text-xs text-muted-foreground truncate">
-                Payment ID: {paymentId} {selectedInstitute ? ` ${selectedInstitute.name}` : ''}
-              </p>
+      <div className="relative w-full min-h-full">
+        {/* Ambient gradient backdrop */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+          <div className="absolute top-20 right-0 h-96 w-96 rounded-full bg-accent/10 blur-3xl" />
+        </div>
+
+        <div className="w-full px-4 sm:px-8 lg:px-12 py-6 sm:py-10 space-y-8">
+        {/* Modern Hero Header */}
+        <div className="relative w-full overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent backdrop-blur-sm shadow-xl shadow-primary/5">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.15),transparent_60%)]" />
+          <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 px-6 sm:px-10 py-8">
+            <div className="flex items-start gap-4 min-w-0">
+              <Button
+                variant="ghost"
+                onClick={() => navigate(-1)}
+                size="sm"
+                className="shrink-0 h-10 w-10 p-0 rounded-xl bg-background/60 backdrop-blur hover:bg-background border border-border/50"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.22em] font-bold text-primary mb-2">
+                  Physical Payment · Verify
+                </p>
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight">
+                  Payment Counter
+                </h1>
+                <p className="text-sm text-muted-foreground mt-2 truncate">
+                  <span className="font-mono px-2 py-0.5 rounded-md bg-background/60 border border-border/50">#{paymentId}</span>
+                  {selectedInstitute && <span className="ml-2">· {selectedInstitute.name}</span>}
+                </p>
+              </div>
+            </div>
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 shadow-2xl shadow-primary/40 ring-4 ring-background/60">
+              <Banknote className="h-8 w-8 text-white" />
             </div>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <Card>
-          <CardHeader className="p-3 pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Search className="h-4 w-4 text-primary" />Search Student
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="flex gap-2">
+        {/* Search */}
+        <Card className="border-border/50 shadow-lg shadow-primary/5 overflow-hidden bg-card/80 backdrop-blur-sm rounded-3xl">
+          <CardContent className="p-6 sm:p-8">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Search className="h-4 w-4 text-primary" />
+              </div>
+              <p className="text-xs uppercase tracking-[0.18em] font-bold text-foreground">
+                Look up Student
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
                 <Input
-                  placeholder="Enter student ID"
-                  className="pl-9 text-sm"
+                  placeholder="Enter student User ID"
+                  className="pl-11 h-14 text-base bg-muted/30 border-border/50 focus-visible:bg-background rounded-2xl"
                   value={studentIdInput}
                   onChange={e => setStudentIdInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
                 />
               </div>
-              <Button onClick={() => handleSearch()} disabled={searching} size="sm" className="shrink-0">
+              <Button
+                onClick={() => handleSearch()}
+                disabled={searching}
+                className="shrink-0 h-14 px-8 bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg shadow-primary/30 rounded-2xl text-base font-semibold"
+              >
                 {searching
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Search className="h-4 w-4" />}
-                <span className="ml-1.5 hidden sm:inline">Search</span>
+                  ? <Loader2 className="h-5 w-5 animate-spin" />
+                  : <Search className="h-5 w-5" />}
+                <span className="ml-2 font-semibold">Search</span>
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-2">Enter the student&apos;s user ID to look up their payment status for this payment.</p>
           </CardContent>
         </Card>
 
         {/* Search Result */}
         {hasSearched && !searching && searchResult && (
-          <Card>
-            <CardHeader className="p-3 pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" />Student Info
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 pt-0 space-y-4">
-              {/* Student Profile */}
-              <div className="flex items-center gap-3">
-                {searchResult.student.image ? (
-                  <img
-                    src={searchResult.student.image}
-                    alt={searchResult.student.nameWithInitials}
-                    className="h-14 w-14 rounded-full object-cover ring-2 ring-border shrink-0"
-                  />
-                ) : (
-                  <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-border shrink-0">
-                    <span className="text-lg font-bold text-primary">
-                      {(searchResult.student.nameWithInitials?.[0] ?? '?').toUpperCase()}
-                    </span>
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* Student Hero Card */}
+            <Card className="border-border/50 shadow-xl shadow-primary/5 overflow-hidden rounded-3xl bg-card/80 backdrop-blur-sm">
+              <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 px-6 sm:px-10 py-8 border-b border-border/40">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,hsl(var(--primary)/0.18),transparent_55%)]" />
+                <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-7">
+                  {searchResult.student.image ? (
+                    <img
+                      src={searchResult.student.image}
+                      alt={searchResult.student.nameWithInitials}
+                      className="h-24 w-24 sm:h-28 sm:w-28 rounded-3xl object-cover ring-4 ring-background shadow-2xl shadow-primary/30 shrink-0"
+                    />
+                  ) : (
+                    <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-3xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center ring-4 ring-background shadow-2xl shadow-primary/30 shrink-0">
+                      <span className="text-4xl sm:text-5xl font-bold text-white">
+                        {(searchResult.student.nameWithInitials?.[0] ?? '?').toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase tracking-[0.22em] font-bold text-primary mb-2">
+                      Student Profile
+                    </p>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
+                      {searchResult.student.nameWithInitials}
+                    </h2>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <div className="inline-flex items-center gap-2 rounded-xl bg-background/70 backdrop-blur px-3 py-1.5 border border-border/50">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">System ID</span>
+                        <span className="font-mono text-xs font-bold text-foreground">{searchResult.student.uuid}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-2 rounded-xl bg-background/70 backdrop-blur px-3 py-1.5 border border-border/50">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Institute ID</span>
+                        <span className="font-mono text-xs font-bold text-foreground">{searchResult.student.instituteUserId}</span>
+                      </div>
+                    </div>
                   </div>
-                )}
-                <div className="min-w-0">
-                  <p className="font-semibold text-foreground truncate">{searchResult.student.nameWithInitials}</p>
-                  <p className="text-xs text-muted-foreground">Student ID: {searchResult.student.uuid}</p>
-                  <p className="text-xs text-muted-foreground">Institute ID: {searchResult.student.instituteUserId}</p>
                 </div>
               </div>
+            </Card>
 
+            <div className="grid lg:grid-cols-2 gap-6">
               {/* Payment Info */}
               {searchResult.payment && (
-                <div className="rounded-lg border border-border p-3 space-y-2">
-                  <p className="text-xs font-semibold text-foreground">Payment Details</p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Description</span>
-                      <span className="text-xs font-medium">{searchResult.payment.description}</span>
+                <Card className="border-border/50 shadow-lg shadow-primary/5 rounded-3xl bg-card/80 backdrop-blur-sm overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-[11px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">
+                        Payment Details
+                      </p>
+                      <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wider">
+                        {searchResult.payment.paymentType}
+                      </Badge>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Amount</span>
-                      <span className="text-xs font-medium">Rs {Number(searchResult.payment.amount).toLocaleString()}</span>
+                    <div className="mb-4 pb-4 border-b border-border/40">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80 mb-1">Amount Due</p>
+                      <p className="text-3xl font-bold text-foreground tracking-tight">
+                        Rs <span className="text-primary">{Number(searchResult.payment.amount).toLocaleString()}</span>
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Due Date</span>
-                      <span className="text-xs">{new Date(searchResult.payment.dueDate).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Type</span>
-                      <Badge variant="outline" className="text-[10px]">{searchResult.payment.paymentType}</Badge>
-                    </div>
-                  </div>
-                </div>
+                    <DetailRow label="Description">
+                      <span className="block max-w-[180px] truncate" title={searchResult.payment.description}>
+                        {searchResult.payment.description}
+                      </span>
+                    </DetailRow>
+                    <DetailRow label="Due Date">
+                      {new Date(searchResult.payment.dueDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </DetailRow>
+                  </CardContent>
+                </Card>
               )}
 
-              {/* Payment Status for this payment */}
-              <div className="rounded-lg border border-border p-3 space-y-2">
-                <p className="text-xs font-semibold text-foreground">Payment Submission Status</p>
-                {paymentHistoryForThisPayment ? (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Status</span>
-                      {statusBadge(paymentHistoryForThisPayment.status)}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Amount</span>
-                      <span className="text-xs font-medium">Rs {Number(paymentHistoryForThisPayment.amount).toLocaleString()}</span>
-                    </div>
-                    {paymentHistoryForThisPayment.date && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Date</span>
-                        <span className="text-xs">{new Date(paymentHistoryForThisPayment.date).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                    {paymentHistoryForThisPayment.note && (
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs text-muted-foreground shrink-0">Notes</span>
-                        <span className="text-xs text-right">{paymentHistoryForThisPayment.note}</span>
-                      </div>
-                    )}
+              {/* Submission Status */}
+              {(() => {
+                const st = paymentHistoryForThisPayment?.status;
+                const statusCard =
+                  st === 'VERIFIED'
+                    ? 'border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-800'
+                    : st === 'REJECTED'
+                    ? 'border-rose-300 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800'
+                    : st === 'PENDING'
+                    ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800'
+                    : 'border-border/60';
+                const statusLabel =
+                  st === 'VERIFIED'
+                    ? 'text-green-700 dark:text-green-300'
+                    : st === 'REJECTED'
+                    ? 'text-rose-700 dark:text-rose-300'
+                    : st === 'PENDING'
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : 'text-muted-foreground';
+                const statusAmount =
+                  st === 'VERIFIED'
+                    ? 'text-green-700 dark:text-green-300'
+                    : st === 'REJECTED'
+                    ? 'text-rose-700 dark:text-rose-300'
+                    : st === 'PENDING'
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : 'text-foreground';
+                return (
+              <Card className={`shadow-lg shadow-primary/5 border rounded-3xl bg-card/80 backdrop-blur-sm overflow-hidden ${statusCard}`}>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className={`text-[11px] uppercase tracking-[0.16em] font-semibold ${statusLabel}`}>
+                      Submission Status
+                    </p>
+                    {paymentHistoryForThisPayment && statusBadge(paymentHistoryForThisPayment.status)}
                   </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">No payment recorded for this payment yet.</p>
-                )}
+                  {paymentHistoryForThisPayment ? (
+                    <>
+                      <div className="mb-4 pb-4 border-b border-border/40">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80 mb-1">Recorded Amount</p>
+                        <p className={`text-3xl font-bold tracking-tight ${statusAmount}`}>
+                          Rs <span>{Number(paymentHistoryForThisPayment.amount).toLocaleString()}</span>
+                        </p>
+                      </div>
+                      {paymentHistoryForThisPayment.date && (
+                        <DetailRow label="Date">
+                          {new Date(paymentHistoryForThisPayment.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </DetailRow>
+                      )}
+                      {paymentHistoryForThisPayment.note && (
+                        <div className="pt-2.5">
+                          <p className="text-[11px] uppercase tracking-[0.14em] font-medium text-muted-foreground/80 mb-1.5">Notes</p>
+                          <p className="text-sm text-foreground/90 leading-relaxed">{paymentHistoryForThisPayment.note}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <AlertCircle className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">No payment recorded yet</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+                );
+              })()}
+            </div>
+
+            {/* Action */}
+            {canRecord && (
+              <Button
+                size="lg"
+                className="w-full h-16 text-lg font-bold bg-gradient-to-br from-primary via-primary to-primary/70 hover:from-primary/90 hover:to-primary/60 text-white shadow-2xl shadow-primary/40 rounded-2xl"
+                onClick={() => setRecordDialog({
+                  amount: searchResult?.payment?.amount?.toString() || '',
+                  date: new Date().toISOString().slice(0, 10),
+                  notes: ''
+                })}
+              >
+                <Banknote className="h-5 w-5 mr-2" />
+                Verify & Record Payment
+              </Button>
+            )}
+            {alreadyVerified && (
+              <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/40 dark:to-green-900/20 border border-green-300/70 dark:border-green-800/60 px-5 py-4 shadow-sm">
+                <div className="h-10 w-10 rounded-xl bg-green-600 flex items-center justify-center shrink-0 shadow-md shadow-green-600/30">
+                  <CheckCircle className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-green-900 dark:text-green-100">Payment Verified</p>
+                  <p className="text-xs text-green-700/80 dark:text-green-300/80">This student's payment has already been recorded.</p>
+                </div>
               </div>
-
-              {/* Action */}
-              {canRecord && (
-                <Button
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => setRecordDialog({
-                    amount: searchResult?.payment?.amount?.toString() || '',
-                    date: new Date().toISOString().slice(0, 10),
-                    notes: ''
-                  })}
-                >
-                  <Banknote className="h-4 w-4 mr-2" />
-                  {paymentHistoryForThisPayment ? 'Verify Payment' : 'Verify Payment'}
-                </Button>
-              )}
-              {alreadyVerified && (
-                <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
-                  <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
-                  <p className="text-xs text-green-700 font-medium">Payment already verified for this student.</p>
+            )}
+            {alreadyRejected && (
+              <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-950/40 dark:to-rose-900/20 border border-rose-200/60 dark:border-rose-800/60 px-5 py-4 shadow-sm">
+                <div className="h-10 w-10 rounded-xl bg-rose-500 flex items-center justify-center shrink-0 shadow-md shadow-rose-500/30">
+                  <XCircle className="h-5 w-5 text-white" />
                 </div>
-              )}
-              {alreadyRejected && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
-                  <XCircle className="h-4 w-4 text-red-600 shrink-0" />
-                  <p className="text-xs text-red-700 font-medium">Payment has been rejected for this student.</p>
+                <div>
+                  <p className="text-sm font-semibold text-rose-900 dark:text-rose-100">Payment Rejected</p>
+                  <p className="text-xs text-rose-700/80 dark:text-rose-300/80">This student's payment was rejected.</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            )}
+          </div>
         )}
 
         {/* No result state */}
         {hasSearched && !searching && !searchResult && (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-              <User className="h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No student found with that ID in this institute.</p>
+          <Card className="border-dashed border-border/60">
+            <CardContent className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-muted/40 flex items-center justify-center">
+                <User className="h-8 w-8 text-muted-foreground/40" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-foreground">Student not found</p>
+                <p className="text-sm text-muted-foreground mt-1">No student matches that ID in this institute.</p>
+              </div>
               <Button variant="outline" size="sm" onClick={() => { setHasSearched(false); setStudentIdInput(''); }}>
-                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Clear & Try Again
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
               </Button>
             </CardContent>
           </Card>
         )}
+        </div>
       </div>
 
       {/* Record Payment Dialog */}
       <Dialog open={!!recordDialog} onOpenChange={open => { if (!open) setRecordDialog(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Banknote className="h-5 w-5 text-green-600" />Verify Payment
+            <DialogTitle className="flex items-center gap-3 text-lg">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary flex items-center justify-center shadow-md shadow-primary/30">
+                <Banknote className="h-5 w-5 text-white" />
+              </div>
+              Verify Payment
             </DialogTitle>
           </DialogHeader>
           {searchResult && (
-            <div className="space-y-3">
-              <div className="rounded-lg bg-muted/50 px-3 py-2">
-                <p className="text-sm font-medium">{searchResult.student.nameWithInitials}</p>
-                <p className="text-xs text-muted-foreground">Student ID: {searchResult.student.uuid}</p>
-                <p className="text-xs text-muted-foreground">Institute ID: {searchResult.student.instituteUserId}</p>
+            <div className="space-y-4">
+              <div className="rounded-xl bg-muted/40 px-4 py-3 border border-border/40">
+                <p className="text-sm font-semibold text-foreground">{searchResult.student.nameWithInitials}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
+                  {searchResult.student.uuid} · {searchResult.student.instituteUserId}
+                </p>
               </div>
               {recordDialog && (
                 <>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Amount (Rs) *</Label>
-                    <Input type="number" min={0} placeholder="e.g. 5000" value={recordDialog.amount}
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">Amount (Rs) *</Label>
+                    <Input type="number" min={0} placeholder="e.g. 5000" className="h-11 text-base font-medium" value={recordDialog.amount}
                       onChange={e => setRecordDialog(d => d ? { ...d, amount: e.target.value } : d)} />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Payment Date</Label>
-                    <Input type="date" value={recordDialog.date}
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">Payment Date</Label>
+                    <Input type="date" className="h-11" value={recordDialog.date}
                       onChange={e => setRecordDialog(d => d ? { ...d, date: e.target.value } : d)} />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Notes (optional)</Label>
-                    <Textarea placeholder="Receipt no., remarks" rows={2} value={recordDialog.notes}
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">Notes (optional)</Label>
+                    <Textarea placeholder="Receipt no., remarks…" rows={2} value={recordDialog.notes}
                       onChange={e => setRecordDialog(d => d ? { ...d, notes: e.target.value } : d)} />
                   </div>
                 </>
               )}
             </div>
           )}
-          <DialogFooter className="gap-2 pt-1">
+          <DialogFooter className="gap-2 pt-2">
             <Button variant="outline" onClick={() => setRecordDialog(null)} disabled={recording}>Cancel</Button>
-            <Button onClick={handleRecord} disabled={recording} className="bg-green-600 hover:bg-green-700 text-white">
+            <Button onClick={handleRecord} disabled={recording} className="bg-gradient-to-br from-primary to-primary hover:from-primary/90 hover:to-primary/90 text-white shadow-md shadow-primary/30">
               {recording ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <CheckCircle className="h-4 w-4 mr-1.5" />}
-              {recording ? 'Recording' : 'Confirm Payment'}
+              {recording ? 'Recording…' : 'Confirm Payment'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -45,7 +45,7 @@ const CreateCourseForm = ({ onSuccess, onCancel }: CreateCourseFormProps) => {
   const userRole = useInstituteRole();
 
   const form = useForm<CreateCourseFormData>({
-    resolver: zodResolver(createCourseSchema),
+    resolver: zodResolver(createCourseSchema) as any,
     defaultValues: {
       title: '',
       description: '',

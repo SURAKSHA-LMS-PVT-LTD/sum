@@ -38,7 +38,7 @@ const CreateResultForm: React.FC<CreateResultFormProps> = ({
   initialData
 }) => {
   const form = useForm<ResultFormData>({
-    resolver: zodResolver(resultSchema),
+    resolver: zodResolver(resultSchema) as any,
     defaultValues: {
       studentName: initialData?.studentName || '',
       subject: initialData?.subject || '',

@@ -22,6 +22,7 @@ import { classPaymentsApi, ClassPayment } from '@/api/classPayments.api';
 import { instituteClassesApi } from '@/api/instituteClasses.api';
 import { instituteApi } from '@/api/institute.api';
 import { usersApi } from '@/api/users.api';
+import { subjectsApi } from '@/api/subjects.api';
 import { useAuth } from '@/contexts/AuthContext';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
 import { financeApi } from '@/api/finance.api';
@@ -165,6 +166,9 @@ const CollectPhysicalPayment: React.FC = () => {
   const [collectDialog, setCollectDialog] = useState<CollectDialogState | null>(null);
   const [collecting, setCollecting] = useState(false);
 
+  // ── Right panel tabs (Find Student vs Student Details) ──────────────────────
+  const [rightPanelTab, setRightPanelTab] = useState<'find' | 'details'>('find');
+
   // ── Finance accounts (for ledger routing) ─────────────────────────────────
   const [financeAccounts, setFinanceAccounts] = useState<Array<{ id: string; name: string; type: string }>>([]);
 
@@ -205,7 +209,7 @@ const CollectPhysicalPayment: React.FC = () => {
     if (!instituteId || !effectiveClassId || ctxSubject || paymentScope !== 'subject') return;
     setSubjects([]); setPickedSubjectId('');
     setLoadingSubjects(true);
-    instituteApi.getClassSubjects(instituteId, effectiveClassId)
+    subjectsApi.getAll(instituteId, { classId: effectiveClassId })
       .then((res: any) => {
         const list: SubjectOption[] = ((res as any)?.data ?? res ?? []).map((s: any) => ({
           id: s.subjectId ?? s.subject?.id ?? s.id,
@@ -351,7 +355,7 @@ const CollectPhysicalPayment: React.FC = () => {
     if (activeTab !== 'overview' || !instituteId || !effectiveClassId) return;
     setLoadingOverview(true);
     Promise.all([
-      instituteApi.getClassSubjects(instituteId, effectiveClassId).catch(() => null),
+      subjectsApi.getAll(instituteId, { classId: effectiveClassId }).catch(() => null),
       subjectPaymentsApi.getPaymentsByClass(instituteId, effectiveClassId, 1, 200).catch(() => null),
       classPaymentsApi.getClassPayments(instituteId, effectiveClassId, 1, 200).catch(() => null),
     ]).then(([subjectsRes, paymentsRes, classPaymentsRes]) => {
@@ -390,6 +394,34 @@ const CollectPhysicalPayment: React.FC = () => {
   }, [effectiveClassId, effectiveSubjectId]);
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Reload payments lists after collection
+  // ─────────────────────────────────────────────────────────────────────────
+  const reloadPayments = useCallback(async () => {
+    if (!instituteId) return;
+    if (paymentScope === 'subject' && effectiveClassId && effectiveSubjectId) {
+      try {
+        const res: any = await subjectPaymentsApi.getSubjectPayments(instituteId, effectiveClassId, effectiveSubjectId, 1, 100);
+        const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+        setPayments(raw.filter((p: SubjectPayment) => p.status === 'ACTIVE'));
+      } catch { setPayments([]); }
+    } else if (paymentScope === 'class' && effectiveClassId) {
+      try {
+        const res: any = await classPaymentsApi.getClassPayments(instituteId, effectiveClassId, 1, 100);
+        const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+        setClassPayments(raw.filter((p: ClassPayment) => p.status === 'ACTIVE'));
+      } catch { setClassPayments([]); }
+    } else if (paymentScope === 'institute') {
+      try {
+        const res: any = await apiClient.get(`/institute-payments/institute/${instituteId}/payments`, { page: 1, limit: 100, status: 'ACTIVE' });
+        const arr: any[] = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+        setInstPayments(arr.filter((p: any) => {
+          const due = p.dueDate ? new Date(p.dueDate) : null;
+          return !due || due >= new Date(new Date().toISOString().slice(0, 10));
+        }));
+      } catch { setInstPayments([]); }
+    }
+  }, [paymentScope, instituteId, effectiveClassId, effectiveSubjectId]);
+
   // Summary loading — per subject, get student submissions
   // ─────────────────────────────────────────────────────────────────────────
   const openSummary = async () => {
@@ -399,7 +431,7 @@ const CollectPhysicalPayment: React.FC = () => {
     setLoadingSummary(true);
     try {
       const [subjectsRes, paymentsRes] = await Promise.all([
-        instituteApi.getClassSubjects(instituteId!, effectiveClassId).catch(() => null),
+        subjectsApi.getAll(instituteId!, { classId: effectiveClassId }).catch(() => null),
         subjectPaymentsApi.getPaymentsByClass(instituteId!, effectiveClassId, 1, 200).catch(() => null),
       ]);
       const allSubjects: SubjectOption[] = ((subjectsRes as any)?.data ?? subjectsRes ?? []).map((s: any) => ({
@@ -598,6 +630,7 @@ const CollectPhysicalPayment: React.FC = () => {
       Object.keys(searchCache.current).forEach(k => { if (k.includes(student.uuid)) delete searchCache.current[k]; });
       if (paymentScope === 'subject') await loadStudentSubjectStatus(student.uuid);
       if (paymentScope === 'class') await loadStudentClassStatus(student.uuid);
+      await reloadPayments();
     }
     setCollecting(false);
   };
@@ -637,376 +670,516 @@ const CollectPhysicalPayment: React.FC = () => {
     <PageContainer maxWidth="full">
 
       {/* ── Page Header ───────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-green-400 to-green-600 dark:from-green-500 dark:to-green-700 flex items-center justify-center shrink-0 shadow-lg">
-            <Banknote className="h-6 w-6 text-white" />
+      <div className="relative mb-7">
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-6 h-40 bg-gradient-to-b from-primary/5 via-transparent to-transparent blur-2xl -z-10" />
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shrink-0 shadow-xl shadow-primary/30 ring-1 ring-white/20">
+              <Banknote className="h-7 w-7 text-primary-foreground" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-primary/80 mb-1">
+                Counter · Physical Collection
+              </p>
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground leading-tight">
+                Collect Payment
+              </h1>
+              <p className="text-xs text-muted-foreground mt-1">{selectedInstitute.name}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Collect Payment</h1>
-            <p className="text-sm text-muted-foreground mt-1">{selectedInstitute.name}</p>
-          </div>
-        </div>
 
-        <div className="flex rounded-2xl border border-border bg-muted/50 backdrop-blur-sm p-1 gap-1 shadow-sm">
-          <button type="button" onClick={() => setActiveTab('collect')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === 'collect' ? 'bg-white dark:bg-slate-800 text-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}>
-            <Banknote className="h-4 w-4" />Collect
-          </button>
-          <button type="button" onClick={() => setActiveTab('overview')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === 'overview' ? 'bg-white dark:bg-slate-800 text-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}>
-            <BarChart3 className="h-4 w-4" />Overview
-          </button>
+          <div className="flex rounded-2xl border border-border/60 bg-background/60 backdrop-blur-md p-1 gap-1 shadow-sm">
+            <button type="button" onClick={() => setActiveTab('collect')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'collect' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30' : 'text-muted-foreground hover:text-foreground'}`}>
+              <Banknote className="h-4 w-4" />Collect
+            </button>
+            <button type="button" onClick={() => setActiveTab('overview')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'overview' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30' : 'text-muted-foreground hover:text-foreground'}`}>
+              <BarChart3 className="h-4 w-4" />Overview
+            </button>
+          </div>
         </div>
+        <div className="mt-5 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
       </div>
 
       {/* ── COLLECT TAB ───────────────────────────────────────────────────── */}
       {activeTab === 'collect' && (
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-4">
 
-          {/* Payment Scope */}
-          <div className="flex rounded-2xl border border-border bg-muted/50 backdrop-blur-sm p-1 gap-1 shadow-sm w-fit">
-            <button type="button" onClick={() => setPaymentScope('class')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                paymentScope === 'class' ? 'bg-white dark:bg-slate-800 text-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}>
-              <School className="h-4 w-4" />Class Payment
-            </button>
-            <button type="button" onClick={() => setPaymentScope('institute')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                paymentScope === 'institute' ? 'bg-white dark:bg-slate-800 text-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}>
-              <Building2 className="h-4 w-4" />Institute Payment
-            </button>
-          </div>
+          {/* Header with Tabs + Payment Type Selector + Class Selector */}
+          <div className="space-y-4">
+            {/* Top Row: Tabs + Payment Scope */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              {/* Tabs + Payment Type */}
+              <div className="flex gap-2 items-center flex-wrap">
+                {/* Payment Scope Selector */}
+                <div className="flex rounded-xl border border-border bg-muted/40 p-1 gap-1">
+                  <button type="button" onClick={() => setPaymentScope('class')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                      paymentScope === 'class' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'text-muted-foreground hover:text-foreground'}`}>
+                    <School className="h-4 w-4" />Class
+                  </button>
+                  <button type="button" onClick={() => setPaymentScope('institute')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                      paymentScope === 'institute' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'text-muted-foreground hover:text-foreground'}`}>
+                    <Building2 className="h-4 w-4" />Institute
+                  </button>
+                </div>
+              </div>
+            </div>
 
-          {/* Class + Subject selectors */}
-          {(needsSubject || needsClass) && !ctxClass && (
-            <Card className="border-border/50 rounded-2xl shadow-sm bg-card/50 backdrop-blur-sm">
-              <CardContent className="p-4 sm:p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-semibold mb-2 block">Class</Label>
-                    {loadingClasses ? (
-                      <div className="flex items-center gap-2 h-10 text-sm text-muted-foreground px-3 rounded-xl border">
-                        <Loader2 className="h-4 w-4 animate-spin" />Loading…
-                      </div>
-                    ) : (
-                      <Select value={pickedClassId} onValueChange={v => { setPickedClassId(v); setPickedSubjectId(''); }}>
-                        <SelectTrigger className="h-10 text-sm rounded-xl"><SelectValue placeholder="Select class…" /></SelectTrigger>
-                        <SelectContent>
-                          {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.code})</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                  {needsSubject && effectiveClassId && !ctxSubject && (
-                    <div>
-                      <Label className="text-sm font-semibold mb-2 block">Subject</Label>
-                      {loadingSubjects ? (
-                        <div className="flex items-center gap-2 h-10 text-sm text-muted-foreground px-3 rounded-xl border">
-                          <Loader2 className="h-4 w-4 animate-spin" />Loading…
-                        </div>
-                      ) : (
-                        <Select value={pickedSubjectId} onValueChange={setPickedSubjectId}>
-                          <SelectTrigger className="h-10 text-sm rounded-xl"><SelectValue placeholder="Select subject…" /></SelectTrigger>
-                          <SelectContent>
-                            {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.code ? ` (${s.code})` : ''}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      )}
+            {/* Class & Subject Selectors - Bigger Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Class Selector */}
+              {(needsSubject || needsClass) && !ctxClass && (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground">Select Class</label>
+                  {loadingClasses ? (
+                    <div className="flex items-center gap-2 h-10 text-sm text-muted-foreground px-3 rounded-lg border border-border/60 bg-muted/20">
+                      <Loader2 className="h-4 w-4 animate-spin" />Loading
                     </div>
+                  ) : (
+                    <Select value={pickedClassId} onValueChange={v => { setPickedClassId(v); setPickedSubjectId(''); }}>
+                      <SelectTrigger className="h-10 text-sm rounded-lg border-border/60 bg-muted/20 font-medium">
+                        <SelectValue placeholder="Choose a class…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.map(c => <SelectItem key={c.id} value={c.id} className="text-sm">{c.name} ({c.code})</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   )}
                 </div>
-                {(ctxClass || effectiveClassId) && (
-                  <div className="mt-4 flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
-                    {ctxClass && <span className="flex items-center gap-1"><School className="h-4 w-4" />{ctxClass.name}</span>}
-                    {ctxSubject && <span className="flex items-center gap-1"><BookOpen className="h-4 w-4" />{ctxSubject.name}</span>}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+              )}
 
-          {/* Context chips when class/subject from context */}
-          {(needsSubject || needsClass) && ctxClass && (
-            <div className="flex items-center gap-3 flex-wrap">
-              {ctxClass && (
-                <div className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 px-4 py-2 border border-blue-200/50 dark:border-blue-800/50">
-                  <School className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="font-semibold text-blue-900 dark:text-blue-100">{ctxClass.name}</span>
-                  <Badge variant="outline" className="text-xs px-2 ml-1 bg-white/50 dark:bg-slate-800/50">{ctxClass.code}</Badge>
+              {/* Subject Selector */}
+              {needsSubject && effectiveClassId && !ctxSubject && (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground">Select Subject</label>
+                  {loadingSubjects ? (
+                    <div className="flex items-center gap-2 h-10 text-sm text-muted-foreground px-3 rounded-lg border border-border/60 bg-muted/20">
+                      <Loader2 className="h-4 w-4 animate-spin" />Loading
+                    </div>
+                  ) : (
+                    <Select value={pickedSubjectId} onValueChange={setPickedSubjectId}>
+                      <SelectTrigger className="h-10 text-sm rounded-lg border-border/60 bg-muted/20 font-medium">
+                        <SelectValue placeholder="Choose a subject…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subjects.map(s => <SelectItem key={s.id} value={s.id} className="text-sm">{s.name} ({s.code})</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               )}
-              {needsSubject && ctxSubject && (
-                <div className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/30 px-4 py-2 border border-purple-200/50 dark:border-purple-800/50">
-                  <BookOpen className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  <span className="font-semibold text-purple-900 dark:text-purple-100">{ctxSubject.name}</span>
+
+              {/* Context badges */}
+              {ctxClass && (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground">Class Selected</label>
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/50 h-10">
+                    <School className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="font-semibold text-sm text-blue-900 dark:text-blue-100 truncate">{ctxClass.name}</span>
+                  </div>
+                </div>
+              )}
+              {ctxSubject && (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground">Subject Selected</label>
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/50 dark:border-purple-800/50 h-10">
+                    <BookOpen className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    <span className="font-semibold text-sm text-purple-900 dark:text-purple-100 truncate">{ctxSubject.name}</span>
+                  </div>
                 </div>
               )}
             </div>
-          )}
+          </div>
 
-          {/* ── Step 1: Select Payment(s) ──────────────────────────────────── */}
+          {/* ─────────────────────────────────────────────────────────────────────────── */}
+          {/* TWO-COLUMN LAYOUT: Select Payments (LEFT 2/3) | Find Student (RIGHT 1/3) */}
+          {/* ─────────────────────────────────────────────────────────────────────────── */}
           {((needsSubject ? (!!effectiveClassId && !!effectiveSubjectId) : needsClass ? !!effectiveClassId : true)) && (
-            <Card className="border-border/50 rounded-2xl shadow-sm bg-card/50 backdrop-blur-sm">
-              <CardHeader className="p-4 sm:p-6 pb-3 sm:pb-4">
-                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span>
-                  Select Payment{selectedPaymentIds.size > 1 ? 's' : ''}
-                  {selectedPaymentIds.size > 0 && (
-                    <Badge className="ml-auto bg-blue-100/80 text-blue-700 dark:bg-blue-950/80 dark:text-blue-200 border-blue-200/50 text-xs font-semibold">
-                      {selectedPaymentIds.size} selected · Rs {(totalSelected).toLocaleString()}
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-2">
-                {(loadingPayments || loadingInstPayments) ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                    <Loader2 className="h-4 w-4 animate-spin" />Loading payments…
-                  </div>
-                ) : activePayments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-3">
-                    {paymentScope === 'subject' ? 'No active payments for this subject.' : paymentScope === 'class' ? 'No active payments for this class.' : 'No active institute-level payments.'}
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {activePayments.map((p: any) => {
-                      const selected = selectedPaymentIds.has(p.id);
-                      const bestSub = (paymentScope === 'subject' || paymentScope === 'class') ? getBestStatus(p.id) : null;
-                      const isVerified = bestSub?.status === 'VERIFIED';
-                      return (
-                        <button key={p.id} type="button" onClick={() => togglePayment(p.id)}
-                          disabled={isVerified}
-                          className={`w-full text-left rounded-xl border px-3 py-2.5 transition-all text-xs ${
-                            isVerified ? 'border-green-200 bg-green-50/50 dark:bg-green-950/10 opacity-80 cursor-default' :
-                            selected ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-primary/40 hover:bg-muted/40'
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+              {/* ═══════════════════════════════════════════════════════════════════ */}
+              {/* LEFT COLUMN: Select Payments (2/3) */}
+              {/* ═══════════════════════════════════════════════════════════════════ */}
+              <div className="space-y-4">
+
+                {/* Select Payments Card */}
+                {((needsSubject ? (!!effectiveClassId && !!effectiveSubjectId) : needsClass ? !!effectiveClassId : true)) && (
+                  <Card className="rounded-xl shadow-md border border-border/60 flex flex-col h-full">
+                    <CardHeader className="p-5 pb-3 border-b border-border/40 bg-gradient-to-r from-primary/5 to-transparent">
+                      <CardTitle className="text-base font-bold flex items-center gap-2.5">
+                        <Banknote className="h-5 w-5 text-primary" />
+                        Select Payments
+                        {selectedPaymentIds.size > 0 && (
+                          <Badge className="ml-auto bg-primary/20 text-primary border-primary/30 text-sm px-3 py-1 font-semibold">
+                            {selectedPaymentIds.size} selected
+                          </Badge>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-5 pt-4 flex-1 overflow-hidden flex flex-col">
+                      {(loadingPayments || loadingInstPayments || loadingClassPayments) ? (
+                        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-8">
+                          <Loader2 className="h-4 w-4 animate-spin" />Loading…
+                        </div>
+                      ) : activePayments.length === 0 ? (
+                        <div className="flex items-center justify-center text-center py-12">
+                          <div>
+                            <AlertCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                            <p className="text-sm text-muted-foreground">No active payments</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 overflow-y-auto flex-1 pr-2">
+                          {activePayments.map((p: any) => {
+                            const selected = selectedPaymentIds.has(p.id);
+                            const bestSub = (paymentScope === 'subject' || paymentScope === 'class') ? getBestStatus(p.id) : null;
+                            const isVerified = bestSub?.status === 'VERIFIED';
+                            return (
+                              <button key={p.id} type="button" onClick={() => togglePayment(p.id)}
+                                disabled={isVerified}
+                                className={`w-full text-left rounded-lg border-2 px-4 py-3 transition-all text-sm font-medium ${
+                                  isVerified ? 'border-green-200 bg-green-50/60 dark:bg-green-950/20 opacity-60 cursor-default text-green-900 dark:text-green-100' :
+                                  selected ? 'border-primary bg-primary/10 text-foreground' : 'border-border hover:border-primary/60 hover:bg-muted/50 text-foreground'
+                                }`}>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                    {selected && !isVerified && <CheckCircle className="h-5 w-5 text-primary shrink-0" />}
+                                    {isVerified && <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />}
+                                    <span className="font-semibold truncate text-sm">{p.title ?? p.paymentType ?? p.description}</span>
+                                  </div>
+                                  <span className="font-bold shrink-0 text-base text-primary">Rs {Number(p.amount).toLocaleString()}</span>
+                                </div>
+                                {bestSub && bestSub.status !== 'VERIFIED' && (
+                                  <div className="mt-2 ml-7">
+                                    <StatusBadge status={bestSub.status} />
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+              {/* ═══════════════════════════════════════════════════════════════════ */}
+              {/* RIGHT COLUMN: Tabbed Interface (Find Student | Student Details) */}
+              {/* ═══════════════════════════════════════════════════════════════════ */}
+              </div>
+              {canSearch && (
+                <Card className="rounded-xl shadow-md border border-border/40 h-full flex flex-col">
+                  {/* Modern Tab Header */}
+                  <div className="border-b border-border bg-gradient-to-r from-primary/5 to-transparent p-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      {/* Tab Buttons */}
+                      <div className="flex rounded-lg border border-border/60 bg-muted/30 p-1 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setRightPanelTab('find')}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-all ${
+                            rightPanelTab === 'find'
+                              ? 'bg-white dark:bg-slate-800 text-primary shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground'
                           }`}>
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              {selected && !isVerified && <CheckCircle className="h-3.5 w-3.5 text-primary shrink-0" />}
-                              <span className="font-medium truncate">{p.title ?? p.paymentType ?? p.description}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {loadingSubStatus && student ? (
-                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                              ) : bestSub ? (
-                                <StatusBadge status={bestSub.status} />
-                              ) : null}
-                              <span className="font-semibold">Rs {Number(p.amount).toLocaleString()}</span>
-                              {p.priority && <Badge variant="outline" className="text-[10px] px-1">{p.priority}</Badge>}
-                            </div>
-                          </div>
-                          {(p.lastDate || p.dueDate) && (
-                            <p className="text-muted-foreground mt-0.5 text-[11px]">
-                              Due: {new Date(p.lastDate || p.dueDate).toLocaleDateString()}
-                            </p>
-                          )}
-                          {isVerified && bestSub && (
-                            <p className="text-green-700 text-[10px] mt-0.5">
-                              Paid Rs {Number(bestSub.submittedAmount).toLocaleString()} · Already verified
-                            </p>
-                          )}
-                          {bestSub?.status === 'PENDING' && (
-                            <p className="text-yellow-700 text-[10px] mt-0.5">
-                              Rs {Number(bestSub.submittedAmount).toLocaleString()} submitted · Pending verification
-                            </p>
-                          )}
+                          <Search className="h-4 w-4" />
+                          Find Student
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Total bar */}
-                {selectedPaymentIds.size > 1 && (
-                  <div className="mt-2 flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-xs">
-                    <span className="text-muted-foreground">{selectedPaymentIds.size} payments selected</span>
-                    <span className="font-bold text-primary">Total: Rs {totalSelected.toLocaleString()}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* ── Step 2: Find Student ───────────────────────────────────────── */}
-          {canSearch && (
-            <Card>
-              <CardHeader className="p-3 pb-1.5">
-                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">2</span>
-                  Find Student
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-0 space-y-2">
-                <div className="flex gap-1 rounded-lg bg-muted p-0.5">
-                  {SEARCH_MODES.map(m => {
-                    const Icon = m.icon;
-                    return (
-                      <button key={m.id} type="button"
-                        onClick={() => { setSearchMode(m.id); setSearchQuery(''); setStudent(null); setHasSearched(false); }}
-                        className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px] font-medium transition-all ${
-                          searchMode === m.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                        }`}>
-                        <Icon className="h-3 w-3" />
-                        <span className="hidden sm:inline">{m.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <modeConfig.icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input className="pl-9 text-sm h-9" placeholder={modeConfig.placeholder}
-                      value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSearch()} />
-                  </div>
-                  <Button onClick={() => handleSearch()} disabled={searching} size="sm" className="h-9 shrink-0">
-                    {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                    <span className="ml-1.5 hidden sm:inline">Search</span>
-                  </Button>
-                </div>
-                {searchMode === 'phone' && <p className="text-[10px] text-muted-foreground">Format: 0771234567 or +94771234567</p>}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* No result */}
-          {hasSearched && !searching && !student && (
-            <Card>
-              <CardContent className="flex flex-col items-center py-8 gap-3 text-center">
-                <User className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">No student found in this institute.</p>
-                <Button variant="outline" size="sm" onClick={() => { setHasSearched(false); setSearchQuery(''); }}>
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Try Again
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* ── Student Card ──────────────────────────────────────────────── */}
-          {student && (
-            <Card className="border-primary/30">
-              <CardHeader className="p-3 pb-1.5">
-                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">3</span>
-                  Student Found
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-0 space-y-3">
-                <div className="flex items-center gap-3">
-                  {student.image ? (
-                    <img src={student.image} alt={student.nameWithInitials}
-                      className="h-12 w-12 rounded-full object-cover ring-2 ring-border shrink-0" />
-                  ) : (
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-border shrink-0">
-                      <span className="text-base font-bold text-primary">
-                        {(student.nameWithInitials?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()) || '?'}
-                      </span>
+                        <button
+                          type="button"
+                          onClick={() => setRightPanelTab('details')}
+                          disabled={!student}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-all ${
+                            rightPanelTab === 'details' && student
+                              ? 'bg-white dark:bg-slate-800 text-primary shadow-sm'
+                              : !student
+                              ? 'text-muted-foreground/40 cursor-not-allowed'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}>
+                          <User className="h-4 w-4" />
+                          Student Details
+                        </button>
+                      </div>
                     </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{student.nameWithInitials}</p>
-                    {student.instituteUserId && (
-                      <p className="text-xs text-muted-foreground">Institute ID: <span className="font-mono">{student.instituteUserId}</span></p>
-                    )}
-                    <p className="text-[10px] text-muted-foreground font-mono">{student.uuid}</p>
                   </div>
-                  <Button variant="outline" size="sm" className="h-7 text-[11px] shrink-0" onClick={goToStudents}>
-                    <ExternalLink className="h-3 w-3 mr-1" />Profile
-                  </Button>
-                </div>
 
-                {/* Selected payments preview with balance deduction */}
-                {selectedPayments.length > 0 && (
-                  <div className="rounded-lg border border-border bg-muted/30 divide-y divide-border text-xs">
-                    {selectedPayments.map((p: any) => {
-                      const original = Number(p.amount);
-                      const paid = paymentScope === 'subject' || paymentScope === 'class' ? getAlreadyPaid(p.id) : 0;
-                      const balance = Math.max(0, original - paid);
-                      return (
-                        <div key={p.id} className="px-3 py-1.5 space-y-0.5">
-                          <div className="flex items-center justify-between">
-                            <span className="truncate">{p.title ?? p.paymentType ?? p.description}</span>
-                            <span className="font-semibold shrink-0 ml-2">Rs {original.toLocaleString()}</span>
+                  {/* Tab Content */}
+                  <CardContent className="p-5 flex-1 overflow-y-auto space-y-4">
+                    {/* Find Student Tab */}
+                    {rightPanelTab === 'find' && (
+                      <div className="space-y-4 animate-in fade-in-50 duration-200">
+                        <div>
+                          <label className="text-xs font-semibold text-muted-foreground mb-2 block">Search Mode</label>
+                          <Select value={searchMode} onValueChange={m => { setSearchMode(m as SearchMode); setSearchQuery(''); setStudent(null); setHasSearched(false); }}>
+                            <SelectTrigger className="h-9 text-sm rounded-lg border-border/60 bg-muted/20">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SEARCH_MODES.map(m => (
+                                <SelectItem key={m.id} value={m.id} className="text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <m.icon className="h-4 w-4" />
+                                    {m.label}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-semibold text-muted-foreground mb-2 block">Enter Details</label>
+                          <div className="relative">
+                            <modeConfig.icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              className="pl-10 text-sm h-10 rounded-lg border-border/60 bg-muted/20"
+                              placeholder={modeConfig.placeholder}
+                              value={searchQuery}
+                              onChange={e => setSearchQuery(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                            />
                           </div>
-                          {paid > 0 && (
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-green-700">Paid: Rs {paid.toLocaleString()}</span>
-                              <span className="font-semibold text-amber-700">Balance: Rs {balance.toLocaleString()}</span>
-                            </div>
+                          {searchMode === 'phone' && (
+                            <p className="text-[11px] text-muted-foreground mt-1.5">Format: 0771234567 or +94771234567</p>
                           )}
                         </div>
-                      );
-                    })}
-                    {selectedPayments.length > 1 && (
-                      <div className="px-3 py-1.5 flex items-center justify-between bg-primary/5">
-                        <span className="font-medium text-primary">Balance total</span>
-                        <span className="font-bold text-primary">
-                          Rs {selectedPayments.reduce((s: number, p: any) =>
-                            s + Math.max(0, Number(p.amount) - (paymentScope === 'subject' || paymentScope === 'class' ? getAlreadyPaid(p.id) : 0)), 0
-                          ).toLocaleString()}
-                        </span>
+
+                        <Button
+                          onClick={() => handleSearch()}
+                          disabled={searching}
+                          size="lg"
+                          className="w-full h-10 text-sm font-semibold rounded-lg bg-primary hover:bg-primary/90">
+                          {searching ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Searching…
+                            </>
+                          ) : (
+                            <>
+                              <Search className="h-4 w-4 mr-2" />
+                              Find Student
+                            </>
+                          )}
+                        </Button>
+
+                        {/* No result state */}
+                        {hasSearched && !searching && !student && (
+                          <div className="text-center py-8 px-4 rounded-lg bg-muted/40 border border-border/50">
+                            <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center mx-auto mb-3">
+                              <User className="h-6 w-6 text-muted-foreground/40" />
+                            </div>
+                            <p className="text-sm font-medium text-foreground">No student found</p>
+                            <p className="text-xs text-muted-foreground mt-1">Try searching with different details</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3 h-8"
+                              onClick={() => {
+                                setHasSearched(false);
+                                setSearchQuery('');
+                              }}>
+                              Try Again
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Student found summary */}
+                        {student && (
+                          <div className="rounded-lg bg-gradient-to-br from-green-50/80 to-emerald-50/60 dark:from-green-950/30 dark:to-emerald-950/20 border border-green-200/60 dark:border-green-800/40 p-4 space-y-2">
+                            <div className="flex items-center gap-3">
+                              {student.image ? (
+                                <img
+                                  src={student.image}
+                                  alt={student.nameWithInitials}
+                                  className="h-12 w-12 rounded-full object-cover ring-2 ring-green-200/40 dark:ring-green-800/40"
+                                />
+                              ) : (
+                                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center ring-2 ring-green-200/40 dark:ring-green-800/40">
+                                  <span className="text-sm font-bold text-green-700 dark:text-green-300">
+                                    {(student.nameWithInitials?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()) || '?'}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-sm text-green-900 dark:text-green-100 truncate">
+                                  {student.nameWithInitials}
+                                </p>
+                                {student.instituteUserId && (
+                                  <p className="text-[11px] text-green-700 dark:text-green-200 truncate">
+                                    ID: {student.instituteUserId}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-8 text-xs rounded-lg border-green-200/40 dark:border-green-800/40"
+                              onClick={() => setRightPanelTab('details')}>
+                              View Details
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
 
-                <div className="flex flex-wrap gap-2">
-                  {(() => {
-                    // Lock button if ANY selected payment is already verified/partially verified for this student
-                    const hasVerifiedPayment = selectedPaymentIds.size > 0 && selectedPayments.some((p: any) => {
-                      if (paymentScope === 'subject' || paymentScope === 'class') {
-                        const best = getBestStatus(p.id);
-                        return best?.status && ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED'].includes(best.status);
-                      } else {
-                        const status = instStudentSubMap[p.id];
-                        return status && ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED'].includes(status);
-                      }
-                    });
-                    
-                    const allVerified = selectedPaymentIds.size > 0 && selectedPayments.every((p: any) => {
-                      if (paymentScope === 'subject' || paymentScope === 'class') {
-                        const best = getBestStatus(p.id);
-                        return best?.status === 'VERIFIED';
-                      } else {
-                        return instStudentSubMap[p.id] === 'VERIFIED';
-                      }
-                    });
-                    
-                    return (
-                      <Button
-                        className={`flex-1 min-w-[140px] ${hasVerifiedPayment ? 'bg-gray-400 hover:bg-gray-400 text-white cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
-                        onClick={hasVerifiedPayment ? undefined : openCollectDialog}
-                        disabled={selectedPaymentIds.size === 0 || hasVerifiedPayment}
-                        title={hasVerifiedPayment ? 'Student already has verified payment(s) for selected items' : ''}>
-                        {hasVerifiedPayment ? (
-                          <>
-                            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                            Already Verified
-                          </>
-                        ) : (
-                          <>
-                            <Banknote className="h-4 w-4 mr-2" />
-                            {selectedPaymentIds.size === 0 ? 'Select a payment' : `Collect${selectedPaymentIds.size > 1 ? ` (${selectedPaymentIds.size})` : ''}`}
-                          </>
+                    {/* Student Details Tab */}
+                    {rightPanelTab === 'details' && student && (
+                      <div className="space-y-4 animate-in fade-in-50 duration-200">
+                        {/* Student Header */}
+                        <div className="rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-4 space-y-3">
+                          <div className="flex items-center gap-3">
+                            {student.image ? (
+                              <img
+                                src={student.image}
+                                alt={student.nameWithInitials}
+                                className="h-14 w-14 rounded-lg object-cover ring-2 ring-primary/30"
+                              />
+                            ) : (
+                              <div className="h-14 w-14 rounded-lg bg-primary/20 flex items-center justify-center ring-2 ring-primary/30">
+                                <span className="text-base font-bold text-primary">
+                                  {(student.nameWithInitials?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()) || '?'}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-sm text-foreground truncate">{student.nameWithInitials}</p>
+                              {student.instituteUserId && (
+                                <p className="text-[11px] text-muted-foreground truncate">ID: {student.instituteUserId}</p>
+                              )}
+                              <p className="text-[10px] text-muted-foreground font-mono mt-1 truncate">{student.uuid}</p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-8 text-xs rounded-lg"
+                            onClick={goToStudents}>
+                            <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                            View Full Profile
+                          </Button>
+                        </div>
+
+                        {/* Selected Payments Summary */}
+                        {selectedPayments.length > 0 && (
+                          <div>
+                            <label className="text-xs font-semibold text-muted-foreground mb-2 block flex items-center gap-1.5">
+                              <Banknote className="h-3.5 w-3.5" />
+                              Selected Payments
+                              <Badge className="ml-auto bg-primary/20 text-primary border-primary/30 text-[10px] px-2 py-0.5">
+                                {selectedPayments.length}
+                              </Badge>
+                            </label>
+                            <div className="rounded-lg border border-border/50 divide-y divide-border/50 bg-muted/15 max-h-48 overflow-y-auto">
+                              {selectedPayments.map((p: any) => {
+                                const original = Number(p.amount);
+                                const paid =
+                                  paymentScope === 'subject' || paymentScope === 'class' ? getAlreadyPaid(p.id) : 0;
+                                const balance = Math.max(0, original - paid);
+                                return (
+                                  <div key={p.id} className="px-3 py-2.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="truncate font-medium text-xs flex-1">
+                                        {p.title ?? p.paymentType ?? p.description}
+                                      </span>
+                                      <span className="font-bold text-xs shrink-0 text-primary">
+                                        Rs {original.toLocaleString()}
+                                      </span>
+                                    </div>
+                                    {paid > 0 && (
+                                      <div className="flex items-center justify-between text-[10px] mt-1.5 text-muted-foreground gap-2">
+                                        <span className="text-green-700 dark:text-green-300 font-medium">
+                                          Paid: Rs {paid.toLocaleString()}
+                                        </span>
+                                        <span className="text-amber-700 dark:text-amber-300 font-semibold">
+                                          Bal: Rs {balance.toLocaleString()}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
                         )}
-                      </Button>
-                    );
-                  })()}
-                  {effectiveClassId && (
-                    <Button variant="outline" size="sm" onClick={openSummary}>
-                      <Layers className="h-3.5 w-3.5 mr-1" />Summary
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="sm" className="text-muted-foreground"
-                    onClick={() => { setStudent(null); setHasSearched(false); setSearchQuery(''); setStudentSubMap({}); }}>
-                    <RefreshCw className="h-3.5 w-3.5 mr-1" />New
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-2.5 pt-2">
+                          {(() => {
+                            const hasVerified =
+                              selectedPaymentIds.size > 0 &&
+                              selectedPayments.some((p: any) => {
+                                if (paymentScope === 'subject' || paymentScope === 'class') {
+                                  const best = getBestStatus(p.id);
+                                  return best?.status &&
+                                    ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED'].includes(best.status);
+                                } else {
+                                  const status = instStudentSubMap[p.id];
+                                  return status && ['VERIFIED', 'HALF_VERIFIED', 'QUARTER_VERIFIED'].includes(status);
+                                }
+                              });
+
+                            return (
+                              <Button
+                                className={`w-full h-10 text-sm font-semibold rounded-lg transition-all ${
+                                  hasVerified
+                                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                                    : 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
+                                }`}
+                                onClick={hasVerified ? undefined : openCollectDialog}
+                                disabled={selectedPaymentIds.size === 0 || hasVerified}>
+                                {hasVerified ? (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Already Verified
+                                  </>
+                                ) : (
+                                  <>
+                                    <Banknote className="h-4 w-4 mr-2" />
+                                    Collect Payment
+                                  </>
+                                )}
+                              </Button>
+                            );
+                          })()}
+
+                          {effectiveClassId && (
+                            <Button
+                              variant="outline"
+                              size="lg"
+                              className="w-full h-10 text-sm font-semibold rounded-lg border-primary/30 hover:bg-primary/10"
+                              onClick={openSummary}>
+                              <BarChart3 className="h-4 w-4 mr-2" />
+                              View Summary
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="ghost"
+                            size="lg"
+                            className="w-full h-10 text-sm text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setStudent(null);
+                              setHasSearched(false);
+                              setSearchQuery('');
+                              setStudentSubMap({});
+                              setRightPanelTab('find');
+                            }}>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Clear & Search New
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
         </div>
       )}

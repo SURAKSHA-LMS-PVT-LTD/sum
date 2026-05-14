@@ -216,7 +216,7 @@ export default function LectureRecordingAttendancePage() {
           { key: 'activity', label: 'View Activity', icon: CheckCircle2, num: 3 },
         ].map((s, i, arr) => {
           const isActive = s.key === step;
-          const isDone = (step === 'students' && s.key === 'select') || (step === 'activity' && s.key !== 'activity');
+          const isDone = (step === 'students' && s.key === 'select') || ((step as string) === 'activity' && s.key !== 'activity');
           return (
             <React.Fragment key={s.key}>
               <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${

@@ -42,7 +42,7 @@ const CreateTeacherForm = ({ onSubmit, onCancel, initialData }: CreateTeacherFor
   const isEditing = !!initialData;
   
   const form = useForm<TeacherFormData>({
-    resolver: zodResolver(teacherSchema),
+    resolver: zodResolver(teacherSchema) as any,
     defaultValues: {
       employeeId: initialData?.employeeId || '',
       name: initialData?.name || '',

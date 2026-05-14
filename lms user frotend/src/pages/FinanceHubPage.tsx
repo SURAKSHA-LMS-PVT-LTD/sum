@@ -628,6 +628,8 @@ function LedgerTable({ entries, page, totalPages, onPage }: {
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
+const InitWalletButton: React.FC<{ teacherId: any; onDone?: () => void }> = ({ teacherId: _t, onDone: _o }) => null;
+
 const FinanceHubPage: React.FC = () => {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();

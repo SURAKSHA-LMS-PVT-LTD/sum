@@ -10,7 +10,7 @@ class InstituteUsersApi {
     instituteId: string,
     userTypeId: string,
     params: { page?: number; limit?: number; parent?: boolean } = {}
-  ): Promise<UserListResponse> {
+  ): Promise<any> {
     const queryParams = new URLSearchParams({
       page: String(params.page || 1),
       limit: String(params.limit || 50),
@@ -26,7 +26,7 @@ class InstituteUsersApi {
     userId: string,
     extraData: Record<string, any> | null,
   ): Promise<any> {
-    const endpoint = `/institute-users/institute/${instituteId}/users/${userId}/extra-data`;
+    const endpoint = `/institute-users/institute/${instituteId}/user/${userId}/extra-data`;
     return apiClient.patch(endpoint, { extraData });
   }
 }
