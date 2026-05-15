@@ -50,7 +50,7 @@ import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type SearchMode = 'id' | 'instituteId' | 'phone' | 'email';
+type SearchMode = 'id' | 'instituteId' | 'phone' | 'email' | 'cardId' | 'name';
 type PaymentMode = 'class' | 'institute';
 type PaymentTier = 'full' | 'half' | 'quarter';
 type PrintSize = '2inch' | '3inch' | '4inch' | 'a4';
@@ -78,7 +78,7 @@ interface AttendanceRow {
 
 type SubMap = Record<string, { status: string; submittedAmount: string; id: string }[]>;
 
-interface CollectedItem { title: string; amount: number; }
+interface CollectedItem { title: string; amount: number; submissionId?: string; }
 
 interface SmsCredentials {
   availableCredits: number;
@@ -94,6 +94,8 @@ const TIER_MULT: Record<PaymentTier, number> = { full: 1, half: 0.5, quarter: 0.
 const SEARCH_MODES: { id: SearchMode; label: string; icon: React.ElementType; placeholder: string }[] = [
   { id: 'id',          label: 'System ID',   icon: Hash,   placeholder: 'Student system ID…' },
   { id: 'instituteId', label: 'Institute ID', icon: IdCard, placeholder: 'Institute user ID…' },
+  { id: 'cardId',      label: 'Card ID',      icon: IdCard, placeholder: 'Institute card ID…' },
+  { id: 'name',        label: 'Name',         icon: User,   placeholder: 'Student name (min 3 chars)…' },
   { id: 'phone',       label: 'Phone',        icon: Phone,  placeholder: '07X XXXXXXX…' },
   { id: 'email',       label: 'Email',        icon: Mail,   placeholder: 'student@example.com…' },
 ];
@@ -171,6 +173,7 @@ function buildReceiptHtml(opts: {
   .r  { display: flex; justify-content: space-between; margin: 2px 0; }
   .b  { font-weight: bold; }
   .s  { font-size: 9px; color: #555; }
+  .pid { font-size: 8px; color: #777; margin: 1px 0 3px 0; }
   .notice { font-size: 8px; border: 1px dashed #999; padding: 4px; margin-top: 8px; text-align: center; }
 </style></head><body>
 <h2>${opts.instituteName}</h2>
@@ -183,7 +186,7 @@ ${opts.instituteId ? `<div class="r"><span>ID:</span><span>${opts.instituteId}</
 <div class="r"><span>Collected by:</span><span>${opts.collectedBy}</span></div>
 <div class="r"><span>Account:</span><span>${opts.account}</span></div>
 <div class="d"></div>
-${opts.payments.map(p => `<div class="r"><span>${p.title}</span><span>Rs ${(p.amount * TIER_MULT[opts.tier]).toLocaleString()}</span></div>`).join('')}
+${opts.payments.map(p => `<div class="r"><span>${p.title}</span><span>Rs ${(p.amount * TIER_MULT[opts.tier]).toLocaleString()}</span></div>${p.submissionId ? `<div class="pid">Ref: ${p.submissionId}</div>` : ''}`).join('')}
 <div class="d"></div>
 <div class="r b"><span>TOTAL</span><span>Rs ${total.toLocaleString()}</span></div>
 ${opts.tier !== 'full' ? `<div class="r s"><span>Tier:</span><span>${TIER_LABEL[opts.tier]}</span></div>` : ''}
@@ -238,6 +241,11 @@ const CollectPhysicalPayment: React.FC = () => {
   const isNative = isNativePlatform();
   const instituteId = selectedInstitute?.id ?? '';
 
+  // Read ?studentId= from URL to pre-load student on redirect from attendance view
+  const urlStudentId = React.useMemo(() => {
+    try { return new URLSearchParams(window.location.search).get('studentId') ?? ''; } catch { return ''; }
+  }, []);
+
   // ── class
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
@@ -274,6 +282,9 @@ const CollectPhysicalPayment: React.FC = () => {
   const [student, setStudent] = useState<StudentInfo | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const searchCache = useRef<Record<string, StudentInfo>>({});
+  // Name/card search can return multiple matches — show a picker
+  const [nameResults, setNameResults] = useState<StudentInfo[]>([]);
+  const [showNamePicker, setShowNamePicker] = useState(false);
 
   // ── finance
   const [financeAccounts, setFinanceAccounts] = useState<Array<{ id: string; name: string; type: string }>>([]);
@@ -406,6 +417,34 @@ const CollectPhysicalPayment: React.FC = () => {
     } finally { setLoadingAtt(false); }
   }, [instituteId, effectiveClassId, ATT_START, ATT_END]);
 
+  // Pre-load student from URL param (redirected from attendance view)
+  useEffect(() => {
+    if (!urlStudentId || !instituteId) return;
+    setSearchMode('id');
+    setSearchQuery(urlStudentId);
+    (async () => {
+      try {
+        const res: any = await apiClient.get(
+          `/institute-payments/institute/${instituteId}/search-student`,
+          { studentId: urlStudentId }
+        );
+        if (res?.student) {
+          const info: StudentInfo = {
+            uuid: res.student.uuid,
+            nameWithInitials: res.student.nameWithInitials,
+            image: res.student.image,
+            instituteUserId: res.student.instituteUserId,
+            phone: res.student.phone ?? res.student.phoneNumber,
+          };
+          setStudent(info);
+          setHasSearched(true);
+          await loadStudentData(info);
+          if (isMobile) setMobileStep('collect');
+        }
+      } catch { /* silent — user can search manually */ }
+    })();
+  }, [urlStudentId, instituteId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─────────────────────────────────────────────────────────────────
   // Student search
   // ─────────────────────────────────────────────────────────────────
@@ -425,8 +464,10 @@ const CollectPhysicalPayment: React.FC = () => {
     }
 
     setSearching(true); setStudent(null); setHasSearched(true); resetCollectState();
+    setShowNamePicker(false); setNameResults([]);
     try {
       let resolvedId = searchQuery.trim();
+
       if (searchMode === 'phone') {
         const lu = await usersApi.lookupByPhone(searchQuery.trim());
         if (!lu?.id) throw new Error('No user found with that phone number.');
@@ -435,7 +476,40 @@ const CollectPhysicalPayment: React.FC = () => {
         const lu = await usersApi.lookupByEmail(searchQuery.trim().toLowerCase());
         if (!lu?.id) throw new Error('No user found with that email.');
         resolvedId = lu.id;
+      } else if (searchMode === 'name' || searchMode === 'cardId') {
+        // Search via institute users endpoint
+        if (searchMode === 'name' && searchQuery.trim().length < 3) {
+          throw new Error('Name search requires at least 3 characters.');
+        }
+        const res: any = await apiClient.get(
+          `/institute-users/institute/${instituteId}/users/STUDENT`,
+          { search: searchQuery.trim(), limit: 10, page: 1 }
+        );
+        const users: any[] = res?.data ?? res?.users ?? (Array.isArray(res) ? res : []);
+        if (users.length === 0) throw new Error('No student found matching that search.');
+        // For cardId, additionally filter by matching cardId field
+        const matches = searchMode === 'cardId'
+          ? users.filter((u: any) => (u.cardId ?? u.instituteCardId ?? '') === searchQuery.trim())
+          : users;
+        const finalMatches = matches.length > 0 ? matches : users;
+        if (finalMatches.length === 1) {
+          resolvedId = finalMatches[0].id ?? finalMatches[0].uuid;
+        } else {
+          // Show picker
+          const options: StudentInfo[] = finalMatches.map((u: any) => ({
+            uuid: u.id ?? u.uuid,
+            nameWithInitials: u.nameWithInitials ?? u.name,
+            image: u.imageUrl ?? u.image,
+            instituteUserId: u.userIdInstitute ?? u.instituteUserId,
+            phone: u.phone ?? u.phoneNumber,
+          }));
+          setNameResults(options);
+          setShowNamePicker(true);
+          setSearching(false);
+          return;
+        }
       }
+
       const res: any = await apiClient.get(
         `/institute-payments/institute/${instituteId}/search-student`,
         { studentId: resolvedId }
@@ -466,6 +540,14 @@ const CollectPhysicalPayment: React.FC = () => {
   // Helpers
   // ─────────────────────────────────────────────────────────────────
 
+  const selectNameResult = async (info: StudentInfo) => {
+    setShowNamePicker(false); setNameResults([]);
+    setStudent(info);
+    setHasSearched(true);
+    await loadStudentData(info);
+    if (isMobile) setMobileStep('collect');
+  };
+
   function resetCollectState() {
     setSubMap({}); setSelectedPaymentIds(new Set());
     setInstitutePayments([]); setSelectedInstPaymentIds(new Set());
@@ -474,6 +556,7 @@ const CollectPhysicalPayment: React.FC = () => {
 
   const clearStudent = () => {
     setStudent(null); setHasSearched(false); setSearchQuery('');
+    setShowNamePicker(false); setNameResults([]);
     resetCollectState();
     if (isMobile) setMobileStep('search');
   };
@@ -527,11 +610,12 @@ const CollectPhysicalPayment: React.FC = () => {
       const amt = getToCollect(paymentId, Number(p.amount));
       if (amt <= 0) { ok++; continue; }
       try {
-        await classPaymentsApi.adminVerifyStudentClassPayment(paymentId, student.uuid, {
+        const res: any = await classPaymentsApi.adminVerifyStudentClassPayment(paymentId, student.uuid, {
           amount: amt, date: todayStr(), notes: notes || undefined, paymentTier: tier, targetAccountId,
         });
         ok++;
-        items.push({ title: p.title ?? p.description ?? paymentId, amount: Number(p.amount) });
+        const submissionId: string | undefined = res?.data?.submissionId ?? res?.submissionId;
+        items.push({ title: p.title ?? p.description ?? paymentId, amount: Number(p.amount), submissionId });
       } catch (err: any) {
         const label = p.title ?? p.description ?? paymentId;
         errors.push(`${label}: ${err?.message || 'Failed'}`);
@@ -578,7 +662,7 @@ const CollectPhysicalPayment: React.FC = () => {
       const p = institutePayments.find(x => x.id === paymentId);
       if (!p) continue;
       try {
-        await apiClient.post(
+        const res: any = await apiClient.post(
           `/institute-payments/institute/${instituteId}/payment/${paymentId}/admin-verify-student/${student.uuid}`,
           {
             amount: Number(p.amount),
@@ -588,7 +672,8 @@ const CollectPhysicalPayment: React.FC = () => {
           }
         );
         ok++;
-        items.push({ title: p.description ?? paymentId, amount: Number(p.amount) });
+        const submissionId: string | undefined = res?.data?.submissionId ?? res?.submissionId;
+        items.push({ title: p.description ?? paymentId, amount: Number(p.amount), submissionId });
       } catch (err: any) {
         const status = err?.status ?? err?.statusCode ?? err?.response?.status;
         if (status === 400 || status === 409) {
@@ -690,7 +775,10 @@ const CollectPhysicalPayment: React.FC = () => {
     setSmsOpen(true);
     // Build default message
     const total = collectedItems.reduce((s, p) => s + p.amount * TIER_MULT[tier], 0);
-    const items = collectedItems.map(p => `${p.title}: Rs ${(p.amount * TIER_MULT[tier]).toLocaleString()}`).join(', ');
+    const items = collectedItems.map(p => {
+      const amt = `Rs ${(p.amount * TIER_MULT[tier]).toLocaleString()}`;
+      return p.submissionId ? `${p.title}: ${amt} (Ref: ${p.submissionId})` : `${p.title}: ${amt}`;
+    }).join(', ');
     setSmsMessage(
       `${selectedInstitute?.name ?? 'School'} - Payment collected for ${student?.nameWithInitials ?? ''} on ${fmtDate(todayStr())}. ${items}. Total: Rs ${total.toLocaleString()}. Thank you.`
     );
@@ -805,9 +893,14 @@ const CollectPhysicalPayment: React.FC = () => {
               <p className="font-semibold text-sm text-green-900 dark:text-green-100">{student?.nameWithInitials}</p>
               {student?.instituteUserId && <p className="text-[11px] text-green-700 dark:text-green-300">ID: {student.instituteUserId}</p>}
               {collectedItems.map((p, i) => (
-                <div key={i} className="flex items-center justify-between text-xs text-green-800 dark:text-green-200">
-                  <span className="truncate">{p.title}</span>
-                  <span className="font-medium ml-2 shrink-0">Rs {(p.amount * TIER_MULT[tier]).toLocaleString()}</span>
+                <div key={i} className="space-y-0.5">
+                  <div className="flex items-center justify-between text-xs text-green-800 dark:text-green-200">
+                    <span className="truncate">{p.title}</span>
+                    <span className="font-medium ml-2 shrink-0">Rs {(p.amount * TIER_MULT[tier]).toLocaleString()}</span>
+                  </div>
+                  {p.submissionId && (
+                    <p className="text-[10px] text-green-600 dark:text-green-400 font-mono">Ref: {p.submissionId}</p>
+                  )}
                 </div>
               ))}
               <div className="flex items-center justify-between font-bold text-sm text-green-900 dark:text-green-100 border-t border-green-200 dark:border-green-700 pt-1.5 mt-1">
@@ -1205,7 +1298,30 @@ const CollectPhysicalPayment: React.FC = () => {
                 Select a class above first.
               </p>
             )}
-            {hasSearched && !searching && !student && (
+            {showNamePicker && nameResults.length > 0 && (
+              <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border">
+                  <p className="text-xs font-semibold text-muted-foreground">{nameResults.length} students found — select one</p>
+                  <button onClick={() => { setShowNamePicker(false); setNameResults([]); setHasSearched(false); }} className="text-muted-foreground hover:text-foreground">
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                </div>
+                {nameResults.map(r => (
+                  <button key={r.uuid} onClick={() => selectNameResult(r)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-primary/5 border-b last:border-0 text-left transition-colors">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                      {r.nameWithInitials.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{r.nameWithInitials}</p>
+                      {r.instituteUserId && <p className="text-[10px] text-muted-foreground">ID: {r.instituteUserId}</p>}
+                    </div>
+                    <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground rotate-180 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {hasSearched && !searching && !student && !showNamePicker && (
               <div className="text-center py-10 rounded-xl bg-muted/40 border border-border/50">
                 <User className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
                 <p className="text-sm font-medium">No student found</p>
@@ -1572,7 +1688,29 @@ const CollectPhysicalPayment: React.FC = () => {
                 </Button>
               </div>
 
-              {hasSearched && !searching && !student && (
+              {showNamePicker && nameResults.length > 0 && (
+                <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border">
+                    <p className="text-xs font-semibold text-muted-foreground">{nameResults.length} matches — pick one</p>
+                    <button onClick={() => { setShowNamePicker(false); setNameResults([]); setHasSearched(false); }}>
+                      <XCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  </div>
+                  {nameResults.map(r => (
+                    <button key={r.uuid} onClick={() => selectNameResult(r)}
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-primary/5 border-b last:border-0 text-left transition-colors">
+                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                        {r.nameWithInitials.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{r.nameWithInitials}</p>
+                        {r.instituteUserId && <p className="text-[9px] text-muted-foreground">ID: {r.instituteUserId}</p>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {hasSearched && !searching && !student && !showNamePicker && (
                 <div className="text-center py-6 rounded-xl bg-muted/40 border border-border/50">
                   <User className="h-7 w-7 text-muted-foreground/30 mx-auto mb-2" />
                   <p className="text-xs font-medium text-muted-foreground">No student found</p>

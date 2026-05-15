@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { attendanceApi, type AttendanceViewRecord } from '@/api/attendance.api';
 import { getImageUrl } from '@/utils/imageUrlHelper';
+import { getBaseUrl, getApiHeadersAsync, getCredentialsMode } from '@/contexts/utils/auth.api';
+import { useTenant } from '@/contexts/TenantContext';
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
@@ -66,7 +68,7 @@ function DetailRow({ icon: Icon, label, value }: { icon: React.ElementType; labe
   );
 }
 
-// ── Location detail row (with optional map link) ─────────────────────────────
+// ── Location detail row ────────────────────────────────────────────────────────
 
 function parseLocation(raw: string | null | undefined): { address: string; mapsUrl?: string } | null {
   if (!raw) return null;
@@ -108,6 +110,106 @@ function LocationDetailRow({ location }: { location: string | null | undefined }
   );
 }
 
+// ── Advertisement card ─────────────────────────────────────────────────────────
+
+interface Advertisement {
+  id: string;
+  title: string;
+  description?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  landingUrl?: string | null;
+}
+
+async function fetchOneAd(instituteId: string | null): Promise<Advertisement | null> {
+  try {
+    const base = getBaseUrl().replace(/\/$/, '');
+    const headers = await getApiHeadersAsync();
+    const url = `${base}/api/advertisements/active`;
+    const res = await fetch(url, { headers, credentials: getCredentialsMode() });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const ads: Advertisement[] = json?.data ?? [];
+    if (!ads.length) return null;
+    // Prefer ads targeting this institute; otherwise pick first
+    const targeted = instituteId
+      ? ads.find((a: any) => (a.targetInstituteIds ?? []).includes(instituteId))
+      : null;
+    return targeted ?? ads[Math.floor(Math.random() * ads.length)];
+  } catch {
+    return null;
+  }
+}
+
+const AdCard: React.FC<{ ad: Advertisement }> = ({ ad }) => {
+  const isImage = !ad.mediaType || ad.mediaType.toLowerCase().startsWith('image');
+  const isVideo = ad.mediaType?.toLowerCase().startsWith('video');
+
+  const inner = (
+    <div className="rounded-xl overflow-hidden border border-border bg-card shadow-sm">
+      {ad.mediaUrl && isImage && (
+        <img
+          src={ad.mediaUrl}
+          alt={ad.title}
+          className="w-full object-cover"
+          style={{ maxHeight: 180 }}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+      )}
+      {ad.mediaUrl && isVideo && (
+        <video
+          src={ad.mediaUrl}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-full"
+          style={{ maxHeight: 180, objectFit: 'cover' }}
+        />
+      )}
+      <div className="px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Sponsored</p>
+        <p className="text-sm font-semibold leading-snug">{ad.title}</p>
+        {ad.description && (
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{ad.description}</p>
+        )}
+      </div>
+    </div>
+  );
+
+  if (ad.landingUrl) {
+    return (
+      <a href={ad.landingUrl} target="_blank" rel="noopener noreferrer" className="block">
+        {inner}
+      </a>
+    );
+  }
+  return inner;
+};
+
+// ── Institute logo banner ──────────────────────────────────────────────────────
+
+const InstituteBanner: React.FC<{ name: string; logoUrl: string | null }> = ({ name, logoUrl }) => (
+  <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card/60 mb-2">
+    {logoUrl ? (
+      <img
+        src={logoUrl}
+        alt={name}
+        className="h-10 w-10 rounded-lg object-contain shrink-0"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+      />
+    ) : (
+      <div className="h-10 w-10 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+        <Building2 className="h-5 w-5 text-muted-foreground" />
+      </div>
+    )}
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Institute</p>
+      <p className="text-sm font-semibold truncate">{name}</p>
+    </div>
+  </div>
+);
+
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
 function LoadingSkeleton() {
@@ -141,10 +243,12 @@ function LoadingSkeleton() {
 export default function AttendanceViewPage() {
   const [searchParams] = useSearchParams();
   const attendanceId = searchParams.get('id');
+  const { branding } = useTenant();
 
   const [record, setRecord] = useState<AttendanceViewRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ad, setAd] = useState<Advertisement | null>(null);
 
   useEffect(() => {
     if (!attendanceId) {
@@ -154,7 +258,11 @@ export default function AttendanceViewPage() {
     }
 
     attendanceApi.getAttendanceView(attendanceId)
-      .then(setRecord)
+      .then((rec) => {
+        setRecord(rec);
+        // Fetch an ad once we know the institute
+        fetchOneAd(rec.instituteId).then(setAd);
+      })
       .catch((err: any) => {
         if (err?.status === 404 || err?.response?.status === 404) {
           setError('Attendance record not found or is no longer available.');
@@ -205,13 +313,22 @@ export default function AttendanceViewPage() {
     .toUpperCase()
     .slice(0, 2);
 
+  // Determine institute logo: prefer tenant branding (if on subdomain), then record's institute
+  const instituteLogo = branding?.logoUrl ? getImageUrl(branding.logoUrl) : null;
+  const instituteName = record.instituteName ?? branding?.name ?? '';
+
   return (
-    <div className="container max-w-lg mx-auto p-4 space-y-4">
+    <div className="container max-w-lg mx-auto p-4 space-y-4 pb-8">
       <Link to="/notifications">
         <Button variant="ghost" size="sm" className="gap-1.5">
           <ArrowLeft className="h-4 w-4" /> Back
         </Button>
       </Link>
+
+      {/* Institute branding banner */}
+      {instituteName && (
+        <InstituteBanner name={instituteName} logoUrl={instituteLogo} />
+      )}
 
       <Card>
         <CardHeader className="pb-2">
@@ -248,6 +365,9 @@ export default function AttendanceViewPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Advertisement */}
+      {ad && <AdCard ad={ad} />}
     </div>
   );
 }

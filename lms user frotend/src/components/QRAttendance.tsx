@@ -105,6 +105,7 @@ const QRAttendance = () => {
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [lastMarkedStudent, setLastMarkedStudent] = useState<{ name: string; status: AttendanceStatus } | null>(null);
   const [isNativeScanning, setIsNativeScanning] = useState(false); // Track native scanner state
+  const [qrSnapshotUrl, setQrSnapshotUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -315,6 +316,12 @@ const QRAttendance = () => {
     });
 
     if (code && code.data.trim()) {
+      // Freeze-frame: capture snapshot and show briefly
+      try {
+        const snap = canvas.toDataURL('image/jpeg', 0.7);
+        setQrSnapshotUrl(snap);
+        setTimeout(() => setQrSnapshotUrl(null), 2000);
+      } catch { /* canvas may be tainted in some browsers */ }
       handleMarkAttendanceByCard(code.data.trim());
     }
 
@@ -1275,6 +1282,7 @@ const QRAttendance = () => {
         videoRef={videoRef as React.RefObject<HTMLVideoElement>}
         canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
         cameraError={cameraError}
+        snapshotUrl={qrSnapshotUrl}
       />
 
       {/* Location Viewer Dialog */}

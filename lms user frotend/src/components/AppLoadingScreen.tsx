@@ -9,12 +9,34 @@ interface AppLoadingScreenProps {
 }
 
 const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ message = 'Loading...', iconUrl }) => {
-  // Read tenant branding safely — TenantContext may not be mounted yet (e.g. AuthContext init)
   const tenant = useContext(TenantContext);
-  const brandingLogo = tenant?.branding?.logoUrl ?? null;
+  const branding = tenant?.branding ?? null;
 
+  // Prefer the institute's login GIF/image (loginBackgroundUrl when type=IMAGE)
+  // for a branded animated loading screen, then fall back to logo, then app default.
+  const gifUrl = branding?.loginBackgroundType === 'IMAGE' && branding.loginBackgroundUrl
+    ? getImageUrl(branding.loginBackgroundUrl)
+    : null;
+  const brandingLogo = branding ? getImageUrl(branding.loginLogoUrl ?? branding.logoUrl ?? '') : null;
   const effectiveIcon = iconUrl ?? brandingLogo;
-  const resolvedIcon = effectiveIcon ? getImageUrl(effectiveIcon) : appIcon;
+  const resolvedIcon = effectiveIcon || appIcon;
+
+  if (gifUrl) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
+        <div className="text-center space-y-4">
+          <img
+            src={gifUrl}
+            alt="Loading"
+            className="mx-auto rounded-xl shadow-lg object-contain"
+            style={{ maxWidth: 260, maxHeight: 200 }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+          <p className="text-sm text-muted-foreground font-medium">{message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center z-50">

@@ -598,10 +598,9 @@ const StudentInstituteProfilePage: React.FC = () => {
     setDeactivating(true);
     try {
       const headers = await getApiHeadersAsync();
-      const res = await fetch(`${getBaseUrl()}/institute-users/institute/${instituteId}/user/${studentId}/lifecycle`, {
+      const res = await fetch(`${getBaseUrl()}/institute-users/institute/${instituteId}/users/${studentId}/deactivate`, {
         method: 'PATCH',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'DEACTIVATE' }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed');
       toast({ title: 'User Deactivated', description: 'User account has been deactivated.', variant: 'success' });

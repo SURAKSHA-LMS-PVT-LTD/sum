@@ -60,6 +60,53 @@ export const useTenant = (): TenantContextType => {
 };
 
 // ═══════════════════════════════════════════════════════════════════
+// Branding cache helpers (localStorage)
+// ═══════════════════════════════════════════════════════════════════
+
+const CACHE_KEY_PREFIX = 'suraksha_tenant_branding_';
+
+function brandingCacheKey(detected: { subdomain: string | null; customDomain: string | null }): string {
+  return CACHE_KEY_PREFIX + (detected.subdomain ?? detected.customDomain ?? 'default');
+}
+
+function loadCachedBranding(key: string): TenantBranding | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as TenantBranding;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedBranding(key: string, data: TenantBranding): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {
+    // storage quota exceeded — ignore
+  }
+}
+
+/** Apply favicon and title from a branding object immediately to the DOM. */
+function applyBrandingToDom(data: TenantBranding): void {
+  if (data.faviconUrl) {
+    const resolvedFavicon = getImageUrl(data.faviconUrl);
+    document.querySelectorAll("link[rel~='icon'], link[rel~='shortcut']").forEach((el) => {
+      (el as HTMLLinkElement).href = resolvedFavicon;
+    });
+    if (!document.querySelector("link[rel~='icon']")) {
+      const link = document.createElement('link');
+      link.rel = 'icon';
+      link.href = resolvedFavicon;
+      document.head.appendChild(link);
+    }
+  }
+  if (data.customAppName) {
+    document.title = data.customAppName;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Tenant detection from hostname
 // ═══════════════════════════════════════════════════════════════════
 
@@ -112,12 +159,29 @@ function detectTenant(): DetectedTenant {
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const detected = useMemo(() => detectTenant(), []);
-  const [branding, setBranding] = useState<TenantBranding | null>(null);
-  const [isLoading, setIsLoading] = useState(detected.isTenantLogin);
+  const cacheKey = useMemo(() => brandingCacheKey(detected), [detected]);
+
+  // Seed state from localStorage cache so the loading screen can show institute
+  // branding immediately on subsequent visits — even before the API responds.
+  const cachedBranding = useMemo(() => {
+    if (!detected.isTenantLogin) return null;
+    return loadCachedBranding(cacheKey);
+  }, [detected.isTenantLogin, cacheKey]);
+
+  const [branding, setBranding] = useState<TenantBranding | null>(cachedBranding);
+  // If we have a cache hit, skip the loading-spinner gate entirely on first paint.
+  const [isLoading, setIsLoading] = useState(detected.isTenantLogin && !cachedBranding);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const refetch = useCallback(() => setRefreshKey(k => k + 1), []);
+
+  // Apply cached branding to DOM immediately (before the API fetch resolves).
+  useEffect(() => {
+    if (cachedBranding) {
+      applyBrandingToDom(cachedBranding);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!detected.isTenantLogin) return;
@@ -149,27 +213,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         const data: TenantBranding = await res.json();
         if (!isMounted) return;
+
+        // Persist to cache for next visit
+        saveCachedBranding(cacheKey, data);
         setBranding(data);
-
-        // Apply favicon if provided — update all icon link tags
-        if (data.faviconUrl) {
-          const resolvedFavicon = getImageUrl(data.faviconUrl);
-          document.querySelectorAll("link[rel~='icon'], link[rel~='shortcut']").forEach((el) => {
-            (el as HTMLLinkElement).href = resolvedFavicon;
-          });
-          // Ensure at least one icon link exists
-          if (!document.querySelector("link[rel~='icon']")) {
-            const link = document.createElement('link');
-            link.rel = 'icon';
-            link.href = resolvedFavicon;
-            document.head.appendChild(link);
-          }
-        }
-
-        // Apply custom app name
-        if (data.customAppName) {
-          document.title = data.customAppName;
-        }
+        applyBrandingToDom(data);
       } catch (err) {
         if (isMounted) setError('Failed to connect to server');
       } finally {
@@ -182,7 +230,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       isMounted = false;
     };
-  }, [detected, refreshKey]);
+  }, [detected, cacheKey, refreshKey]);
 
   const value: TenantContextType = useMemo(() => ({
     isTenantLogin: detected.isTenantLogin,
@@ -196,33 +244,87 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }), [detected, branding, isLoading, error, refetch]);
 
   // On a tenant domain, block rendering until branding is resolved.
-  // This prevents every page in the system from briefly flashing Suraksha
-  // branding before the institute's own logo/name loads.
-  // Non-tenant sessions (lms.suraksha.lk) are never blocked — isLoading
-  // starts as false for them (see TenantContext initialisation above).
+  // With a cache hit this gate is skipped (isLoading starts false).
+  // Without a cache the spinner shows until the API responds.
   if (detected.isTenantLogin && isLoading) {
+    return <TenantLoadingScreen branding={cachedBranding} />;
+  }
+
+  return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// Tenant-branded loading screen shown while branding is being fetched
+// ═══════════════════════════════════════════════════════════════════
+
+const TenantLoadingScreen: React.FC<{ branding: TenantBranding | null }> = ({ branding }) => {
+  // Prefer the login GIF/image from loginBackgroundUrl when it's IMAGE type,
+  // fall back to loginLogoUrl, then logoUrl.
+  const gifUrl = branding?.loginBackgroundType === 'IMAGE' && branding.loginBackgroundUrl
+    ? getImageUrl(branding.loginBackgroundUrl)
+    : null;
+  const logoUrl = branding
+    ? getImageUrl(branding.loginLogoUrl ?? branding.logoUrl ?? '')
+    : null;
+  const appName = branding?.customAppName ?? branding?.name ?? '';
+
+  if (gifUrl) {
     return (
       <div
         style={{
           position: 'fixed', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
           background: '#0f172a',
           zIndex: 9999,
+          gap: 16,
         }}
       >
-        <div
-          style={{
-            width: 40, height: 40,
-            borderRadius: '50%',
-            border: '3px solid rgba(255,255,255,0.15)',
-            borderTopColor: '#60a5fa',
-            animation: 'spin 0.8s linear infinite',
-          }}
+        <img
+          src={gifUrl}
+          alt={appName}
+          style={{ maxWidth: 260, maxHeight: 200, objectFit: 'contain', borderRadius: 12 }}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
         />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        {appName && (
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: 500, margin: 0 }}>{appName}</p>
+        )}
       </div>
     );
   }
 
-  return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#0f172a',
+        zIndex: 9999,
+        gap: 16,
+      }}
+    >
+      {logoUrl && (
+        <img
+          src={logoUrl}
+          alt={appName}
+          style={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 12 }}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+      )}
+      <div
+        style={{
+          width: 40, height: 40,
+          borderRadius: '50%',
+          border: '3px solid rgba(255,255,255,0.15)',
+          borderTopColor: '#60a5fa',
+          animation: 'spin 0.8s linear infinite',
+        }}
+      />
+      {appName && (
+        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 500, margin: 0 }}>{appName}</p>
+      )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 };

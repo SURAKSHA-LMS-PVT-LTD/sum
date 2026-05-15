@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, CheckCircle, XCircle, QrCode, Barcode, Wifi, Clock, User, StopCircle } from 'lucide-react';
+import { X, CheckCircle, XCircle, QrCode, Barcode, Wifi, Clock, User, StopCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { AttendanceStatus, ALL_ATTENDANCE_STATUSES, ATTENDANCE_STATUS_CONFIG } from '@/types/attendance.types';
 import { attendanceScanLog, ScanLogEntry } from '@/utils/attendanceScanLog';
 import { getImageUrl } from '@/utils/imageUrlHelper';
@@ -17,6 +17,8 @@ interface MobileScannerOverlayProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   canvasRef: React.RefObject<HTMLCanvasElement>;
   cameraError?: string | null;
+  /** Base64 / blob URL snapshot captured at QR detection — replaces live camera view temporarily */
+  snapshotUrl?: string | null;
 }
 
 const ScannerHeader: React.FC<{
@@ -53,12 +55,22 @@ const CameraView: React.FC<{
   canvasRef: React.RefObject<HTMLCanvasElement>;
   cameraError?: string | null;
   scanMethod: 'qr' | 'barcode' | 'rfid/nfc';
-}> = ({ videoRef, canvasRef, cameraError, scanMethod }) => (
+  snapshotUrl?: string | null;
+}> = ({ videoRef, canvasRef, cameraError, scanMethod, snapshotUrl }) => (
   // Fixed pixel-bounded height prevents the video stream from expanding to full-screen
   // on Android WebView; overflow-hidden clips any native video frame bleed.
   <div className="relative bg-black flex items-center justify-center shrink-0 w-full overflow-hidden" style={{ height: '36vh', maxHeight: '240px' }}>
-    <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline muted />
+    <video ref={videoRef} className={`absolute inset-0 w-full h-full object-cover ${snapshotUrl ? 'opacity-0' : ''}`} playsInline muted />
     <canvas ref={canvasRef} className="hidden" />
+
+    {/* Freeze-frame snapshot shown briefly after QR detected */}
+    {snapshotUrl && (
+      <img
+        src={snapshotUrl}
+        alt="QR detected"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+    )}
 
     {cameraError && (
       <div className="absolute inset-0 flex items-center justify-center bg-black/85 z-10 p-6">
@@ -70,20 +82,30 @@ const CameraView: React.FC<{
     )}
 
     {/* Corner markers — sized to fit within the fixed 240px max-height camera box */}
-    <div className="relative w-[150px] h-[150px] z-[1] pointer-events-none">
-      <div className="absolute inset-0 border border-white/20 rounded-xl" />
-      {/* Corners */}
-      <div className="absolute -top-px -left-px w-7 h-7 border-t-[3px] border-l-[3px] border-primary rounded-tl-lg" />
-      <div className="absolute -top-px -right-px w-7 h-7 border-t-[3px] border-r-[3px] border-primary rounded-tr-lg" />
-      <div className="absolute -bottom-px -left-px w-7 h-7 border-b-[3px] border-l-[3px] border-primary rounded-bl-lg" />
-      <div className="absolute -bottom-px -right-px w-7 h-7 border-b-[3px] border-r-[3px] border-primary rounded-br-lg" />
-      {/* Scan line */}
-      <div className="absolute left-3 right-3 h-0.5 bg-primary/70 rounded-full animate-scan-line" />
-    </div>
+    {!snapshotUrl && (
+      <div className="relative w-[150px] h-[150px] z-[1] pointer-events-none">
+        <div className="absolute inset-0 border border-white/20 rounded-xl" />
+        <div className="absolute -top-px -left-px w-7 h-7 border-t-[3px] border-l-[3px] border-primary rounded-tl-lg" />
+        <div className="absolute -top-px -right-px w-7 h-7 border-t-[3px] border-r-[3px] border-primary rounded-tr-lg" />
+        <div className="absolute -bottom-px -left-px w-7 h-7 border-b-[3px] border-l-[3px] border-primary rounded-bl-lg" />
+        <div className="absolute -bottom-px -right-px w-7 h-7 border-b-[3px] border-r-[3px] border-primary rounded-br-lg" />
+        <div className="absolute left-3 right-3 h-0.5 bg-primary/70 rounded-full animate-scan-line" />
+      </div>
+    )}
 
-    <p className="absolute bottom-3 inset-x-0 text-center text-white/70 text-[11px] font-medium z-[1]">
-      Point at {scanMethod === 'qr' ? 'QR code' : 'barcode'} to scan
-    </p>
+    {snapshotUrl && (
+      <div className="absolute bottom-3 inset-x-0 flex justify-center z-[1]">
+        <span className="bg-green-600/90 text-white text-[11px] font-semibold px-3 py-1 rounded-full backdrop-blur-sm">
+          ✓ QR Detected
+        </span>
+      </div>
+    )}
+
+    {!snapshotUrl && (
+      <p className="absolute bottom-3 inset-x-0 text-center text-white/70 text-[11px] font-medium z-[1]">
+        Point at {scanMethod === 'qr' ? 'QR code' : 'barcode'} to scan
+      </p>
+    )}
   </div>
 );
 
@@ -184,9 +206,10 @@ const ScanLogCard: React.FC<{ entry: ScanLogEntry }> = ({ entry }) => {
 };
 
 const MobileScannerOverlay: React.FC<MobileScannerOverlayProps> = ({
-  isActive, onClose, scanMethod, status, onStatusChange, markedCount, videoRef, canvasRef, cameraError,
+  isActive, onClose, scanMethod, status, onStatusChange, markedCount, videoRef, canvasRef, cameraError, snapshotUrl,
 }) => {
   const [logEntries, setLogEntries] = useState<ScanLogEntry[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(true);
 
   useEffect(() => {
     if (!isActive) return;
@@ -200,21 +223,32 @@ const MobileScannerOverlay: React.FC<MobileScannerOverlayProps> = ({
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col bg-background">
       <ScannerHeader scanMethod={scanMethod} markedCount={markedCount} onClose={onClose} />
-      <CameraView videoRef={videoRef} canvasRef={canvasRef} cameraError={cameraError} scanMethod={scanMethod} />
+      <CameraView videoRef={videoRef} canvasRef={canvasRef} cameraError={cameraError} scanMethod={scanMethod} snapshotUrl={snapshotUrl} />
       <StatusBar status={status} onStatusChange={onStatusChange} onStop={onClose} />
 
+      {/* History header — collapsible */}
+      <button
+        onClick={() => setHistoryOpen(v => !v)}
+        className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground hover:bg-muted/80 transition-colors shrink-0"
+      >
+        <span>Scan History ({logEntries.length})</span>
+        {historyOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+      </button>
+
       {/* Scan log */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 pb-safe-bottom">
-        {logEntries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-2">
-            <QrCode className="h-8 w-8" />
-            <p className="text-xs font-medium">No scans yet</p>
-            <p className="text-[11px]">Scan a code to see results here</p>
-          </div>
-        ) : (
-          logEntries.map((entry) => <ScanLogCard key={entry.id} entry={entry} />)
-        )}
-      </div>
+      {historyOpen && (
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 pb-safe-bottom">
+          {logEntries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-2">
+              <QrCode className="h-8 w-8" />
+              <p className="text-xs font-medium">No scans yet</p>
+              <p className="text-[11px]">Scan a code to see results here</p>
+            </div>
+          ) : (
+            logEntries.map((entry) => <ScanLogCard key={entry.id} entry={entry} />)
+          )}
+        </div>
+      )}
     </div>
   );
 };

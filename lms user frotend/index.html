@@ -90,6 +90,69 @@
           meta.setAttribute('content', bg);
         }
       })();
+
+      // Apply cached tenant branding (favicon + title) immediately — before React loads.
+      // This prevents the brief flash of "Suraksha LMS" title and generic favicon
+      // on subdomain / custom domain pages.
+      (function() {
+        try {
+          var hostname = window.location.hostname;
+          var isTenant = false;
+          var cacheKey = null;
+
+          if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+            var surakshaMatch = hostname.match(/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.suraksha\.lk$/i);
+            var defaultSubs = ['lms', 'org', 'admin', 'transport', 'api', 'lmsapi', 'storage', 'www'];
+            if (surakshaMatch && !defaultSubs.includes(surakshaMatch[1].toLowerCase())) {
+              isTenant = true;
+              cacheKey = 'suraksha_tenant_branding_' + surakshaMatch[1].toLowerCase();
+            } else if (!surakshaMatch) {
+              var localMatch = hostname.match(/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.localhost$/i);
+              if (localMatch) {
+                isTenant = true;
+                cacheKey = 'suraksha_tenant_branding_' + localMatch[1].toLowerCase();
+              } else {
+                // Custom domain
+                isTenant = true;
+                cacheKey = 'suraksha_tenant_branding_' + hostname;
+              }
+            }
+          } else {
+            var devParams = new URLSearchParams(window.location.search);
+            var devSub = devParams.get('subdomain');
+            if (devSub) {
+              isTenant = true;
+              cacheKey = 'suraksha_tenant_branding_' + devSub;
+            }
+          }
+
+          if (!isTenant || !cacheKey) return;
+
+          var raw = localStorage.getItem(cacheKey);
+          if (!raw) return;
+          var branding = JSON.parse(raw);
+
+          // Apply title immediately
+          if (branding.customAppName) {
+            document.title = branding.customAppName;
+          } else if (branding.name) {
+            document.title = branding.name;
+          }
+
+          // Apply favicon immediately — replace all icon links
+          if (branding.faviconUrl) {
+            var faviconHref = branding.faviconUrl;
+            // If it's a relative path (storage key), it will be resolved by the app later;
+            // only apply absolute URLs here to avoid broken icons before JS resolvers load.
+            if (faviconHref.startsWith('http')) {
+              var links = document.querySelectorAll("link[rel~='icon'], link[rel~='shortcut']");
+              for (var i = 0; i < links.length; i++) {
+                links[i].href = faviconHref;
+              }
+            }
+          }
+        } catch (e) { /* ignore — branding will be applied by React */ }
+      })();
     </script>
   </head>
 
