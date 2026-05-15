@@ -28,7 +28,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 
@@ -45,7 +45,7 @@ const CAP_COL_DEFS: ColumnDef[] = [
 const ChildAttendancePage = () => {
   const capColIds = useMemo(() => CAP_COL_DEFS.map(c => c.key), []);
   const capColDefaultWidths = useMemo(() => Object.fromEntries(CAP_COL_DEFS.map(c => [c.key, c.defaultWidth!])), []);
-  const { getWidth: getCAPColWidth, setHoveredCol: setCAPHoveredCol, ResizeHandle: CAPResizeHandle } = useResizableColumns(capColIds, capColDefaultWidths);
+  const { getWidth: getCAPColWidth, setHoveredCol: setCAPHoveredCol, hoveredCol: CAPHoveredCol, activeCol: CAPActiveCol, startResize: CAPStartResize } = useResizableColumns(capColIds, capColDefaultWidths);
   const { colState: capColState, visibleColumns: capVisDefs, toggleColumn: toggleCAPCol, resetColumns: resetCAPCols } = useColumnConfig(CAP_COL_DEFS, 'child-attendance-page');
   const capVisKeys = useMemo(() => new Set(capVisDefs.map(c => c.key)), [capVisDefs]);
 
@@ -322,7 +322,7 @@ const ChildAttendancePage = () => {
                           <TableCell key={col.key} sx={{ position: 'relative', width: getCAPColWidth(col.key), fontWeight: 600, bgcolor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
                             onMouseEnter={() => setCAPHoveredCol(col.key)} onMouseLeave={() => setCAPHoveredCol(null)}>
                             <div style={{ paddingRight: 12 }}>{col.header}</div>
-                            <CAPResizeHandle colId={col.key} />
+                            <ResizeHandle colId={col.key} hoveredCol={CAPHoveredCol} activeCol={CAPActiveCol} onMouseDown={CAPStartResize} />
                           </TableCell>
                         ))}
                       </TableRow>

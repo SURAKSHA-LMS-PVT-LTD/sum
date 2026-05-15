@@ -30,7 +30,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import ImagePreviewModal from '@/components/ImagePreviewModal';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 
@@ -66,7 +66,7 @@ const VerifyImage = () => {
     (localStorage.getItem('viewMode') as 'card' | 'table') || 'card'
   );
 
-  const { getWidth: getVIColWidth, totalWidth: totalVITableWidth, setHoveredCol: setVIHoveredCol, ResizeHandle: VIResizeHandle } = useResizableColumns(
+  const { getWidth: getVIColWidth, totalWidth: totalVITableWidth, setHoveredCol: setVIHoveredCol, hoveredCol: VIHoveredCol, activeCol: VIActiveCol, startResize: VIStartResize } = useResizableColumns(
     ['image', 'userId', 'name', 'email', 'phoneNumber', 'userType', 'studentId', 'actions'],
     { image: 110, userId: 80, name: 170, email: 200, phoneNumber: 130, userType: 90, studentId: 120, actions: 230 }
   );
@@ -357,7 +357,7 @@ const VerifyImage = () => {
                     sx={{ fontWeight: 'bold', backgroundColor: 'rgba(0, 0, 0, 0.04)' }}
                   >
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{col.header}</div>
-                    <VIResizeHandle colId={col.key} isActions={col.key === 'actions'} />
+                    <ResizeHandle colId={col.key} isActions={col.key === 'actions'} hoveredCol={VIHoveredCol} activeCol={VIActiveCol} onMouseDown={VIStartResize} />
                   </TableCell>
                 ))}
               </TableRow>

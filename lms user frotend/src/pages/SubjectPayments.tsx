@@ -38,7 +38,7 @@ import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import { useViewMode } from '@/hooks/useViewMode';
 import { usePermission } from '@/hooks/usePermission';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 const SubjectPayments = () => {
@@ -291,7 +291,7 @@ const SubjectPayments = () => {
     spColDefs.forEach(c => { m[c.key] = c.defaultWidth || 120; });
     return m;
   }, [spColDefs]);
-  const { getWidth: getSPColWidth, setHoveredCol: setSPHoveredCol, ResizeHandle: SPResizeHandle } = useResizableColumns(spColIds, spColDefaultWidths);
+  const { getWidth: getSPColWidth, setHoveredCol: setSPHoveredCol, hoveredCol: SPHoveredCol, activeCol: SPActiveCol, startResize: SPStartResize } = useResizableColumns(spColIds, spColDefaultWidths);
   const { colState: spColState, visibleColumns: spVisDefs, toggleColumn: toggleSPCol, resetColumns: resetSPCols } = useColumnConfig(spColDefs, 'subject-payments');
 
   const renderSPCell = (colKey: string, payment: SubjectPayment): React.ReactNode => {
@@ -750,7 +750,7 @@ const SubjectPayments = () => {
                             sx={{ fontWeight: 600, backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))', borderBottom: '1px solid hsl(var(--border))' }}
                           >
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{col.header}</div>
-                            <SPResizeHandle colId={col.key} />
+                            <ResizeHandle colId={col.key} hoveredCol={SPHoveredCol} activeCol={SPActiveCol} onMouseDown={SPStartResize} />
                           </TableCell>
                         ))}
                       </TableRow>

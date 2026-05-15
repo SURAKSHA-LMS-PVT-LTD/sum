@@ -533,8 +533,8 @@ const InstitutePayments = () => {
                               {payment.description && (
                                 <p className="text-xs text-muted-foreground leading-relaxed">{payment.description}</p>
                               )}
-                              {/* Bank details & instructions for students — helps them know WHERE to pay */}
-                              {(isStudent || isViewingAsParent) && !payment.hasSubmitted && payment.bankDetails && (
+                              {/* Bank details & instructions for students — only for non-CYCLE payments */}
+                              {(isStudent || isViewingAsParent) && !payment.hasSubmitted && payment.bankDetails && payment.paymentType?.toUpperCase() !== 'CYCLE' && (
                                 <div className="p-2 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800 text-xs space-y-0.5">
                                   {payment.bankDetails.bankName && <p><span className="text-muted-foreground">Bank:</span> <span className="font-medium text-foreground">{payment.bankDetails.bankName}</span></p>}
                                   {payment.bankDetails.accountNumber && <p><span className="text-muted-foreground">A/C:</span> <span className="font-mono font-medium text-foreground">{payment.bankDetails.accountNumber}</span></p>}
@@ -603,7 +603,7 @@ const InstitutePayments = () => {
                                 </div>
                               )}
                               <div className="flex gap-1.5 pt-1">
-                                {(isStudent || isViewingAsParent) && (() => {
+                                {(isStudent || isViewingAsParent) && payment.paymentType?.toUpperCase() !== 'CYCLE' && (() => {
                                   const subs = payment.mySubmissions || [];
                                   const latest = subs[0];
                                   if (!latest) {
@@ -689,23 +689,26 @@ const InstitutePayments = () => {
                     </div>
                   ) : (
                     <MUITable title="" columns={columns} data={filteredData} page={tableData.pagination.page} rowsPerPage={tableData.pagination.limit} totalCount={filteredData.length} onPageChange={tableData.actions.setPage} onRowsPerPageChange={tableData.actions.setLimit} rowsPerPageOptions={tableData.availableLimits} customActions={[
-                    // Student actions
+                    // Student actions — only for non-CYCLE payment types
                     ...((isStudent || isViewingAsParent) ? [{
                       label: 'Submit Payment',
                       action: handleSubmitPayment,
                       icon: <CreditCard className="h-4 w-4" />,
                       variant: 'default' as const,
-                      disabledCondition: (row: InstitutePayment) => row.mySubmissionStatus === 'PENDING' || row.mySubmissionStatus === 'VERIFIED',
-                      disabledLabel: 'Already Submitted'
+                      disabledCondition: (row: InstitutePayment) =>
+                        row.paymentType?.toUpperCase() === 'CYCLE' ||
+                        row.mySubmissionStatus === 'PENDING' ||
+                        row.mySubmissionStatus === 'VERIFIED',
+                      disabledLabel: 'N/A'
                     }] : []),
-                    // Bank Details action (for all users)
+                    // Bank Details action — only for non-CYCLE payments
                     {
                       label: 'Bank Details',
                       action: handleViewBankDetails,
                       icon: <Building2 className="h-4 w-4" />,
                       variant: 'outline' as const,
-                      disabledCondition: (row: InstitutePayment) => !row.bankDetails,
-                      disabledLabel: 'No Bank Details'
+                      disabledCondition: (row: InstitutePayment) => !row.bankDetails || row.paymentType?.toUpperCase() === 'CYCLE',
+                      disabledLabel: 'N/A'
                     },
                     // InstituteAdmin/Teacher actions  
                     ...(isInstituteAdmin || isTeacher ? [

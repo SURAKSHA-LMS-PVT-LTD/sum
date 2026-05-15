@@ -11,7 +11,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import { 
@@ -89,7 +89,7 @@ const Payments = () => {
 
   const payColIds = useMemo(() => PAY_COL_DEFS.map(c => c.key), []);
   const payColDefaultWidths = useMemo(() => Object.fromEntries(PAY_COL_DEFS.map(c => [c.key, c.defaultWidth ?? 150])), []);
-  const { getWidth: getPayColWidth, setHoveredCol: setPayHoveredCol, ResizeHandle: PayResizeHandle } = useResizableColumns(payColIds, payColDefaultWidths);
+  const { getWidth: getPayColWidth, setHoveredCol: setPayHoveredCol, hoveredCol: PayHoveredCol, activeCol: PayActiveCol, startResize: PayStartResize } = useResizableColumns(payColIds, payColDefaultWidths);
   const { colState: payColState, visibleColumns: payVisDefs, toggleColumn: togglePayCol, resetColumns: resetPayCols } = useColumnConfig(PAY_COL_DEFS, 'payments');
   const payVisKeys = useMemo(() => new Set(payVisDefs.map(c => c.key)), [payVisDefs]);
 
@@ -458,7 +458,7 @@ const Payments = () => {
                             onMouseLeave={() => setPayHoveredCol(null)}
                           >
                             <div style={{ paddingRight: 12 }}>{col.header}</div>
-                            <PayResizeHandle colId={col.key} />
+                            <ResizeHandle colId={col.key} hoveredCol={PayHoveredCol} activeCol={PayActiveCol} onMouseDown={PayStartResize} />
                           </TableCell>
                         ))}
                       </TableRow>

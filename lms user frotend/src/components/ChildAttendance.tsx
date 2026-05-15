@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import Paper from '@mui/material/Paper';
@@ -295,7 +295,7 @@ const ChildAttendance = () => {
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const { getWidth: getCAColWidth, totalWidth: totalCATableWidth, setHoveredCol: setCAHoveredCol, ResizeHandle: CAResizeHandle } = useResizableColumns(
+  const { getWidth: getCAColWidth, totalWidth: totalCATableWidth, setHoveredCol: setCAHoveredCol, hoveredCol: CAHoveredCol, activeCol: CAActiveCol, startResize: CAStartResize } = useResizableColumns(
     ['datetime', 'status', 'institute', 'classSubject', 'location', 'markedBy', 'method'],
     { datetime: 200, status: 100, institute: 160, classSubject: 180, location: 160, markedBy: 140, method: 120 }
   );
@@ -576,7 +576,7 @@ const ChildAttendance = () => {
                               style={{ position: 'relative', width: getCAColWidth(col.key), userSelect: 'none' }}
                             >
                               <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{col.header}</div>
-                              <CAResizeHandle colId={col.key} />
+                              <ResizeHandle colId={col.key} hoveredCol={CAHoveredCol} activeCol={CAActiveCol} onMouseDown={CAStartResize} />
                             </TableCell>
                           ))}
                         </TableRow>

@@ -15,6 +15,41 @@ import * as React from 'react';
  *
  *   On <Table>: sx={{ tableLayout: 'fixed', minWidth: totalWidth }}
  */
+
+// Stable module-level component — never recreated, so React won't remount on every render.
+export const ResizeHandle = React.memo(function ResizeHandle({
+  colId,
+  isActions = false,
+  hoveredCol,
+  activeCol,
+  onMouseDown,
+}: {
+  colId: string;
+  isActions?: boolean;
+  hoveredCol: string | null;
+  activeCol: string | null;
+  onMouseDown: (e: React.MouseEvent, id: string) => void;
+}) {
+  if (isActions) return null;
+  const active = hoveredCol === colId || activeCol === colId;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: active ? 4 : 2,
+        cursor: 'col-resize',
+        backgroundColor: active ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+        zIndex: 2,
+        transition: 'width 0.1s, background-color 0.1s',
+      }}
+      onMouseDown={e => onMouseDown(e, colId)}
+    />
+  );
+});
+
 export function useResizableColumns(
   columnIds: string[],
   defaultWidths: Record<string, number> = {},
@@ -72,32 +107,5 @@ export function useResizableColumns(
     };
   }, []);
 
-  /**
-   * Render this after the label text inside each header <TableCell>.
-    * Pass isActions=true only for tables where you explicitly want to disable
-    * resizing on an action column.
-   */
-  const ResizeHandle = React.useCallback(
-    ({ colId, isActions = false }: { colId: string; isActions?: boolean }) => {
-      if (isActions) return null;
-      const active = hoveredCol === colId || activeCol === colId;
-      return React.createElement('div', {
-        style: {
-          position: 'absolute' as const,
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: active ? 4 : 2,
-          cursor: 'col-resize',
-          backgroundColor: active ? 'hsl(var(--primary))' : 'hsl(var(--border))',
-          zIndex: 2,
-          transition: 'width 0.1s, background-color 0.1s',
-        },
-        onMouseDown: (e: React.MouseEvent) => startResize(e, colId),
-      });
-    },
-    [hoveredCol, activeCol, startResize]
-  );
-
-  return { getWidth, totalWidth, setHoveredCol, hoveredCol, activeCol, startResize, ResizeHandle };
+  return { getWidth, totalWidth, setHoveredCol, hoveredCol, activeCol, startResize };
 }

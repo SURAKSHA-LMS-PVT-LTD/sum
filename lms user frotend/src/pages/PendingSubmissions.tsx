@@ -25,7 +25,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 
@@ -55,7 +55,7 @@ const PendingSubmissions = () => {
 
   const psColIds = useMemo(() => PS_COL_DEFS.map(c => c.key), []);
   const psColDefaultWidths = useMemo(() => Object.fromEntries(PS_COL_DEFS.map(c => [c.key, c.defaultWidth!])), []);
-  const { getWidth: getPSColWidth, setHoveredCol: setPSHoveredCol, ResizeHandle: PSResizeHandle } = useResizableColumns(psColIds, psColDefaultWidths);
+  const { getWidth: getPSColWidth, setHoveredCol: setPSHoveredCol, hoveredCol: PSHoveredCol, activeCol: PSActiveCol, startResize: PSStartResize } = useResizableColumns(psColIds, psColDefaultWidths);
   const { colState: psColState, visibleColumns: psVisDefs, toggleColumn: togglePSCol, resetColumns: resetPSCols } = useColumnConfig(PS_COL_DEFS, 'pending-submissions');
   const psVisKeys = useMemo(() => new Set(psVisDefs.map(c => c.key)), [psVisDefs]);
 
@@ -203,7 +203,7 @@ const PendingSubmissions = () => {
                         <TableCell key={col.key} sx={{ position: 'relative', width: getPSColWidth(col.key), fontWeight: 600, bgcolor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
                           onMouseEnter={() => setPSHoveredCol(col.key)} onMouseLeave={() => setPSHoveredCol(null)}>
                           <div style={{ paddingRight: 12 }}>{col.header}</div>
-                          <PSResizeHandle colId={col.key} />
+                          <ResizeHandle colId={col.key} hoveredCol={PSHoveredCol} activeCol={PSActiveCol} onMouseDown={PSStartResize} />
                         </TableCell>
                       ))}
                     </TableRow>

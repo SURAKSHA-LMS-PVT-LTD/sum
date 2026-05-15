@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import Paper from '@mui/material/Paper';
@@ -117,7 +117,7 @@ const UnverifiedStudents = () => {
   ], []);
   const uvColIds  = useMemo(() => uvColDefs.map(c => c.key), [uvColDefs]);
   const uvColDefaultWidths = useMemo(() => Object.fromEntries(uvColDefs.map(c => [c.key, c.defaultWidth!])), [uvColDefs]);
-  const { getWidth: getUVWidth, totalWidth: uvTotalWidth, setHoveredCol: setUVHoveredCol, ResizeHandle: UVResizeHandle } =
+  const { getWidth: getUVWidth, totalWidth: uvTotalWidth, setHoveredCol: setUVHoveredCol, hoveredCol: UVHoveredCol, activeCol: UVActiveCol, startResize: UVStartResize } =
     useResizableColumns(uvColIds, uvColDefaultWidths);
   const { colState: uvColState, visibleColumns: uvVisDefs, toggleColumn: toggleUVCol, resetColumns: resetUVCols } =
     useColumnConfig(uvColDefs, 'unverified-students');
@@ -557,7 +557,7 @@ const UnverifiedStudents = () => {
                       sx={{ fontWeight: 'bold', backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))', borderBottom: '1px solid hsl(var(--border))', whiteSpace: 'nowrap' }}
                     >
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 12 }}>{col.header}</div>
-                      <UVResizeHandle colId={col.key} />
+                      <ResizeHandle colId={col.key} hoveredCol={UVHoveredCol} activeCol={UVActiveCol} onMouseDown={UVStartResize} />
                     </TableCell>
                   ))}
                 </TableRow>

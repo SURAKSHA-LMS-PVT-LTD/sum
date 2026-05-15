@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import Paper from '@mui/material/Paper';
@@ -720,7 +720,7 @@ const Attendance = () => {
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const { getWidth: getAttColWidth, totalWidth: totalAttTableWidth, setHoveredCol: setAttHoveredCol, ResizeHandle: AttResizeHandle } = useResizableColumns(
+  const { getWidth: getAttColWidth, totalWidth: totalAttTableWidth, setHoveredCol: setAttHoveredCol, hoveredCol: AttHoveredCol, activeCol: AttActiveCol, startResize: AttStartResize } = useResizableColumns(
     ['studentId', 'studentName', 'instituteName', 'className', 'subjectName', 'timestamp', 'status', 'userType', 'location', 'markingMethod', 'eventId', 'calendarDayId'],
     { studentId: 100, studentName: 220, instituteName: 150, className: 120, subjectName: 130, timestamp: 180, status: 100, userType: 130, location: 200, markingMethod: 120, eventId: 100, calendarDayId: 110 }
   );
@@ -1063,7 +1063,7 @@ const Attendance = () => {
                           }}
                         >
                           <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{column.label}</div>
-                          <AttResizeHandle colId={column.id} />
+                          <ResizeHandle colId={column.id} hoveredCol={AttHoveredCol} activeCol={AttActiveCol} onMouseDown={AttStartResize} />
                         </TableCell>
                       ))}
                     </TableRow>

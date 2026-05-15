@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Eye, Plus, MoreVertical } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import {
@@ -134,7 +134,7 @@ export default function MUITable({
     return m;
   }, [allColumns]);
   const colIds = React.useMemo(() => allColumns.map(c => c.id), [allColumns]);
-  const { getWidth, totalWidth: totalTableWidth, setHoveredCol, ResizeHandle } =
+  const { getWidth, totalWidth: totalTableWidth, setHoveredCol, hoveredCol, activeCol, startResize } =
     useResizableColumns(colIds, colDefaultWidths);
 
   // ── Column visibility (user-configurable) ────────────────────────
@@ -219,7 +219,7 @@ export default function MUITable({
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 12 }}>
                       {column.label}
                     </div>
-                    <ResizeHandle colId={column.id} />
+                    <ResizeHandle colId={column.id} hoveredCol={hoveredCol} activeCol={activeCol} onMouseDown={startResize} />
                   </TableCell>
                 ))}
               </TableRow>

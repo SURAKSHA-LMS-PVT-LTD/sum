@@ -74,7 +74,9 @@ function exportSessionAttendance(detail: import('@/api/classAttendanceSessions.a
   const enc = XLSX.utils.encode_cell;
 
   // ── Sheet 1: Attendance ────────────────────────────────────────────────────
-  const headers = ['#', 'Student Name', 'Institute ID', 'Card ID', 'Status', 'Marked At', 'Source'];
+  const hasPayment = !!detail.linkedPaymentId;
+  const headers = ['#', 'Student Name', 'Institute ID', 'Card ID', 'Status', 'Marked At', 'Source',
+    ...(hasPayment ? ['Payment Status'] : [])];
   const rows: any[][] = [headers];
 
   const sorted = [...detail.students].sort((a, b) => a.studentName.localeCompare(b.studentName));
@@ -90,6 +92,7 @@ function exportSessionAttendance(detail: import('@/api/classAttendanceSessions.a
       statusLabel,
       s.markedAt ?? '',
       'Session',
+      ...(hasPayment ? [s.paymentStatus ?? 'UNPAID'] : []),
     ]);
   });
 
@@ -97,6 +100,7 @@ function exportSessionAttendance(detail: import('@/api/classAttendanceSessions.a
   ws['!cols'] = [
     { wch: 4 }, { wch: 28 }, { wch: 14 }, { wch: 14 },
     { wch: 12 }, { wch: 20 }, { wch: 14 },
+    ...(hasPayment ? [{ wch: 16 }] : []),
   ];
 
   // Header row styles
@@ -116,6 +120,21 @@ function exportSessionAttendance(detail: import('@/api/classAttendanceSessions.a
         font: { bold: true, color: { rgb: ex.fg }, sz: 9 },
         alignment: { horizontal: 'center' },
       };
+    }
+    // Payment status cell colour
+    if (hasPayment) {
+      const pc = enc({ r: rowIdx + 1, c: 7 });
+      if (ws[pc]) {
+        const pStyle =
+          s.paymentStatus === 'PAID'    ? { bg: 'C6EFCE', fg: '375623' } :
+          s.paymentStatus === 'PENDING' ? { bg: 'FFEB9C', fg: '9C5700' } :
+                                          { bg: 'FFC7CE', fg: '9C0006' };
+        ws[pc].s = {
+          fill: { patternType: 'solid', fgColor: { rgb: pStyle.bg } },
+          font: { bold: true, color: { rgb: pStyle.fg }, sz: 9 },
+          alignment: { horizontal: 'center' },
+        };
+      }
     }
   });
 
@@ -569,7 +588,21 @@ export default function ClassAttendanceSessionView({ instituteId, classId, sessi
                   <AvatarFallback className="text-xs">{initials(student.studentName)}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{student.studentName}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-sm truncate">{student.studentName}</p>
+                    {/* Payment badge */}
+                    {detail?.linkedPaymentId && student.paymentStatus && (
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+                        student.paymentStatus === 'PAID'
+                          ? 'bg-green-100 text-green-700 border-green-300'
+                          : student.paymentStatus === 'PENDING'
+                          ? 'bg-amber-100 text-amber-700 border-amber-300'
+                          : 'bg-red-100 text-red-700 border-red-300'
+                      }`}>
+                        {student.paymentStatus === 'PAID' ? 'Paid' : student.paymentStatus === 'PENDING' ? 'Pending' : 'Unpaid'}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {student.userIdInstitute && <span className="mr-2">ID: {student.userIdInstitute}</span>}
                     {student.cardId && <span>Card: {student.cardId}</span>}
@@ -591,41 +624,49 @@ export default function ClassAttendanceSessionView({ instituteId, classId, sessi
                   )}
                 </div>
                 {/* Mark buttons — shown for all students when session is open */}
-                {!detail?.isClosed && (
-                  <div className="flex items-center gap-1 flex-wrap shrink-0">
-                    {/* Auto-mark: backend resolves Present/Late from session time rules */}
-                    <Button
-                      size="sm"
-                      variant={student.statusCode === null ? 'default' : 'outline'}
-                      className="text-xs px-2.5 h-7"
-                      disabled={saving === student.studentId}
-                      onClick={() => handleMark(student)}
-                    >
-                      {saving === student.studentId ? '…' : student.statusCode !== null ? '✓ Re-mark' : '✓ Mark'}
-                    </Button>
-                    {/* Absent shortcut */}
-                    <Button
-                      size="sm"
-                      variant={student.statusCode === 0 ? 'default' : 'outline'}
-                      className="text-xs px-2 h-7 text-red-600 border-red-200 hover:bg-red-50"
-                      disabled={saving === student.studentId}
-                      onClick={() => handleMark(student, 0)}
-                    >
-                      Absent
-                    </Button>
-                    {/* More statuses */}
-                    <Select onValueChange={v => handleMark(student, Number(v))}>
-                      <SelectTrigger className="w-20 h-7 text-xs">
-                        <SelectValue placeholder="More" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STATUS_OPTS.map(opt => (
-                          <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                {!detail?.isClosed && (() => {
+                  const paymentBlocked = detail?.paymentMode === 'REQUIRED' && student.paymentStatus !== 'PAID';
+                  return (
+                    <div className="flex items-center gap-1 flex-wrap shrink-0">
+                      {/* Auto-mark: backend resolves Present/Late from session time rules */}
+                      <Button
+                        size="sm"
+                        variant={student.statusCode === null ? 'default' : 'outline'}
+                        className="text-xs px-2.5 h-7"
+                        disabled={saving === student.studentId || paymentBlocked}
+                        title={paymentBlocked ? 'Payment required before marking attendance' : undefined}
+                        onClick={() => handleMark(student)}
+                      >
+                        {saving === student.studentId ? '…' : student.statusCode !== null ? '✓ Re-mark' : '✓ Mark'}
+                      </Button>
+                      {/* Absent shortcut */}
+                      <Button
+                        size="sm"
+                        variant={student.statusCode === 0 ? 'default' : 'outline'}
+                        className="text-xs px-2 h-7 text-red-600 border-red-200 hover:bg-red-50"
+                        disabled={saving === student.studentId || paymentBlocked}
+                        title={paymentBlocked ? 'Payment required before marking attendance' : undefined}
+                        onClick={() => handleMark(student, 0)}
+                      >
+                        Absent
+                      </Button>
+                      {/* More statuses */}
+                      <Select
+                        disabled={paymentBlocked}
+                        onValueChange={v => handleMark(student, Number(v))}
+                      >
+                        <SelectTrigger className="w-20 h-7 text-xs" title={paymentBlocked ? 'Payment required before marking attendance' : undefined}>
+                          <SelectValue placeholder="More" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STATUS_OPTS.map(opt => (
+                            <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>

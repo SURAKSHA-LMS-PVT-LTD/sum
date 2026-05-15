@@ -21,7 +21,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 
@@ -145,7 +145,7 @@ const PaymentSubmissionsPage = () => {
   };
   const ppsColIds = useMemo(() => PPS_COL_DEFS.map(c => c.key), []);
   const ppsColDefaultWidths = useMemo(() => Object.fromEntries(PPS_COL_DEFS.map(c => [c.key, c.defaultWidth!])), []);
-  const { getWidth: getPPSColWidth, setHoveredCol: setPPSHoveredCol, ResizeHandle: PPSResizeHandle } = useResizableColumns(ppsColIds, ppsColDefaultWidths);
+  const { getWidth: getPPSColWidth, setHoveredCol: setPPSHoveredCol, hoveredCol: PPSHoveredCol, activeCol: PPSActiveCol, startResize: PPSStartResize } = useResizableColumns(ppsColIds, ppsColDefaultWidths);
   const { colState: ppsColState, visibleColumns: ppsVisDefs, toggleColumn: togglePPSCol, resetColumns: resetPPSCols } = useColumnConfig(PPS_COL_DEFS, 'payment-submissions-page');
   const ppsVisKeys = useMemo(() => new Set(ppsVisDefs.map(c => c.key)), [ppsVisDefs]);
   return <AppLayout>
@@ -243,7 +243,7 @@ const PaymentSubmissionsPage = () => {
                             <TableCell key={col.key} sx={{ position: 'relative', width: getPPSColWidth(col.key), fontWeight: 600, bgcolor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
                               onMouseEnter={() => setPPSHoveredCol(col.key)} onMouseLeave={() => setPPSHoveredCol(null)}>
                               <div style={{ paddingRight: 12 }}>{col.header}</div>
-                              <PPSResizeHandle colId={col.key} />
+                              <ResizeHandle colId={col.key} hoveredCol={PPSHoveredCol} activeCol={PPSActiveCol} onMouseDown={PPSStartResize} />
                             </TableCell>
                           ))}
                         </TableRow>

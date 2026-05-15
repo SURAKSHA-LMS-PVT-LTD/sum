@@ -22,7 +22,7 @@ import { Eye, RefreshCw, GraduationCap, Users, UserCheck, Plus, UserPlus, UserCo
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { instituteApi } from '@/api/institute.api';
 import { studentsApi } from '@/api/students.api';
@@ -259,10 +259,11 @@ const InstituteUsers = () => {
   });
 
   // Table for pending verification (call hook at top level, always)
+  const pendingUserTypeSlug = userTypes.find(ut => ut.id === pendingUserTypeId)?.slug?.toUpperCase() || '';
   const pendingUsersTable = useTableData<InstituteUserData>({
-    endpoint: currentInstituteId && pendingUserTypeId ? `/institute-users/institute/${currentInstituteId}/unverified-by-type/${pendingUserTypeId}` : null,
+    endpoint: currentInstituteId && pendingUserTypeSlug ? `/institute-users/institute/${currentInstituteId}/users/${pendingUserTypeSlug}/unverified` : null,
     defaultParams: pendingFilters,
-    dependencies: [pendingUserTypeId],
+    dependencies: [pendingUserTypeSlug],
     ...tableConfig
   });
 
@@ -410,7 +411,7 @@ const InstituteUsers = () => {
     setActivatingUserId(userId);
     try {
       const headers = await getApiHeadersAsync();
-      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/user/${userId}/activate`, { method: 'PATCH', headers });
+      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/users/${userId}/activate`, { method: 'PATCH', headers });
       if (!response.ok) throw new Error('Failed to activate user');
       const result = await response.json();
       toast({ title: "Success", description: result.message || "User activated" });
@@ -426,7 +427,7 @@ const InstituteUsers = () => {
     setDeactivatingUserId(userId);
     try {
       const headers = await getApiHeadersAsync();
-      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/user/${userId}/deactivate`, { method: 'PATCH', headers });
+      const response = await fetch(`${getBaseUrl()}/institute-users/institute/${currentInstituteId}/users/${userId}/deactivate`, { method: 'PATCH', headers });
       if (!response.ok) throw new Error('Failed to deactivate user');
       const result = await response.json();
       toast({ title: "Success", description: result.message || "User deactivated" });
@@ -628,7 +629,7 @@ const InstituteUsers = () => {
   ], [activeView, selectedUserTypeId, handleOpenUserDetails, setSelectedUserForOrg, setOrgDialogOpen, setUploadingImageTarget, handleAssignParent, setChangeRoleDialog, setNewRoleValue, setSetPasswordDialog, handleOpenEditExtraData, verifyingIds, activatingUserId, deactivatingUserId, userTypes, extraColumns]);
 
   const { colState, visibleColumns, toggleColumn, resetColumns } = useColumnConfig(allDataColumnDefs, 'institute-users');
-  const { getWidth: getIUColWidth, totalWidth: totalIUTableWidth, setHoveredCol: setIUHoveredCol, ResizeHandle: IUResizeHandle } = useResizableColumns(
+  const { getWidth: getIUColWidth, totalWidth: totalIUTableWidth, setHoveredCol: setIUHoveredCol, hoveredCol: IUHoveredCol, activeCol: IUActiveCol, startResize: IUStartResize } = useResizableColumns(
     allDataColumnDefs.map(c => c.key), allDataColumnDefs.reduce((acc, c) => ({...acc, [c.key]: c.defaultWidth}), { _checkbox: 50 })
   );
 
@@ -640,11 +641,7 @@ const InstituteUsers = () => {
   const currentLoading = currentTable?.state.loading || typesLoading;
   const currentType = userTypes.find(t => t.id === selectedUserTypeId);
 
-  const ViewIcon = useMemo(() => {
-    if (activeView === 'PENDING') return Clock;
-    if (activeView === 'INACTIVE') return UserX;
-    return Users; // Default
-  }, [activeView]);
+  const viewIcon = activeView === 'PENDING' ? Clock : activeView === 'INACTIVE' ? UserX : Users;
 
   return <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-3 sm:gap-4">
@@ -735,14 +732,14 @@ const InstituteUsers = () => {
 
       {viewMode === 'card' ? (
         <div className="grid grid-cols-1 gap-4">
-          {currentUsers.length === 0 ? <div className="col-span-full"><EmptyState icon={ViewIcon} title={`No ${activeView === 'USERS' ? currentType?.namePlural : activeView} Found`} description="No users found for the current selection." /></div> : currentUsers.map(userData => <Card key={userData.id} className="hover:shadow-md transition-shadow"><div className="p-4 flex items-center gap-3 cursor-pointer" onClick={() => handleOpenUserDetails(userData)}>{activeView === 'PENDING' && <input type="checkbox" checked={selectedPendingUsers.includes(userData.id)} onClick={e => e.stopPropagation()} onChange={() => togglePendingUserSelection(userData.id)} className="w-4 h-4 rounded border-border shrink-0" />}<Avatar className="h-12 w-12 shrink-0 border-2 border-border cursor-pointer" onClick={(e) => { e.stopPropagation(); if (userData.imageUrl) setImagePreview({ isOpen: true, url: getImageUrl(userData.imageUrl), title: userData.nameWithInitials || userData.name, userMetadata: { userId: userData.id, email: userData.email, phoneNumber: userData.phoneNumber, userType: userData.userType?.name } }); }}><AvatarImage src={getImageUrl(userData.imageUrl || '')} alt={userData.name} /><AvatarFallback>{userData.name.split(' ').map(n => n[0]).join('').slice(0, 2)}</AvatarFallback></Avatar><div className="min-w-0 flex-1"><p className="font-semibold truncate">{userData.nameWithInitials || formatNameWithInitials(userData.name)}</p><p className="text-sm text-muted-foreground truncate">{userData.email || '-'}</p>{userData.userIdByInstitute && <p className="text-sm text-muted-foreground font-mono">Inst. ID: {userData.userIdByInstitute}</p>}</div><button onClick={(e) => { e.stopPropagation(); setExpandedUserId(p => p === userData.id ? null : userData.id); }} className="text-muted-foreground hover:text-foreground ml-auto shrink-0"><ChevronDown className={`h-4 w-4 transition-transform ${expandedUserId === userData.id ? 'rotate-180' : ''}`} /></button></div>{expandedUserId === userData.id && <div className="px-4 pb-4 border-t pt-3 space-y-3"><div className="space-y-1 text-sm">... details ...</div></div>}</Card>)}
+          {currentUsers.length === 0 ? <div className="col-span-full"><EmptyState icon={viewIcon} title={`No ${activeView === 'USERS' ? currentType?.namePlural : activeView} Found`} description="No users found for the current selection." /></div> : currentUsers.map(userData => <Card key={userData.id} className="hover:shadow-md transition-shadow"><div className="p-4 flex items-center gap-3 cursor-pointer" onClick={() => handleOpenUserDetails(userData)}>{activeView === 'PENDING' && <input type="checkbox" checked={selectedPendingUsers.includes(userData.id)} onClick={e => e.stopPropagation()} onChange={() => togglePendingUserSelection(userData.id)} className="w-4 h-4 rounded border-border shrink-0" />}<Avatar className="h-12 w-12 shrink-0 border-2 border-border cursor-pointer" onClick={(e) => { e.stopPropagation(); if (userData.imageUrl) setImagePreview({ isOpen: true, url: getImageUrl(userData.imageUrl), title: userData.nameWithInitials || userData.name, userMetadata: { userId: userData.id, email: userData.email, phoneNumber: userData.phoneNumber, userType: userData.userType?.name } }); }}><AvatarImage src={getImageUrl(userData.imageUrl || '')} alt={userData.name} /><AvatarFallback>{userData.name.split(' ').map(n => n[0]).join('').slice(0, 2)}</AvatarFallback></Avatar><div className="min-w-0 flex-1"><p className="font-semibold truncate">{userData.nameWithInitials || formatNameWithInitials(userData.name)}</p><p className="text-sm text-muted-foreground truncate">{userData.email || '-'}</p>{userData.userIdByInstitute && <p className="text-sm text-muted-foreground font-mono">Inst. ID: {userData.userIdByInstitute}</p>}</div><button onClick={(e) => { e.stopPropagation(); setExpandedUserId(p => p === userData.id ? null : userData.id); }} className="text-muted-foreground hover:text-foreground ml-auto shrink-0"><ChevronDown className={`h-4 w-4 transition-transform ${expandedUserId === userData.id ? 'rotate-180' : ''}`} /></button></div>{expandedUserId === userData.id && <div className="px-4 pb-4 border-t pt-3 space-y-3"><div className="space-y-1 text-sm">... details ...</div></div>}</Card>)}
         </div>
       ) : (
         <Paper sx={{ width: '100%', overflow: 'hidden' }}>
           <TableContainer sx={{ height: 'calc(100vh - 320px)', overflow: 'auto' }}>
             <Table stickyHeader aria-label="users table" sx={{ tableLayout: 'fixed', minWidth: totalIUTableWidth }}>
-              <TableHead><TableRow>{activeView === 'PENDING' && <TableCell padding="checkbox" style={{ width: getIUColWidth('_checkbox')}}><input type="checkbox" checked={selectedPendingUsers.length === currentUsers.length && currentUsers.length > 0} onChange={toggleAllPendingUsers} /></TableCell>}{visibleColumns.map(col => <TableCell key={col.key} onMouseEnter={() => setIUHoveredCol(col.key)} onMouseLeave={() => setIUHoveredCol(null)} style={{ position: 'relative', width: getIUColWidth(col.key) }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{col.header}</div><IUResizeHandle colId={col.key} /></TableCell>)}</TableRow></TableHead>
-              <TableBody>{currentUsers.map(userData => <TableRow hover role="checkbox" tabIndex={-1} key={userData.id} className="cursor-pointer" onClick={() => handleOpenUserDetails(userData)}>{activeView === 'PENDING' && <TableCell padding="checkbox"><input type="checkbox" checked={selectedPendingUsers.includes(userData.id)} onChange={() => togglePendingUserSelection(userData.id)} /></TableCell>}{visibleColumns.map(col => <TableCell key={col.key}>{col.render ? col.render((userData as any)[col.key], userData) : (userData as any)[col.key]}</TableCell>)}</TableRow>)}{currentUsers.length === 0 && <TableRow><TableCell colSpan={visibleColumns.length + (activeView === 'PENDING' ? 1 : 0)} align="center"><div className="py-12 text-center text-muted-foreground"><ViewIcon className="h-12 w-12 mx-auto mb-4 opacity-50" /><p className="text-lg">No {activeView === 'USERS' ? currentType?.namePlural.toLowerCase() : activeView.toLowerCase()}</p><p className="text-sm">No users for current selection</p></div></TableCell></TableRow>}</TableBody>
+              <TableHead><TableRow>{activeView === 'PENDING' && <TableCell padding="checkbox" style={{ width: getIUColWidth('_checkbox')}}><input type="checkbox" checked={selectedPendingUsers.length === currentUsers.length && currentUsers.length > 0} onChange={toggleAllPendingUsers} /></TableCell>}{visibleColumns.map(col => <TableCell key={col.key} onMouseEnter={() => setIUHoveredCol(col.key)} onMouseLeave={() => setIUHoveredCol(null)} style={{ position: 'relative', width: getIUColWidth(col.key) }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{col.header}</div><ResizeHandle colId={col.key} hoveredCol={IUHoveredCol} activeCol={IUActiveCol} onMouseDown={IUStartResize} /></TableCell>)}</TableRow></TableHead>
+              <TableBody>{currentUsers.map(userData => <TableRow hover role="checkbox" tabIndex={-1} key={userData.id} className="cursor-pointer" onClick={() => handleOpenUserDetails(userData)}>{activeView === 'PENDING' && <TableCell padding="checkbox"><input type="checkbox" checked={selectedPendingUsers.includes(userData.id)} onChange={() => togglePendingUserSelection(userData.id)} /></TableCell>}{visibleColumns.map(col => <TableCell key={col.key}>{col.render ? col.render((userData as any)[col.key], userData) : (userData as any)[col.key]}</TableCell>)}</TableRow>)}{currentUsers.length === 0 && <TableRow><TableCell colSpan={visibleColumns.length + (activeView === 'PENDING' ? 1 : 0)} align="center"><div className="py-12 text-center text-muted-foreground">{activeView === 'PENDING' ? <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" /> : activeView === 'INACTIVE' ? <UserX className="h-12 w-12 mx-auto mb-4 opacity-50" /> : <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />}<p className="text-lg">No {activeView === 'USERS' ? currentType?.namePlural.toLowerCase() : activeView.toLowerCase()}</p><p className="text-sm">No users for current selection</p></div></TableCell></TableRow>}</TableBody>
             </Table>
           </TableContainer>
           {currentTable && <TablePagination rowsPerPageOptions={currentTable.availableLimits} component="div" count={currentTable.pagination.totalCount} rowsPerPage={currentTable.pagination.limit} page={currentTable.pagination.page} onPageChange={(_, newPage) => currentTable.actions.setPage(newPage)} onRowsPerPageChange={(e) => { currentTable.actions.setLimit(parseInt(e.target.value, 10)); currentTable.actions.setPage(0); }} />}
@@ -751,7 +748,7 @@ const InstituteUsers = () => {
 
       {currentTable && currentTable.pagination.totalPages > 1 && <div className="flex items-center justify-between"><p className="text-sm text-muted-foreground">Showing {currentTable.pagination.page * currentTable.pagination.limit + 1}-{Math.min((currentTable.pagination.page + 1) * currentTable.pagination.limit, currentTable.pagination.totalCount)} of {currentTable.pagination.totalCount}</p><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => currentTable.actions.prevPage()} disabled={currentTable.pagination.page === 0 || currentLoading}>Prev</Button><Button variant="outline" size="sm" onClick={() => currentTable.actions.nextPage()} disabled={currentTable.pagination.page >= currentTable.pagination.totalPages - 1 || currentLoading}>Next</Button></div></div>}
 
-      {currentUsers.length === 0 && !currentLoading && <EmptyState icon={ViewIcon} title={`No ${activeView === 'USERS' ? currentType?.namePlural : activeView} Found`} description={`No users for this institute. Click to load.`} />}
+      {currentUsers.length === 0 && !currentLoading && <EmptyState icon={viewIcon} title={`No ${activeView === 'USERS' ? currentType?.namePlural : activeView} Found`} description={`No users for this institute. Click to load.`} />}
 
       <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}><DialogContent className="w-[95vw] max-w-4xl max-h-[93vh] overflow-y-auto"><DialogHeader>...</DialogHeader>{selectedUser && <div>...</div>}</DialogContent></Dialog>
       <Dialog open={showCreateUserDialog} onOpenChange={setShowCreateUserDialog}><DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto"><DialogHeader><DialogTitle>Create New User</DialogTitle></DialogHeader><CreateUserForm onSubmit={handleCreateUser} onCancel={() => setShowCreateUserDialog(false)} /></DialogContent></Dialog>

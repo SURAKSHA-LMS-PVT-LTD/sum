@@ -22,7 +22,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 
@@ -163,7 +163,7 @@ const HomeworkSubmissionDetails = () => {
 
   const hsdColIds = useMemo(() => HSD_COL_DEFS.map(c => c.key), []);
   const hsdColDefaultWidths = useMemo(() => Object.fromEntries(HSD_COL_DEFS.map(c => [c.key, c.defaultWidth!])), []);
-  const { getWidth: getHSDColWidth, setHoveredCol: setHSDHoveredCol, ResizeHandle: HSDResizeHandle } = useResizableColumns(hsdColIds, hsdColDefaultWidths);
+  const { getWidth: getHSDColWidth, setHoveredCol: setHSDHoveredCol, hoveredCol: HSDHoveredCol, activeCol: HSDActiveCol, startResize: HSDStartResize } = useResizableColumns(hsdColIds, hsdColDefaultWidths);
   const { colState: hsdColState, visibleColumns: hsdVisDefs, toggleColumn: toggleHSDCol, resetColumns: resetHSDCols } = useColumnConfig(HSD_COL_DEFS, 'homework-submission-details');
   const hsdVisKeys = useMemo(() => new Set(hsdVisDefs.map(c => c.key)), [hsdVisDefs]);
 
@@ -324,7 +324,7 @@ const HomeworkSubmissionDetails = () => {
                             onMouseLeave={() => setHSDHoveredCol(null)}
                           >
                             <div style={{ paddingRight: 12 }}>{col.header}</div>
-                            <HSDResizeHandle colId={col.key} />
+                            <ResizeHandle colId={col.key} hoveredCol={HSDHoveredCol} activeCol={HSDActiveCol} onMouseDown={HSDStartResize} />
                           </TableCell>
                         ))}
                       </TableRow>

@@ -29,6 +29,8 @@ export interface Session {
   sessionGroupId?: string;
   group?: SessionGroup;
   sendNotifications: boolean;
+  linkedPaymentId?: string;
+  paymentMode?: 'OPTIONAL' | 'REQUIRED';
   createdAt: string;
 }
 
@@ -44,6 +46,7 @@ export interface SessionStudentRecord {
   markedAt: string | null;
   remarks: string | null;
   isFromOtherSource: boolean;
+  paymentStatus?: 'PAID' | 'PENDING' | 'UNPAID' | null;
 }
 
 export interface SessionDetail extends Session {
@@ -97,6 +100,9 @@ export interface UpdateSessionPayload {
   lateAfterMinutes?: number;
   leftEarlyBeforeMinutes?: number;
   sessionGroupId?: string | null;
+  linkedPaymentId?: string | null;
+  paymentMode?: 'OPTIONAL' | 'REQUIRED' | null;
+  sendNotifications?: boolean;
 }
 
 export interface CreateSessionPayload {
@@ -108,6 +114,8 @@ export interface CreateSessionPayload {
   leftEarlyBeforeMinutes?: number;
   sessionGroupId?: string;
   sendNotifications?: boolean;
+  linkedPaymentId?: string;
+  paymentMode?: 'OPTIONAL' | 'REQUIRED';
 }
 
 export interface MarkAttendancePayload {

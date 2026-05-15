@@ -20,7 +20,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
@@ -152,7 +152,7 @@ const SubjectPaymentSubmissions = () => {
 
   const spsColIds = useMemo(() => SPS_COL_DEFS.map(c => c.key), []);
   const spsColDefaultWidths = useMemo(() => Object.fromEntries(SPS_COL_DEFS.map(c => [c.key, c.defaultWidth ?? 150])), []);
-  const { getWidth: getSpsColWidth, setHoveredCol: setSpsHoveredCol, ResizeHandle: SpsResizeHandle } = useResizableColumns(spsColIds, spsColDefaultWidths);
+  const { getWidth: getSpsColWidth, setHoveredCol: setSpsHoveredCol, hoveredCol: SpsHoveredCol, activeCol: SpsActiveCol, startResize: SpsStartResize } = useResizableColumns(spsColIds, spsColDefaultWidths);
   const { colState: spsColState, visibleColumns: spsVisDefs, toggleColumn: toggleSpsCol, resetColumns: resetSpsCols } = useColumnConfig(SPS_COL_DEFS, 'subject-payment-submissions');
   const spsVisKeys = useMemo(() => new Set(spsVisDefs.map(c => c.key)), [spsVisDefs]);
 
@@ -324,7 +324,7 @@ const SubjectPaymentSubmissions = () => {
                   onMouseLeave={() => setSpsHoveredCol(null)}
                 >
                   <div style={{ paddingRight: 12 }}>{col.header}</div>
-                  <SpsResizeHandle colId={col.key} />
+                  <ResizeHandle colId={col.key} hoveredCol={SpsHoveredCol} activeCol={SpsActiveCol} onMouseDown={SpsStartResize} />
                 </TableCell>
               ))}
             </TableRow>

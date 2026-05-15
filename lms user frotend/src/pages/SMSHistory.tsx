@@ -16,7 +16,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 
@@ -141,7 +141,7 @@ export default function SMSHistory() {
   };
   const smshColIds = useMemo(() => SMSH_COL_DEFS.map(c => c.key), []);
   const smshColDefaultWidths = useMemo(() => Object.fromEntries(SMSH_COL_DEFS.map(c => [c.key, c.defaultWidth!])), []);
-  const { getWidth: getSMSHColWidth, setHoveredCol: setSMSHHoveredCol, ResizeHandle: SMSHResizeHandle } = useResizableColumns(smshColIds, smshColDefaultWidths);
+  const { getWidth: getSMSHColWidth, setHoveredCol: setSMSHHoveredCol, hoveredCol: SMSHHoveredCol, activeCol: SMSHActiveCol, startResize: SMSHStartResize } = useResizableColumns(smshColIds, smshColDefaultWidths);
   const { colState: smshColState, visibleColumns: smshVisDefs, toggleColumn: toggleSMSHCol, resetColumns: resetSMSHCols } = useColumnConfig(SMSH_COL_DEFS, 'sms-history');
   const smshVisKeys = useMemo(() => new Set(smshVisDefs.map(c => c.key)), [smshVisDefs]);
 
@@ -301,7 +301,7 @@ export default function SMSHistory() {
                   <TableCell key={col.key} sx={{ position: 'relative', width: getSMSHColWidth(col.key), fontWeight: 600, bgcolor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
                     onMouseEnter={() => setSMSHHoveredCol(col.key)} onMouseLeave={() => setSMSHHoveredCol(null)}>
                     <div style={{ paddingRight: 12 }}>{col.header}</div>
-                    <SMSHResizeHandle colId={col.key} />
+                    <ResizeHandle colId={col.key} hoveredCol={SMSHHoveredCol} activeCol={SMSHActiveCol} onMouseDown={SMSHStartResize} />
                   </TableCell>
                 ))}
               </TableRow>

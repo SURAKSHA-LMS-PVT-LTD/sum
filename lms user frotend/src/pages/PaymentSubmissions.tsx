@@ -26,7 +26,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 interface Column {
@@ -147,7 +147,7 @@ const PaymentSubmissions = () => {
   );
   const psColIds = useMemo(() => psColDefs.map(c => c.key), [psColDefs]);
   const psColDefaultWidths = useMemo(() => Object.fromEntries(psColDefs.map(c => [c.key, c.defaultWidth ?? 150])), [psColDefs]);
-  const { getWidth: getPsColWidth, setHoveredCol: setPsHoveredCol, ResizeHandle: PsResizeHandle } = useResizableColumns(psColIds, psColDefaultWidths);
+  const { getWidth: getPsColWidth, setHoveredCol: setPsHoveredCol, hoveredCol: PsHoveredCol, activeCol: PsActiveCol, startResize: PsStartResize } = useResizableColumns(psColIds, psColDefaultWidths);
   const { colState: psColState, visibleColumns: psVisDefs, toggleColumn: togglePsCol, resetColumns: resetPsCols } = useColumnConfig(psColDefs, 'payment-submissions');
 
   // Use the table data hook for pagination and data management
@@ -431,7 +431,7 @@ const PaymentSubmissions = () => {
                           onMouseLeave={() => setPsHoveredCol(null)}
                         >
                           <div style={{ paddingRight: 12 }}>{col.header}</div>
-                          <PsResizeHandle colId={col.key} />
+                          <ResizeHandle colId={col.key} hoveredCol={PsHoveredCol} activeCol={PsActiveCol} onMouseDown={PsStartResize} />
                         </TableCell>
                       ))}
                     </TableRow>

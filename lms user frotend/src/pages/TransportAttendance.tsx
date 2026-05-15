@@ -18,7 +18,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 
@@ -48,7 +48,7 @@ const TransportAttendance: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const taColIds = useMemo(() => TA_COL_DEFS.map(c => c.key), []);
   const taColDefaultWidths = useMemo(() => Object.fromEntries(TA_COL_DEFS.map(c => [c.key, c.defaultWidth!])), []);
-  const { getWidth: getTAColWidth, setHoveredCol: setTAHoveredCol, ResizeHandle: TAResizeHandle } = useResizableColumns(taColIds, taColDefaultWidths);
+  const { getWidth: getTAColWidth, setHoveredCol: setTAHoveredCol, hoveredCol: TAHoveredCol, activeCol: TAActiveCol, startResize: TAStartResize } = useResizableColumns(taColIds, taColDefaultWidths);
   const { colState: taColState, visibleColumns: taVisDefs, toggleColumn: toggleTACol, resetColumns: resetTACols } = useColumnConfig(TA_COL_DEFS, 'transport-attendance');
   const taVisKeys = useMemo(() => new Set(taVisDefs.map(c => c.key)), [taVisDefs]);
   useEffect(() => {
@@ -200,7 +200,7 @@ const TransportAttendance: React.FC = () => {
                         <TableCell key={col.key} sx={{ position: 'relative', width: getTAColWidth(col.key), fontWeight: 600, bgcolor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
                           onMouseEnter={() => setTAHoveredCol(col.key)} onMouseLeave={() => setTAHoveredCol(null)}>
                           <div style={{ paddingRight: 12 }}>{col.header}</div>
-                          <TAResizeHandle colId={col.key} />
+                          <ResizeHandle colId={col.key} hoveredCol={TAHoveredCol} activeCol={TAActiveCol} onMouseDown={TAStartResize} />
                         </TableCell>
                       ))}
                     </TableRow>

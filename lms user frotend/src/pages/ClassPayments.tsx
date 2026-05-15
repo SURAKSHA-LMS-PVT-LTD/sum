@@ -31,7 +31,7 @@ import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import { useViewMode } from '@/hooks/useViewMode';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import ClassPaymentMatrix from '@/components/payments/ClassPaymentMatrix';
@@ -205,7 +205,7 @@ const ClassPayments = () => {
   ], [isPayerRole, isAdminRole]);
   const colIds = React.useMemo(() => colDefs.map(c => c.key), [colDefs]);
   const colDefaultWidths = React.useMemo(() => { const m: Record<string, number> = {}; colDefs.forEach(c => { m[c.key] = c.defaultWidth || 120; }); return m; }, [colDefs]);
-  const { getWidth, setHoveredCol, ResizeHandle } = useResizableColumns(colIds, colDefaultWidths);
+  const { getWidth, setHoveredCol, hoveredCol, activeCol, startResize } = useResizableColumns(colIds, colDefaultWidths);
   const { colState, visibleColumns: visDefs, toggleColumn, resetColumns } = useColumnConfig(colDefs, 'class-payments');
 
   const renderCell = (colKey: string, payment: ClassPayment): React.ReactNode => {
@@ -475,7 +475,7 @@ const ClassPayments = () => {
                         {visDefs.map(col => (
                           <TableCell key={col.key} onMouseEnter={() => setHoveredCol(col.key)} onMouseLeave={() => setHoveredCol(null)} style={{ position: 'relative', width: getWidth(col.key), userSelect: 'none' }} sx={{ fontWeight: 600, backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))', borderBottom: '1px solid hsl(var(--border))' }}>
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{col.header}</div>
-                            <ResizeHandle colId={col.key} />
+                            <ResizeHandle colId={col.key} hoveredCol={hoveredCol} activeCol={activeCol} onMouseDown={startResize} />
                           </TableCell>
                         ))}
                       </TableRow>

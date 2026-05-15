@@ -20,6 +20,7 @@ import classAttendanceSessionsApi, {
   Session, SessionGroup, CreateSessionPayload, CreateSessionGroupPayload, UpdateSessionPayload,
   UpdateSessionGroupPayload, SessionGridResponse,
 } from '@/api/classAttendanceSessions.api';
+import { classPaymentsApi } from '@/api/classPayments.api';
 import {
   Plus, RefreshCw, Clock, Users, ChevronRight, Layers,
   Pencil, ClipboardList, MoreVertical, Trash2, Lock, X,
@@ -313,6 +314,7 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [groups, setGroups] = useState<SessionGroup[]>([]);
+  const [classPayments, setClassPayments] = useState<{ id: string; title: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const today = getSriLankaDate();
 
@@ -401,7 +403,11 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    classPaymentsApi.getClassPayments(instituteId, classId, 1, 100)
+      .then(res => setClassPayments((res.data ?? []).map(p => ({ id: p.id, title: p.title }))))
+      .catch(() => {});
+  }, [instituteId, classId]);
 
   // ── Helpers ────────────────────────────────────────────────────
   const buildBase = () => {
@@ -433,6 +439,8 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
         leftEarlyBeforeMinutes: sessionForm.leftEarlyBeforeMinutes ? Number(sessionForm.leftEarlyBeforeMinutes) : undefined,
         sessionGroupId: sessionForm.sessionGroupId,
         sendNotifications: sessionForm.sendNotifications ?? true,
+        linkedPaymentId: sessionForm.linkedPaymentId,
+        paymentMode: sessionForm.paymentMode,
       });
       toast.success('Session created');
       setCreateSessionOpen(false);
@@ -455,6 +463,9 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
       lateAfterMinutes: session.lateAfterMinutes,
       leftEarlyBeforeMinutes: session.leftEarlyBeforeMinutes,
       sessionGroupId: session.sessionGroupId,
+      sendNotifications: session.sendNotifications,
+      linkedPaymentId: session.linkedPaymentId ?? null,
+      paymentMode: session.paymentMode ?? null,
     });
     setEditSessionOpen(true);
   };
@@ -463,7 +474,12 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
     if (!editTarget) return;
     setSavingEdit(true);
     try {
-      await classAttendanceSessionsApi.updateSession(instituteId, classId, editTarget.id, editForm);
+      await classAttendanceSessionsApi.updateSession(instituteId, classId, editTarget.id, {
+        ...editForm,
+        sendNotifications: editForm.sendNotifications,
+        linkedPaymentId: editForm.linkedPaymentId ?? undefined,
+        paymentMode: editForm.paymentMode ?? undefined,
+      });
       toast.success('Session updated');
       setEditSessionOpen(false);
       setEditTarget(null);
@@ -1197,6 +1213,35 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
                 </SelectContent>
               </Select>
             </div>
+            {/* Payment Link */}
+            <div className="space-y-1">
+              <Label>Linked Payment (optional)</Label>
+              <Select
+                value={sessionForm.linkedPaymentId ?? 'none'}
+                onValueChange={v => setSessionForm(p => ({ ...p, linkedPaymentId: v === 'none' ? undefined : v, paymentMode: v === 'none' ? undefined : (p.paymentMode ?? 'OPTIONAL') }))}
+              >
+                <SelectTrigger><SelectValue placeholder="No payment link" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No payment link</SelectItem>
+                  {classPayments.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {sessionForm.linkedPaymentId && (
+              <div className="space-y-1">
+                <Label>Payment Mode</Label>
+                <Select
+                  value={sessionForm.paymentMode ?? 'OPTIONAL'}
+                  onValueChange={v => setSessionForm(p => ({ ...p, paymentMode: v as 'OPTIONAL' | 'REQUIRED' }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OPTIONAL">Optional — show status only</SelectItem>
+                    <SelectItem value="REQUIRED">Required — block if not paid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
                 <Label className="text-sm font-medium">Send Parent Notifications</Label>
@@ -1284,6 +1329,45 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              {/* Payment Link */}
+              <div className="space-y-1">
+                <Label>Linked Payment (optional)</Label>
+                <Select
+                  value={editForm.linkedPaymentId ?? 'none'}
+                  onValueChange={v => setEditForm(p => ({ ...p, linkedPaymentId: v === 'none' ? null : v, paymentMode: v === 'none' ? null : (p.paymentMode ?? 'OPTIONAL') }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="No payment link" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No payment link</SelectItem>
+                    {classPayments.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {editForm.linkedPaymentId && (
+                <div className="space-y-1">
+                  <Label>Payment Mode</Label>
+                  <Select
+                    value={editForm.paymentMode ?? 'OPTIONAL'}
+                    onValueChange={v => setEditForm(p => ({ ...p, paymentMode: v as 'OPTIONAL' | 'REQUIRED' }))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="OPTIONAL">Optional — show status only</SelectItem>
+                      <SelectItem value="REQUIRED">Required — block if not paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label className="text-sm font-medium">Send Parent Notifications</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Notify parents when attendance is marked in this session</p>
+                </div>
+                <Switch
+                  checked={editForm.sendNotifications ?? true}
+                  onCheckedChange={v => setEditForm(p => ({ ...p, sendNotifications: v }))}
+                />
               </div>
             </div>
           )}

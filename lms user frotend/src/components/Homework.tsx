@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { useResizableColumns, ResizeHandle } from '@/hooks/useResizableColumns';
 import { useColumnConfig, type ColumnDef } from '@/hooks/useColumnConfig';
 import ColumnConfigurator from '@/components/ui/column-configurator';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
@@ -334,7 +334,7 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
     return 'submitted';
   };
 
-  const { getWidth: getHWColWidth, totalWidth: totalHWTableWidth, setHoveredCol: setHWHoveredCol, ResizeHandle: HWResizeHandle } = useResizableColumns(
+  const { getWidth: getHWColWidth, totalWidth: totalHWTableWidth, setHoveredCol: setHWHoveredCol, hoveredCol: HWHoveredCol, activeCol: HWActiveCol, startResize: HWStartResize } = useResizableColumns(
     ['title', 'startDate', 'dueDate', 'teacher', 'status', 'active', 'references', 'submissions', '_view', '_edit', 'actions'],
     { title: 200, startDate: 130, dueDate: 130, teacher: 140, status: 120, active: 100, references: 180, submissions: 140, _view: 90, _edit: 90, actions: 110 }
   );
@@ -605,7 +605,7 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
                           sx={{ fontWeight: 'bold', backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--foreground))', borderBottom: '1px solid hsl(var(--border))' }}
                         >
                           <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{col.header}</div>
-                          <HWResizeHandle colId={col.key} />
+                          <ResizeHandle colId={col.key} hoveredCol={HWHoveredCol} activeCol={HWActiveCol} onMouseDown={HWStartResize} />
                         </MuiTableCell>
                       ))}
                     </MuiTableRow>

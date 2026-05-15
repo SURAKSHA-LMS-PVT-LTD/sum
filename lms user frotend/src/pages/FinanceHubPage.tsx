@@ -16,7 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Wallet, ArrowRightLeft, RefreshCw, Plus,
   BarChart3, BookOpen, Banknote, Building2,
-  ChevronLeft, ChevronRight, Users, ArrowLeft,
+  ChevronLeft, ChevronRight, Users, ArrowLeft, Loader2,
+  TrendingUp, TrendingDown,
 } from 'lucide-react';
 import {
   financeApi, FinanceAccount, FinanceCategory, LedgerEntry,
@@ -567,7 +568,82 @@ function TeacherPayoutDialog({ teacherId, accounts, open, onClose, onDone }: {
   );
 }
 
+function TeacherTopupDialog({ teacherId, accounts, open, onClose, onDone }: {
+  teacherId: string; accounts: FinanceAccount[];
+  open: boolean; onClose: () => void; onDone: () => void;
+}) {
+  const { toast } = useToast();
+  const [amount, setAmount] = useState('');
+  const [fromAccountId, setFromAccountId] = useState('');
+  const [description, setDescription] = useState('');
+  const [adminNote, setAdminNote] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!amount || !fromAccountId || !description) return;
+    setLoading(true);
+    try {
+      await financeApi.topupTeacherWallet({ teacherId, amount: parseFloat(amount), fromAccountId, description, adminNote: adminNote || undefined });
+      toast({ title: 'Wallet topped up successfully' });
+      onDone(); onClose();
+      setAmount(''); setFromAccountId(''); setDescription(''); setAdminNote('');
+    } catch (e: any) {
+      toast({ title: 'Failed', description: e.message, variant: 'destructive' });
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Add Money to Teacher Wallet</DialogTitle></DialogHeader>
+        <form onSubmit={handle} className="space-y-4">
+          <div className="text-xs text-muted-foreground bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-md px-3 py-2">
+            Debits the selected account and directly credits the teacher's wallet balance and total earned.
+          </div>
+          <div>
+            <label className="text-sm font-medium">Amount (Rs.) *</label>
+            <Input type="number" min="1" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Debit From Account *</label>
+            <Select value={fromAccountId} onValueChange={setFromAccountId} required>
+              <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+              <SelectContent>{accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name} ({fmt(a.currentBalance)})</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Reason *</label>
+            <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Bonus, correction, extra payment" required />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Admin Note (optional)</label>
+            <Textarea value={adminNote} onChange={e => setAdminNote(e.target.value)} rows={2} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={loading || !amount || !fromAccountId || !description}>
+              {loading ? 'Processing…' : 'Add to Wallet'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Ledger Table ───────────────────────────────────────────────────────────────
+
+const TX_SOURCE_LABELS: Record<string, string> = {
+  PAYMENT_APPROVAL: 'Online Payment',
+  PHYSICAL_COLLECT: 'Physical Collect',
+  FUND_TRANSFER: 'Fund Transfer',
+  TEACHER_PAYOUT: 'Teacher Payout',
+  TEACHER_DEDUCTION: 'Deduction',
+  TEACHER_ADVANCE: 'Advance Given',
+  TEACHER_TOPUP: 'Wallet Top-up',
+  MANUAL: 'Manual',
+};
 
 function LedgerTable({ entries, page, totalPages, onPage }: {
   entries: LedgerEntry[]; page: number; totalPages: number; onPage: (p: number) => void;
@@ -581,37 +657,59 @@ function LedgerTable({ entries, page, totalPages, onPage }: {
               <th className="p-3 text-left">Date</th>
               <th className="p-3 text-left">Source</th>
               <th className="p-3 text-left hidden sm:table-cell">Account</th>
-              <th className="p-3 text-left hidden md:table-cell">Student / Teacher</th>
+              <th className="p-3 text-left hidden md:table-cell">Student / Party</th>
+              <th className="p-3 text-left hidden lg:table-cell">Action By</th>
               <th className="p-3 text-left hidden sm:table-cell">Description</th>
               <th className="p-3 text-right">Amount</th>
-              <th className="p-3 text-center">Type</th>
+              <th className="p-3 text-center">Flow</th>
             </tr>
           </thead>
           <tbody>
             {entries.length === 0 && (
-              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No entries found</td></tr>
+              <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No entries found</td></tr>
             )}
-            {entries.map(e => (
-              <tr key={e.id} className="border-t hover:bg-muted/20">
-                <td className="p-3 whitespace-nowrap text-xs">{new Date(e.createdAt).toLocaleDateString()}</td>
-                <td className="p-3"><Badge variant="outline" className="text-xs">{e.txSource.replace(/_/g, ' ')}</Badge></td>
-                <td className="p-3 text-xs hidden sm:table-cell">{e.toAccount?.name || e.fromAccount?.name || '—'}</td>
-                <td className="p-3 text-xs hidden md:table-cell">{e.studentName || (e.teacherId ? `Teacher #${e.teacherId}` : '—')}</td>
-                <td className="p-3 text-xs max-w-[180px] truncate hidden sm:table-cell">{e.description || '—'}</td>
-                <td className={`p-3 text-right font-semibold text-xs ${e.type === 'CREDIT' ? 'text-green-700' : 'text-red-600'}`}>
-                  <div>{e.type === 'CREDIT' ? '+' : '-'}{fmt(e.amount)}</div>
-                  {e.teacherAmount && parseFloat(e.teacherAmount) > 0 && (
-                    <div className="text-[10px] text-muted-foreground font-normal leading-tight">
-                      Teacher: {fmt(e.teacherAmount)} ({e.commissionPct}%)
-                      <br />Inst: {fmt(e.instituteAmount ?? '0')}
+            {entries.map(e => {
+              const isOut = e.type === 'DEBIT';
+              const AmtIcon = isOut ? TrendingDown : TrendingUp;
+              const actionBy = e.createdByName || e.createdByUserId;
+              return (
+                <tr key={e.id} className="border-t hover:bg-muted/20">
+                  <td className="p-3 whitespace-nowrap text-xs">{new Date(e.createdAt).toLocaleDateString()}</td>
+                  <td className="p-3">
+                    <Badge variant="outline" className={`text-xs ${e.txSource === 'TEACHER_ADVANCE' ? 'border-orange-300 text-orange-700' : e.txSource === 'TEACHER_PAYOUT' ? 'border-blue-300 text-blue-700' : e.txSource === 'TEACHER_TOPUP' ? 'border-emerald-300 text-emerald-700' : ''}`}>
+                      {TX_SOURCE_LABELS[e.txSource] ?? e.txSource.replace(/_/g, ' ')}
+                    </Badge>
+                  </td>
+                  <td className="p-3 text-xs hidden sm:table-cell">{e.toAccount?.name || e.fromAccount?.name || '—'}</td>
+                  <td className="p-3 text-xs hidden md:table-cell">{e.studentName || (e.teacherId ? `Teacher #${e.teacherId}` : '—')}</td>
+                  <td className="p-3 hidden lg:table-cell">
+                    {actionBy ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-primary/80 bg-primary/5 border border-primary/15 rounded px-1.5 py-0.5">
+                        {actionBy}
+                      </span>
+                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                  </td>
+                  <td className="p-3 text-xs max-w-[160px] truncate hidden sm:table-cell">{e.description || '—'}</td>
+                  <td className={`p-3 text-right font-semibold text-xs ${isOut ? 'text-red-600' : 'text-green-700'}`}>
+                    <div className="flex items-center justify-end gap-1">
+                      <AmtIcon className="h-3 w-3" />
+                      {isOut ? '-' : '+'}{fmt(e.amount)}
                     </div>
-                  )}
-                </td>
-                <td className="p-3 text-center">
-                  <Badge className={e.type === 'CREDIT' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>{e.type}</Badge>
-                </td>
-              </tr>
-            ))}
+                    {e.teacherAmount && parseFloat(e.teacherAmount) > 0 && (
+                      <div className="text-[10px] text-muted-foreground font-normal leading-tight mt-0.5">
+                        Teacher: {fmt(e.teacherAmount)} ({e.commissionPct}%)
+                        <br />Inst: {fmt(e.instituteAmount ?? '0')}
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-3 text-center">
+                    <Badge className={isOut ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}>
+                      {isOut ? 'OUT' : 'IN'}
+                    </Badge>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -628,7 +726,28 @@ function LedgerTable({ entries, page, totalPages, onPage }: {
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
-const InitWalletButton: React.FC<{ teacherId: any; onDone?: () => void }> = ({ teacherId: _t, onDone: _o }) => null;
+const InitWalletButton: React.FC<{ teacherId: string; onDone?: () => void }> = ({ teacherId, onDone }) => {
+  const { toast } = useToast();
+  const [loading, setLoading] = React.useState(false);
+  const handleInit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLoading(true);
+    try {
+      await financeApi.initTeacherWallet(teacherId);
+      toast({ title: 'Wallet initialized', description: 'Earnings tracking is now enabled for this teacher.' });
+      onDone?.();
+    } catch (err: any) {
+      toast({ title: 'Failed to initialize wallet', description: err?.message || 'Please try again.', variant: 'destructive' });
+    } finally { setLoading(false); }
+  };
+  return (
+    <Button size="sm" variant="outline" className="text-xs h-7 border-primary/40 text-primary hover:bg-primary/10"
+      onClick={handleInit} disabled={loading}>
+      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Wallet className="h-3.5 w-3.5 mr-1" />}
+      {loading ? 'Initializing…' : 'Init Wallet'}
+    </Button>
+  );
+};
 
 const FinanceHubPage: React.FC = () => {
   const { toast } = useToast();
@@ -645,6 +764,8 @@ const FinanceHubPage: React.FC = () => {
   const [ledger, setLedger] = useState<{ data: LedgerEntry[]; total: number; totalPages: number }>({ data: [], total: 0, totalPages: 1 });
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerType, setLedgerType] = useState<'all' | 'CREDIT' | 'DEBIT'>('all');
+  const [ledgerStart, setLedgerStart] = useState('');
+  const [ledgerEnd, setLedgerEnd] = useState('');
 
   // Analytics state
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
@@ -660,6 +781,8 @@ const FinanceHubPage: React.FC = () => {
   const [teacherLedgerPage, setTeacherLedgerPage] = useState(1);
   const [teacherLedgerTotal, setTeacherLedgerTotal] = useState(0);
   const [teacherLedgerTotalPages, setTeacherLedgerTotalPages] = useState(1);
+  const [teacherLedgerStart, setTeacherLedgerStart] = useState('');
+  const [teacherLedgerEnd, setTeacherLedgerEnd] = useState('');
 
   // Dialog state
   const [settleOpen, setSettleOpen] = useState(false);
@@ -669,6 +792,7 @@ const FinanceHubPage: React.FC = () => {
   const [advanceTeacherId, setAdvanceTeacherId] = useState<string | null>(null);
   const [deductTeacherId, setDeductTeacherId] = useState<string | null>(null);
   const [payoutTeacherId, setPayoutTeacherId] = useState<string | null>(null);
+  const [topupTeacherId, setTopupTeacherId] = useState<string | null>(null);
 
   const loadSummary = useCallback(async () => {
     try {
@@ -686,10 +810,15 @@ const FinanceHubPage: React.FC = () => {
 
   const loadLedger = useCallback(async () => {
     try {
-      const res = await financeApi.getLedger({ page: ledgerPage, limit: 20, type: ledgerType === 'all' ? undefined : ledgerType });
+      const res = await financeApi.getLedger({
+        page: ledgerPage, limit: 20,
+        type: ledgerType === 'all' ? undefined : ledgerType,
+        startDate: ledgerStart || undefined,
+        endDate: ledgerEnd || undefined,
+      });
       setLedger(res);
     } catch {}
-  }, [ledgerPage, ledgerType]);
+  }, [ledgerPage, ledgerType, ledgerStart, ledgerEnd]);
 
   const loadAnalytics = useCallback(async () => {
     try {
@@ -712,10 +841,14 @@ const FinanceHubPage: React.FC = () => {
     } finally { setTeachersLoading(false); }
   }, []);
 
-  const loadTeacherLedger = useCallback(async (teacherId: string, page: number) => {
+  const loadTeacherLedger = useCallback(async (teacherId: string, page: number, startDate?: string, endDate?: string) => {
     setTeacherLedgerLoading(true);
     try {
-      const res = await financeApi.getTeacherLedger(teacherId, { page, limit: 20 });
+      const res = await financeApi.getTeacherLedger(teacherId, {
+        page, limit: 20,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      });
       setTeacherLedger(res.data);
       setTeacherLedgerTotal(res.total);
       setTeacherLedgerTotalPages(res.totalPages);
@@ -729,16 +862,31 @@ const FinanceHubPage: React.FC = () => {
   useEffect(() => { if (activeTab === 'analytics') loadAnalytics(); }, [activeTab, loadAnalytics]);
   useEffect(() => { if (activeTab === 'teachers') loadTeachers(); }, [activeTab, loadTeachers]);
   useEffect(() => {
-    if (selectedTeacherId) loadTeacherLedger(selectedTeacherId, teacherLedgerPage);
-  }, [selectedTeacherId, teacherLedgerPage]);
+    if (selectedTeacherId) loadTeacherLedger(selectedTeacherId, teacherLedgerPage, teacherLedgerStart, teacherLedgerEnd);
+  }, [selectedTeacherId, teacherLedgerPage, teacherLedgerStart, teacherLedgerEnd]);
 
   const handleSelectTeacher = (teacherId: string) => {
     setSelectedTeacherId(teacherId);
     setTeacherLedgerPage(1);
+    setTeacherLedgerStart('');
+    setTeacherLedgerEnd('');
   };
 
   const handleBackToTeacherList = () => {
     setSelectedTeacherId(null);
+    setTeacherLedgerPage(1);
+    setTeacherLedgerStart('');
+    setTeacherLedgerEnd('');
+  };
+
+  const applyMonthFilter = (monthStr: string) => {
+    if (!monthStr) { setTeacherLedgerStart(''); setTeacherLedgerEnd(''); setTeacherLedgerPage(1); return; }
+    const [y, m] = monthStr.split('-').map(Number);
+    const start = `${y}-${String(m).padStart(2, '0')}-01`;
+    const last = new Date(y, m, 0).getDate();
+    const end = `${y}-${String(m).padStart(2, '0')}-${last}`;
+    setTeacherLedgerStart(start);
+    setTeacherLedgerEnd(end);
     setTeacherLedgerPage(1);
   };
 
@@ -823,15 +971,35 @@ const FinanceHubPage: React.FC = () => {
         {/* ── Ledger Tab ───────────────────────────────────────────────── */}
         {activeTab === 'ledger' && (
           <div className="space-y-4">
-            <div className="flex gap-3 items-center flex-wrap">
+            <div className="flex gap-2 items-center flex-wrap">
               <Select value={ledgerType} onValueChange={v => { setLedgerType(v as typeof ledgerType); setLedgerPage(1); }}>
                 <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="CREDIT">Credit</SelectItem>
-                  <SelectItem value="DEBIT">Debit</SelectItem>
+                  <SelectItem value="CREDIT">IN (Credit)</SelectItem>
+                  <SelectItem value="DEBIT">OUT (Debit)</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-1">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Month:</label>
+                <input
+                  type="month"
+                  className="text-xs border border-input rounded-md px-2 py-1 bg-background h-8"
+                  onChange={e => {
+                    if (!e.target.value) { setLedgerStart(''); setLedgerEnd(''); setLedgerPage(1); return; }
+                    const [y, m] = e.target.value.split('-').map(Number);
+                    setLedgerStart(`${y}-${String(m).padStart(2,'0')}-01`);
+                    setLedgerEnd(`${y}-${String(m).padStart(2,'0')}-${new Date(y,m,0).getDate()}`);
+                    setLedgerPage(1);
+                  }}
+                />
+              </div>
+              {(ledgerStart || ledgerEnd) && (
+                <Button size="sm" variant="ghost" className="text-xs h-8 text-muted-foreground"
+                  onClick={() => { setLedgerStart(''); setLedgerEnd(''); setLedgerPage(1); }}>
+                  Clear dates
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={loadLedger}><RefreshCw className="h-4 w-4 mr-1" />Reload</Button>
               <span className="text-sm text-muted-foreground ml-auto">{ledger.total} entries</span>
             </div>
@@ -1008,6 +1176,8 @@ const FinanceHubPage: React.FC = () => {
                                     <div className="flex gap-1 justify-center flex-wrap" onClick={e => e.stopPropagation()}>
                                       <Button size="sm" variant="outline" className="text-xs h-7"
                                         onClick={() => setPayoutTeacherId(t.teacherId)}>Payout</Button>
+                                      <Button size="sm" variant="outline" className="text-xs h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                        onClick={() => setTopupTeacherId(t.teacherId)}>Top-up</Button>
                                       <Button size="sm" variant="outline" className="text-xs h-7"
                                         onClick={() => setAdvanceTeacherId(t.teacherId)}>Advance</Button>
                                       <Button size="sm" variant="outline" className="text-xs h-7"
@@ -1053,30 +1223,54 @@ const FinanceHubPage: React.FC = () => {
                   <h2 className="text-lg font-semibold">
                     {selectedWallet?.teacherName ? `${selectedWallet.teacherName}'s Ledger` : `Teacher Ledger`}
                   </h2>
-                  <div className="ml-auto flex gap-2">
+                  <div className="ml-auto flex gap-2 flex-wrap">
                     <Button size="sm" variant="outline" onClick={() => setPayoutTeacherId(selectedTeacherId)}>Payout</Button>
+                    <Button size="sm" variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => setTopupTeacherId(selectedTeacherId)}>Top-up</Button>
                     <Button size="sm" variant="outline" onClick={() => setAdvanceTeacherId(selectedTeacherId)}>Advance</Button>
                     <Button size="sm" variant="outline" onClick={() => setDeductTeacherId(selectedTeacherId)}>Deduct</Button>
                   </div>
                 </div>
 
+                {/* Month filter */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="text-xs text-muted-foreground font-medium">Filter by month:</label>
+                  <input
+                    type="month"
+                    className="text-xs border border-input rounded-md px-2 py-1 bg-background h-8"
+                    onChange={e => applyMonthFilter(e.target.value)}
+                  />
+                  {(teacherLedgerStart || teacherLedgerEnd) && (
+                    <Button size="sm" variant="ghost" className="text-xs h-8 text-muted-foreground"
+                      onClick={() => { setTeacherLedgerStart(''); setTeacherLedgerEnd(''); setTeacherLedgerPage(1); }}>
+                      Clear filter
+                    </Button>
+                  )}
+                  <span className="ml-auto text-xs text-muted-foreground">{teacherLedgerTotal} entries</span>
+                </div>
+
                 {/* Wallet summary cards */}
                 {selectedWallet && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
-                      { label: 'Total Earned', value: selectedWallet.totalEarned, color: 'text-green-600' },
-                      { label: 'Deductions',   value: selectedWallet.totalDeductions, color: 'text-red-500' },
-                      { label: 'Paid Out',      value: selectedWallet.totalPaidOut, color: 'text-blue-500' },
-                      { label: 'Balance',       value: selectedWallet.balance, color: 'text-foreground font-bold' },
-                    ].map(c => (
-                      <Card key={c.label}>
-                        <CardContent className="p-3">
-                          <p className="text-xs text-muted-foreground">{c.label}</p>
-                          <p className={`text-base mt-1 ${c.color}`}>{fmt(c.value)}</p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[
+                        { label: 'Total Earned', value: selectedWallet.totalEarned, color: 'text-green-600', help: 'All commissions credited' },
+                        { label: 'Deductions',   value: selectedWallet.totalDeductions, color: 'text-red-500', help: 'Total deductions applied' },
+                        { label: 'Paid Out',      value: selectedWallet.totalPaidOut, color: 'text-blue-500', help: 'Cash/transfers paid to teacher' },
+                        { label: 'Balance Due',   value: selectedWallet.balance, color: 'text-foreground font-bold', help: 'Owed to teacher — still in institute accounts' },
+                      ].map(c => (
+                        <Card key={c.label}>
+                          <CardContent className="p-3">
+                            <p className="text-xs text-muted-foreground">{c.label}</p>
+                            <p className={`text-base mt-1 ${c.color}`}>{fmt(c.value ?? '0')}</p>
+                            <p className="text-[10px] text-muted-foreground/70 mt-0.5 leading-tight">{c.help}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                    <div className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+                      <strong>Balance Due</strong> = Total Earned − Deductions − Paid Out. This amount is still held in the institute's accounts and owed to the teacher. Use <em>Payout</em> to transfer it.
+                    </div>
+                  </>
                 )}
 
                 {/* Teacher ledger */}
@@ -1109,21 +1303,28 @@ const FinanceHubPage: React.FC = () => {
         <TeacherAdvanceDialog
           teacherId={advanceTeacherId} accounts={accounts}
           open onClose={() => setAdvanceTeacherId(null)}
-          onDone={() => { loadSummary(); loadTeachers(); if (selectedTeacherId) loadTeacherLedger(selectedTeacherId, teacherLedgerPage); }}
+          onDone={() => { loadSummary(); loadTeachers(); if (selectedTeacherId) loadTeacherLedger(selectedTeacherId, teacherLedgerPage, teacherLedgerStart, teacherLedgerEnd); }}
         />
       )}
       {deductTeacherId && (
         <TeacherDeductDialog
           teacherId={deductTeacherId} accounts={accounts} categories={categories}
           open onClose={() => setDeductTeacherId(null)}
-          onDone={() => { loadSummary(); loadTeachers(); if (selectedTeacherId) loadTeacherLedger(selectedTeacherId, teacherLedgerPage); }}
+          onDone={() => { loadSummary(); loadTeachers(); if (selectedTeacherId) loadTeacherLedger(selectedTeacherId, teacherLedgerPage, teacherLedgerStart, teacherLedgerEnd); }}
         />
       )}
       {payoutTeacherId && (
         <TeacherPayoutDialog
           teacherId={payoutTeacherId} accounts={accounts}
           open onClose={() => setPayoutTeacherId(null)}
-          onDone={() => { loadSummary(); loadTeachers(); if (selectedTeacherId) loadTeacherLedger(selectedTeacherId, teacherLedgerPage); }}
+          onDone={() => { loadSummary(); loadTeachers(); if (selectedTeacherId) loadTeacherLedger(selectedTeacherId, teacherLedgerPage, teacherLedgerStart, teacherLedgerEnd); }}
+        />
+      )}
+      {topupTeacherId && (
+        <TeacherTopupDialog
+          teacherId={topupTeacherId} accounts={accounts}
+          open onClose={() => setTopupTeacherId(null)}
+          onDone={() => { loadSummary(); loadTeachers(); if (selectedTeacherId) loadTeacherLedger(selectedTeacherId, teacherLedgerPage, teacherLedgerStart, teacherLedgerEnd); }}
         />
       )}
     </PageContainer>

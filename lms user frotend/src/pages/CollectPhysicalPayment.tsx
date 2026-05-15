@@ -38,6 +38,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/api/client';
 import { classPaymentsApi, ClassPayment } from '@/api/classPayments.api';
+import { institutePaymentsApi, InstitutePayment } from '@/api/institutePayments.api';
 import { instituteClassesApi } from '@/api/instituteClasses.api';
 import { usersApi } from '@/api/users.api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,6 +51,7 @@ import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type SearchMode = 'id' | 'instituteId' | 'phone' | 'email';
+type PaymentMode = 'class' | 'institute';
 type PaymentTier = 'full' | 'half' | 'quarter';
 type PrintSize = '2inch' | '3inch' | '4inch' | 'a4';
 type PostAction = 'sms' | 'print' | 'both' | 'skip' | null;
@@ -243,12 +245,20 @@ const CollectPhysicalPayment: React.FC = () => {
   const effectiveClassId = pickedClassId || ctxClass?.id || '';
   const effectiveClassName = classes.find(c => c.id === effectiveClassId)?.name ?? ctxClass?.name ?? '';
 
-  // ── payments
+  // ── payment mode toggle
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('class');
+
+  // ── class payments
   const [classPayments, setClassPayments] = useState<ClassPayment[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
   const [subMap, setSubMap] = useState<SubMap>({});
   const [loadingSubMap, setLoadingSubMap] = useState(false);
+
+  // ── institute payments
+  const [institutePayments, setInstitutePayments] = useState<InstitutePayment[]>([]);
+  const [loadingInstPayments, setLoadingInstPayments] = useState(false);
+  const [selectedInstPaymentIds, setSelectedInstPaymentIds] = useState<Set<string>>(new Set());
 
   // ── attendance
   const ATT_START = daysAgoStr(30);
@@ -339,7 +349,16 @@ const CollectPhysicalPayment: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────
 
   const loadStudentData = useCallback(async (s: StudentInfo) => {
-    if (!instituteId || !effectiveClassId) return;
+    if (!instituteId) return;
+
+    // 0. Institute payments for this student (always load regardless of class)
+    setLoadingInstPayments(true);
+    institutePaymentsApi.getInstitutePayments(instituteId, { status: 'ACTIVE', limit: 100 }, true)
+      .then(res => setInstitutePayments(res.data?.payments ?? []))
+      .catch(() => setInstitutePayments([]))
+      .finally(() => setLoadingInstPayments(false));
+
+    if (!effectiveClassId) return;
 
     // 1. Payment submission status
     setLoadingSubMap(true);
@@ -449,6 +468,7 @@ const CollectPhysicalPayment: React.FC = () => {
 
   function resetCollectState() {
     setSubMap({}); setSelectedPaymentIds(new Set());
+    setInstitutePayments([]); setSelectedInstPaymentIds(new Set());
     setAttSessions([]); setSelectedSessionIds(new Set()); setNotes('');
   }
 
@@ -480,6 +500,12 @@ const CollectPhysicalPayment: React.FC = () => {
   const activePayments = classPayments;
   const selectedPayments = activePayments.filter(p => selectedPaymentIds.has(p.id));
   const grandTotal = selectedPayments.reduce((sum, p) => sum + getToCollect(p.id, Number(p.amount)), 0);
+
+  // Institute payments derived
+  const selectedInstPayments = institutePayments.filter(p => selectedInstPaymentIds.has(p.id));
+  // For institute payments use full amount (no tier system — institutes use fixed amounts)
+  const instGrandTotal = selectedInstPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
   const selectedAccount = financeAccounts.find(a => a.id === targetAccountId);
   const unmarkedSessions = attSessions.filter(s => s.statusCode === null);
   const collectedBy = user?.name ?? user?.nameWithInitials ?? 'Staff';
@@ -530,6 +556,58 @@ const CollectPhysicalPayment: React.FC = () => {
           }
           setSubMap(map);
         }).catch(() => {});
+      setPostOpen(true);
+    }
+    if (errors.length > 0) {
+      toast({ title: `${errors.length} payment(s) failed`, description: errors.slice(0, 3).join(' · '), variant: 'destructive' });
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  // Collect institute payments
+  // ─────────────────────────────────────────────────────────────────
+
+  const handleCollectInstitute = async () => {
+    if (!student?.uuid || selectedInstPaymentIds.size === 0) return;
+    if (!targetAccountId) { toast({ title: 'Select a finance account', variant: 'destructive' }); return; }
+    setCollecting(true);
+    let ok = 0; const errors: string[] = [];
+    const items: CollectedItem[] = [];
+
+    for (const paymentId of selectedInstPaymentIds) {
+      const p = institutePayments.find(x => x.id === paymentId);
+      if (!p) continue;
+      try {
+        await apiClient.post(
+          `/institute-payments/institute/${instituteId}/payment/${paymentId}/admin-verify-student/${student.uuid}`,
+          {
+            amount: Number(p.amount),
+            date: todayStr(),
+            notes: notes || undefined,
+            targetAccountId,
+          }
+        );
+        ok++;
+        items.push({ title: p.description ?? paymentId, amount: Number(p.amount) });
+      } catch (err: any) {
+        const status = err?.status ?? err?.statusCode ?? err?.response?.status;
+        if (status === 400 || status === 409) {
+          // Already verified — count as success, don't block the receipt
+          ok++;
+          items.push({ title: p.description ?? paymentId, amount: Number(p.amount) });
+        } else {
+          errors.push(`${p.description ?? paymentId}: ${err?.message || 'Failed'}`);
+        }
+      }
+    }
+
+    if (selectedSessionIds.size > 0) await doMarkAttendance(false);
+
+    setCollecting(false);
+
+    if (ok > 0) {
+      setCollectedItems(items);
+      setSelectedInstPaymentIds(new Set());
       setPostOpen(true);
     }
     if (errors.length > 0) {
@@ -710,6 +788,196 @@ const CollectPhysicalPayment: React.FC = () => {
   }
 
   const modeConfig = SEARCH_MODES.find(m => m.id === searchMode)!;
+  const postTotal = collectedItems.reduce((s, p) => s + p.amount * TIER_MULT[tier], 0);
+
+  const dialogs = (
+    <>
+      {/* ── Post-collect dialog ── */}
+      <Dialog open={postOpen} onOpenChange={v => { if (!v && !postActionLoading) { setPostOpen(false); clearStudent(); } }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md mx-auto p-0 gap-0">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <CheckCircle className="h-5 w-5 text-green-600" />Payment Recorded!
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-5 py-4 space-y-4">
+            <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-3 py-3 space-y-1.5">
+              <p className="font-semibold text-sm text-green-900 dark:text-green-100">{student?.nameWithInitials}</p>
+              {student?.instituteUserId && <p className="text-[11px] text-green-700 dark:text-green-300">ID: {student.instituteUserId}</p>}
+              {collectedItems.map((p, i) => (
+                <div key={i} className="flex items-center justify-between text-xs text-green-800 dark:text-green-200">
+                  <span className="truncate">{p.title}</span>
+                  <span className="font-medium ml-2 shrink-0">Rs {(p.amount * TIER_MULT[tier]).toLocaleString()}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between font-bold text-sm text-green-900 dark:text-green-100 border-t border-green-200 dark:border-green-700 pt-1.5 mt-1">
+                <span>Total</span><span>Rs {postTotal.toLocaleString()}</span>
+              </div>
+              {selectedAccount && <p className="text-[10px] text-green-700 dark:text-green-400">Account: {selectedAccount.name}</p>}
+              {notes && <p className="text-[10px] text-green-700 dark:text-green-400">Notes: {notes}</p>}
+            </div>
+            <p className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
+              If there is any payment-related issue in future, present this receipt to administration. Keep it safe.
+            </p>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What would you like to do?</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={() => handlePostAction('sms')} disabled={!!postActionLoading} variant="outline"
+                  className="h-12 flex-col gap-0.5 text-xs border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/30">
+                  {postActionLoading === 'sms' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4 text-blue-600" />}
+                  Send SMS
+                </Button>
+                <Button onClick={() => handlePostAction('print')} disabled={!!postActionLoading} variant="outline"
+                  className="h-12 flex-col gap-0.5 text-xs border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/30">
+                  {postActionLoading === 'print' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 text-green-600" />}
+                  Print
+                </Button>
+                <Button onClick={() => handlePostAction('both')} disabled={!!postActionLoading}
+                  className="h-12 flex-col gap-0.5 text-xs bg-primary hover:bg-primary/90">
+                  {postActionLoading === 'both' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                  SMS + Print
+                </Button>
+                <Button onClick={() => handlePostAction('skip')} disabled={!!postActionLoading} variant="ghost"
+                  className="h-12 flex-col gap-0.5 text-xs text-muted-foreground hover:text-foreground">
+                  <XCircle className="h-4 w-4" />
+                  Skip — Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── SMS dialog ── */}
+      <Dialog open={smsOpen} onOpenChange={v => { if (!v && !sendingSms) { setSmsOpen(false); } }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg mx-auto p-0 gap-0">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <MessageSquare className="h-5 w-5 text-blue-600" />Send SMS Receipt
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+            {loadingSmsCreds ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />Loading SMS info…
+              </div>
+            ) : smsCreds ? (
+              <div className="flex items-center justify-between text-xs bg-muted/40 rounded-lg px-3 py-2">
+                <span className="text-muted-foreground">SMS Credits</span>
+                <span className={`font-semibold ${smsCreds.availableCredits < 10 ? 'text-red-600' : 'text-green-700 dark:text-green-400'}`}>
+                  {smsCreds.availableCredits} remaining
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
+                SMS credentials not available. Contact admin.
+              </p>
+            )}
+            {smsCreds?.activeMasks && smsCreds.activeMasks.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Sender ID</Label>
+                <Select value={smsMaskId} onValueChange={setSmsMaskId}>
+                  <SelectTrigger className="text-xs h-9 bg-muted/20"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {smsCreds.activeMasks.map(m => <SelectItem key={m.maskId} value={m.maskId} className="text-xs">{m.mask}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Student Phone</Label>
+              <div className="relative">
+                {fetchingPhone && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                <Input value={smsPhone} onChange={e => setSmsPhone(e.target.value)}
+                  placeholder="Phone number…" className="text-sm h-9 bg-muted/20 border-border/60 pr-8" />
+              </div>
+              {!smsPhone && !fetchingPhone && (
+                <p className="text-[10px] text-amber-600">No phone on file — enter manually or use custom below.</p>
+              )}
+            </div>
+            <div className="rounded-lg border border-border/50 p-3 space-y-2 bg-muted/10">
+              <p className="text-xs font-semibold text-muted-foreground">Custom / Additional Recipient</p>
+              <Input value={smsCustomName} onChange={e => setSmsCustomName(e.target.value)}
+                placeholder="Name (optional)…" className="text-xs h-8 bg-background border-border/60" />
+              <Input value={smsCustomPhone} onChange={e => setSmsCustomPhone(e.target.value)}
+                placeholder="Phone number…" className="text-xs h-8 bg-background border-border/60" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Message</Label>
+              <Textarea value={smsMessage} onChange={e => setSmsMessage(e.target.value)}
+                rows={4} className="text-xs bg-muted/20 border-border/60 resize-none" />
+              <p className="text-[10px] text-muted-foreground text-right">{smsMessage.length} chars</p>
+            </div>
+          </div>
+          <DialogFooter className="px-5 pb-5 pt-3 border-t border-border gap-2">
+            <Button variant="outline" onClick={() => { setSmsOpen(false); clearStudent(); }} disabled={sendingSms} className="flex-1">
+              Cancel
+            </Button>
+            <Button onClick={handleSendSms} disabled={sendingSms || (!smsPhone && !smsCustomPhone)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+              {sendingSms ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+              {sendingSms ? 'Sending…' : 'Send'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Printer settings ── */}
+      <Dialog open={printerOpen} onOpenChange={setPrinterOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm mx-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Printer className="h-5 w-5" />Printer Settings
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">Paper Size</Label>
+              <div className="space-y-1.5">
+                {PRINT_SIZES.map(s => (
+                  <button key={s.id} type="button"
+                    onClick={() => { setPrintSize(s.id); localStorage.setItem(LS_PRINT_SIZE, s.id); }}
+                    className={`w-full text-left px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
+                      printSize === s.id ? 'border-primary bg-primary/8' : 'border-border hover:bg-muted/50'
+                    }`}>
+                    <div className="flex items-center justify-between">
+                      <span>{s.label}</span>
+                      {printSize === s.id && <CheckCircle className="h-4 w-4 text-primary" />}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {isNative ? (
+              <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2">
+                App mode: Print opens your device share/print sheet. Send to a Bluetooth printer app, AirPrint, or any print service on your device.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+                Browser: The print dialog will open with the receipt sized to the selected paper width.
+              </p>
+            )}
+            <Button onClick={() => {
+              const widthMm = PRINT_SIZES.find(s => s.id === printSize)?.widthMm ?? 80;
+              if (collectedItems.length > 0) {
+                handlePrint();
+              } else {
+                doPrint(buildReceiptHtml({
+                  studentName: 'Test Student', instituteId: 'TEST-001',
+                  instituteName: selectedInstitute?.name ?? 'Institute',
+                  className: effectiveClassName || 'Class',
+                  payments: [{ title: 'Test Payment', amount: 1000 }],
+                  tier: 'full', collectedBy, date: todayStr(),
+                  notes: 'Test print', account: 'Cash', widthMm,
+                }), widthMm);
+              }
+            }} variant="outline" className="w-full">
+              <Printer className="h-4 w-4 mr-2" />Print Test Page
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );;
 
   // ═══════════════════════════════════════════════════════════════════
   // SHARED SUBCOMPONENTS
@@ -803,55 +1071,63 @@ const CollectPhysicalPayment: React.FC = () => {
   };
 
   // Bottom footer for payment column
-  const PaymentsFooter = () => (
-    <div className="px-4 py-3 border-t border-border shrink-0 space-y-2 bg-card">
-      {/* Tier */}
-      <div className="grid grid-cols-3 gap-1.5">
-        {(['full', 'half', 'quarter'] as PaymentTier[]).map(t => (
-          <button key={t} type="button" onClick={() => setTier(t)}
-            className={`rounded-md border py-1.5 text-xs font-semibold transition-all ${
-              tier === t ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'
-            }`}>
-            {TIER_LABEL[t]}
-          </button>
-        ))}
-      </div>
-      {/* Account */}
-      {financeAccounts.length > 0 && (
-        <Select value={targetAccountId} onValueChange={setTargetAccountId}>
-          <SelectTrigger className="text-xs h-8 bg-muted/20 border-border/60">
-            <SelectValue placeholder="Credit to account…" />
-          </SelectTrigger>
-          <SelectContent>
-            {financeAccounts.map(a => (
-              <SelectItem key={a.id} value={a.id} className="text-xs">{a.name} ({a.type})</SelectItem>
+  const PaymentsFooter = () => {
+    const isInst = paymentMode === 'institute';
+    const selCount = isInst ? selectedInstPaymentIds.size : selectedPaymentIds.size;
+    const total = isInst ? instGrandTotal : grandTotal;
+    const onCollect = isInst ? handleCollectInstitute : handleCollect;
+    return (
+      <div className="px-4 py-3 border-t border-border shrink-0 space-y-2 bg-card">
+        {/* Tier — only for class payments */}
+        {!isInst && (
+          <div className="grid grid-cols-3 gap-1.5">
+            {(['full', 'half', 'quarter'] as PaymentTier[]).map(t => (
+              <button key={t} type="button" onClick={() => setTier(t)}
+                className={`rounded-md border py-1.5 text-xs font-semibold transition-all ${
+                  tier === t ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'
+                }`}>
+                {TIER_LABEL[t]}
+              </button>
             ))}
-          </SelectContent>
-        </Select>
-      )}
-      {/* Notes */}
-      <Textarea placeholder="Notes (receipt no., remarks…)" rows={2} value={notes}
-        onChange={e => setNotes(e.target.value)}
-        className="text-xs bg-muted/20 border-border/60 resize-none" />
-      {/* Total */}
-      {selectedPaymentIds.size > 0 && (
-        <div className="flex items-center justify-between text-xs font-semibold px-0.5">
-          <span className="text-muted-foreground">Total to collect</span>
-          <span className="text-primary text-sm">Rs {grandTotal.toLocaleString()}</span>
-        </div>
-      )}
-      {/* Collect button */}
-      <Button onClick={handleCollect}
-        disabled={collecting || selectedPaymentIds.size === 0 || !student}
-        className="w-full h-10 bg-green-600 hover:bg-green-700 text-white font-semibold">
-        {collecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Banknote className="h-4 w-4 mr-2" />}
-        {collecting ? 'Recording…'
-          : selectedPaymentIds.size === 0 ? 'Select payments'
-          : !student ? 'Find student first'
-          : `Collect (${selectedPaymentIds.size})`}
-      </Button>
-    </div>
-  );
+          </div>
+        )}
+        {/* Account */}
+        {financeAccounts.length > 0 && (
+          <Select value={targetAccountId} onValueChange={setTargetAccountId}>
+            <SelectTrigger className="text-xs h-8 bg-muted/20 border-border/60">
+              <SelectValue placeholder="Credit to account…" />
+            </SelectTrigger>
+            <SelectContent>
+              {financeAccounts.map(a => (
+                <SelectItem key={a.id} value={a.id} className="text-xs">{a.name} ({a.type})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {/* Notes */}
+        <Textarea placeholder="Notes (receipt no., remarks…)" rows={2} value={notes}
+          onChange={e => setNotes(e.target.value)}
+          className="text-xs bg-muted/20 border-border/60 resize-none" />
+        {/* Total */}
+        {selCount > 0 && (
+          <div className="flex items-center justify-between text-xs font-semibold px-0.5">
+            <span className="text-muted-foreground">Total to collect</span>
+            <span className="text-primary text-sm">Rs {total.toLocaleString()}</span>
+          </div>
+        )}
+        {/* Collect button */}
+        <Button onClick={onCollect}
+          disabled={collecting || selCount === 0 || !student}
+          className="w-full h-10 bg-green-600 hover:bg-green-700 text-white font-semibold">
+          {collecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Banknote className="h-4 w-4 mr-2" />}
+          {collecting ? 'Recording…'
+            : selCount === 0 ? 'Select payments'
+            : !student ? 'Find student first'
+            : `Collect (${selCount})`}
+        </Button>
+      </div>
+    );
+  };
 
   // ═══════════════════════════════════════════════════════════════════
   // MOBILE RENDER
@@ -960,18 +1236,60 @@ const CollectPhysicalPayment: React.FC = () => {
               <div className="px-3 py-2 bg-muted/40 flex items-center gap-2">
                 <Banknote className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-sm">Payments</span>
-                {(loadingPayments || loadingSubMap) && <Loader2 className="h-3.5 w-3.5 animate-spin ml-auto" />}
+                {(loadingPayments || loadingSubMap || loadingInstPayments) && <Loader2 className="h-3.5 w-3.5 animate-spin ml-auto" />}
               </div>
-              {loadingPayments ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">Loading…</div>
-              ) : activePayments.length === 0 ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">No active payments</div>
-              ) : (
-                <div className="divide-y divide-border/50">
-                  {activePayments.map(p => (
-                    <div key={p.id} className="px-1 py-0.5"><PaymentItem p={p} /></div>
-                  ))}
+              {/* Mode toggle */}
+              <div className="px-3 py-2 border-b border-border/50 bg-muted/20">
+                <div className="grid grid-cols-2 gap-1 bg-muted/60 rounded-lg p-0.5">
+                  <button type="button" onClick={() => setPaymentMode('class')}
+                    className={`rounded-md py-1 text-xs font-semibold transition-all ${paymentMode === 'class' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground'}`}>
+                    Class
+                  </button>
+                  <button type="button" onClick={() => setPaymentMode('institute')}
+                    className={`rounded-md py-1 text-xs font-semibold transition-all ${paymentMode === 'institute' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground'}`}>
+                    Institute
+                  </button>
                 </div>
+              </div>
+              {paymentMode === 'class' ? (
+                loadingPayments ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">Loading…</div>
+                ) : activePayments.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">No active class payments</div>
+                ) : (
+                  <div className="divide-y divide-border/50">
+                    {activePayments.map(p => (
+                      <div key={p.id} className="px-1 py-0.5"><PaymentItem p={p} /></div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                loadingInstPayments ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">Loading…</div>
+                ) : institutePayments.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">No active institute payments</div>
+                ) : (
+                  <div className="divide-y divide-border/50">
+                    {institutePayments.map(p => {
+                      const sel = selectedInstPaymentIds.has(p.id);
+                      const paid = p.mySubmissionStatus === 'VERIFIED';
+                      return (
+                        <button key={p.id} type="button" disabled={paid}
+                          onClick={() => { if (!paid) setSelectedInstPaymentIds(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; }); }}
+                          className={`w-full text-left px-3 py-2.5 flex items-center gap-2 ${paid ? 'opacity-60' : sel ? 'bg-primary/5' : 'hover:bg-muted/40'}`}>
+                          {paid ? <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                            : sel ? <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                            : <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{p.description}</p>
+                            <p className="text-xs text-primary font-bold">Rs {Number(p.amount).toLocaleString()}</p>
+                          </div>
+                          {p.mySubmissionStatus && <PayBadge status={p.mySubmissionStatus} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
               )}
             </div>
 
@@ -998,16 +1316,18 @@ const CollectPhysicalPayment: React.FC = () => {
 
             {/* Controls */}
             <div className="space-y-2">
-              <div className="grid grid-cols-3 gap-1.5">
-                {(['full', 'half', 'quarter'] as PaymentTier[]).map(t => (
-                  <button key={t} type="button" onClick={() => setTier(t)}
-                    className={`rounded-lg border py-2 text-xs font-semibold transition-all ${
-                      tier === t ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'
-                    }`}>
-                    {TIER_LABEL[t]}
-                  </button>
-                ))}
-              </div>
+              {paymentMode === 'class' && (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(['full', 'half', 'quarter'] as PaymentTier[]).map(t => (
+                    <button key={t} type="button" onClick={() => setTier(t)}
+                      className={`rounded-lg border py-2 text-xs font-semibold transition-all ${
+                        tier === t ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted'
+                      }`}>
+                      {TIER_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
+              )}
               {financeAccounts.length > 0 && (
                 <Select value={targetAccountId} onValueChange={setTargetAccountId}>
                   <SelectTrigger className="text-sm h-10 bg-muted/20 border-border/60">
@@ -1023,20 +1343,21 @@ const CollectPhysicalPayment: React.FC = () => {
                 className="text-sm bg-muted/20 border-border/60 resize-none" />
             </div>
 
-            {selectedPaymentIds.size > 0 && (
+            {(paymentMode === 'class' ? selectedPaymentIds.size : selectedInstPaymentIds.size) > 0 && (
               <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
                 <span className="text-xs text-muted-foreground">Total</span>
-                <span className="font-bold text-primary">Rs {grandTotal.toLocaleString()}</span>
+                <span className="font-bold text-primary">Rs {(paymentMode === 'class' ? grandTotal : instGrandTotal).toLocaleString()}</span>
               </div>
             )}
 
             {/* Action buttons */}
             <div className="grid grid-cols-2 gap-2">
-              <Button onClick={handleCollect}
-                disabled={collecting || selectedPaymentIds.size === 0}
+              <Button
+                onClick={paymentMode === 'class' ? handleCollect : handleCollectInstitute}
+                disabled={collecting || (paymentMode === 'class' ? selectedPaymentIds.size : selectedInstPaymentIds.size) === 0}
                 className="h-12 bg-green-600 hover:bg-green-700 text-white font-semibold">
                 {collecting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Banknote className="h-4 w-4 mr-1.5" />}
-                Collect{selectedPaymentIds.size > 0 ? ` (${selectedPaymentIds.size})` : ''}
+                {(() => { const c = paymentMode === 'class' ? selectedPaymentIds.size : selectedInstPaymentIds.size; return `Collect${c > 0 ? ` (${c})` : ''}`; })()}
               </Button>
               <Button onClick={() => doMarkAttendance(true)}
                 disabled={markingAtt || selectedSessionIds.size === 0}
@@ -1049,8 +1370,7 @@ const CollectPhysicalPayment: React.FC = () => {
           </div>
         )}
 
-        {/* Dialogs shared */}
-        <SharedDialogs />
+        {dialogs}
       </PageContainer>
     );
   }
@@ -1122,25 +1442,103 @@ const CollectPhysicalPayment: React.FC = () => {
 
           {/* ═══ LEFT: Payments ═══ */}
           <div className="flex flex-col min-h-0 rounded-xl border border-border shadow-sm overflow-hidden bg-card">
-            <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-primary/5 to-transparent flex items-center gap-2 shrink-0">
-              <Banknote className="h-4 w-4 text-primary" />
-              <span className="font-semibold text-sm">Select Payments</span>
-              {selectedPaymentIds.size > 0 && (
-                <Badge className="ml-auto bg-primary/15 text-primary border-primary/25 text-xs">{selectedPaymentIds.size} selected</Badge>
-              )}
+            {/* Header + mode toggle */}
+            <div className="px-3 py-2.5 border-b border-border bg-gradient-to-r from-primary/5 to-transparent shrink-0 space-y-2">
+              <div className="flex items-center gap-2">
+                <Banknote className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">Select Payments</span>
+                {(paymentMode === 'class' ? selectedPaymentIds.size : selectedInstPaymentIds.size) > 0 && (
+                  <Badge className="ml-auto bg-primary/15 text-primary border-primary/25 text-xs">
+                    {paymentMode === 'class' ? selectedPaymentIds.size : selectedInstPaymentIds.size} selected
+                  </Badge>
+                )}
+              </div>
+              {/* Class / Institute toggle */}
+              <div className="grid grid-cols-2 gap-1 bg-muted/40 rounded-lg p-0.5">
+                <button type="button"
+                  onClick={() => setPaymentMode('class')}
+                  className={`rounded-md py-1 text-xs font-semibold transition-all ${paymentMode === 'class' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+                  Class Payments
+                </button>
+                <button type="button"
+                  onClick={() => setPaymentMode('institute')}
+                  className={`rounded-md py-1 text-xs font-semibold transition-all ${paymentMode === 'institute' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+                  Institute Payments
+                </button>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 min-h-0">
-              {loadingPayments ? (
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-10">
-                  <Loader2 className="h-4 w-4 animate-spin" />Loading…
-                </div>
-              ) : activePayments.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
-                  <AlertCircle className="h-7 w-7 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No active payments</p>
-                </div>
-              ) : activePayments.map(p => <PaymentItem key={p.id} p={p} />)}
-            </div>
+
+            {/* Class payments list */}
+            {paymentMode === 'class' && (
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 min-h-0">
+                {loadingPayments ? (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-10">
+                    <Loader2 className="h-4 w-4 animate-spin" />Loading…
+                  </div>
+                ) : activePayments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                    <AlertCircle className="h-7 w-7 text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">{student ? 'No active class payments' : 'Find a student first'}</p>
+                  </div>
+                ) : activePayments.map(p => <PaymentItem key={p.id} p={p} />)}
+              </div>
+            )}
+
+            {/* Institute payments list */}
+            {paymentMode === 'institute' && (
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 min-h-0">
+                {loadingInstPayments ? (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-10">
+                    <Loader2 className="h-4 w-4 animate-spin" />Loading…
+                  </div>
+                ) : !student ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                    <AlertCircle className="h-7 w-7 text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">Find a student first</p>
+                  </div>
+                ) : institutePayments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                    <AlertCircle className="h-7 w-7 text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">No active institute payments</p>
+                  </div>
+                ) : institutePayments.map(p => {
+                  const sel = selectedInstPaymentIds.has(p.id);
+                  const alreadyPaid = p.mySubmissionStatus === 'VERIFIED';
+                  return (
+                    <button key={p.id} type="button"
+                      disabled={alreadyPaid}
+                      onClick={() => {
+                        if (alreadyPaid) return;
+                        setSelectedInstPaymentIds(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; });
+                      }}
+                      className={`w-full text-left rounded-lg border-2 px-3 py-2.5 transition-all ${
+                        alreadyPaid ? 'border-green-200 bg-green-50/40 dark:bg-green-950/20 opacity-60 cursor-default'
+                          : sel ? 'border-primary bg-primary/[0.06]'
+                          : 'border-border hover:border-primary/50 hover:bg-muted/40'
+                      }`}>
+                      <div className="flex items-start gap-2">
+                        {alreadyPaid
+                          ? <CheckCircle className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                          : sel
+                          ? <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                          : <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 shrink-0 mt-0.5" />
+                        }
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate leading-tight">{p.description}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="font-bold text-primary text-sm">Rs {Number(p.amount).toLocaleString()}</span>
+                            <Badge variant="outline" className="text-[10px] py-0">{p.priority}</Badge>
+                            {p.mySubmissionStatus && <PayBadge status={p.mySubmissionStatus} />}
+                          </div>
+                          {p.dueDate && <p className="text-[10px] text-muted-foreground mt-0.5">Due: {fmtDate(p.dueDate)}</p>}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <PaymentsFooter />
           </div>
 
@@ -1282,218 +1680,10 @@ const CollectPhysicalPayment: React.FC = () => {
         </div>
       )}
 
-      <SharedDialogs />
+      {dialogs}
     </PageContainer>
   );
-
-  // ═══════════════════════════════════════════════════════════════════
-  // SHARED DIALOGS (used by both mobile and desktop renders)
-  // ═══════════════════════════════════════════════════════════════════
-
-  function SharedDialogs() {
-    const total = collectedItems.reduce((s, p) => s + p.amount * TIER_MULT[tier], 0);
-
-    return (
-      <>
-        {/* ── Post-collect dialog ── */}
-        <Dialog open={postOpen} onOpenChange={v => { if (!v && !postActionLoading) { setPostOpen(false); clearStudent(); } }}>
-          <DialogContent className="w-[calc(100vw-2rem)] max-w-md mx-auto p-0 gap-0">
-            <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
-              <DialogTitle className="flex items-center gap-2 text-base">
-                <CheckCircle className="h-5 w-5 text-green-600" />Payment Recorded!
-              </DialogTitle>
-            </DialogHeader>
-            <div className="px-5 py-4 space-y-4">
-              {/* Receipt summary */}
-              <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-3 py-3 space-y-1.5">
-                <p className="font-semibold text-sm text-green-900 dark:text-green-100">{student?.nameWithInitials}</p>
-                {student?.instituteUserId && <p className="text-[11px] text-green-700 dark:text-green-300">ID: {student.instituteUserId}</p>}
-                {collectedItems.map((p, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs text-green-800 dark:text-green-200">
-                    <span className="truncate">{p.title}</span>
-                    <span className="font-medium ml-2 shrink-0">Rs {(p.amount * TIER_MULT[tier]).toLocaleString()}</span>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between font-bold text-sm text-green-900 dark:text-green-100 border-t border-green-200 dark:border-green-700 pt-1.5 mt-1">
-                  <span>Total</span><span>Rs {total.toLocaleString()}</span>
-                </div>
-                {selectedAccount && <p className="text-[10px] text-green-700 dark:text-green-400">Account: {selectedAccount.name}</p>}
-                {notes && <p className="text-[10px] text-green-700 dark:text-green-400">Notes: {notes}</p>}
-              </div>
-              {/* Receipt notice */}
-              <p className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
-                If there is any payment-related issue in future, present this receipt to administration. Keep it safe.
-              </p>
-              {/* Actions */}
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What would you like to do?</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button onClick={() => handlePostAction('sms')} disabled={!!postActionLoading} variant="outline"
-                    className="h-12 flex-col gap-0.5 text-xs border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/30">
-                    {postActionLoading === 'sms' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4 text-blue-600" />}
-                    Send SMS
-                  </Button>
-                  <Button onClick={() => handlePostAction('print')} disabled={!!postActionLoading} variant="outline"
-                    className="h-12 flex-col gap-0.5 text-xs border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/30">
-                    {postActionLoading === 'print' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4 text-green-600" />}
-                    Print
-                  </Button>
-                  <Button onClick={() => handlePostAction('both')} disabled={!!postActionLoading}
-                    className="h-12 flex-col gap-0.5 text-xs bg-primary hover:bg-primary/90">
-                    {postActionLoading === 'both' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                    SMS + Print
-                  </Button>
-                  <Button onClick={() => handlePostAction('skip')} disabled={!!postActionLoading} variant="ghost"
-                    className="h-12 flex-col gap-0.5 text-xs text-muted-foreground hover:text-foreground">
-                    <XCircle className="h-4 w-4" />
-                    Skip — Next
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* ── SMS dialog ── */}
-        <Dialog open={smsOpen} onOpenChange={v => { if (!v && !sendingSms) { setSmsOpen(false); } }}>
-          <DialogContent className="w-[calc(100vw-2rem)] max-w-lg mx-auto p-0 gap-0">
-            <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
-              <DialogTitle className="flex items-center gap-2 text-base">
-                <MessageSquare className="h-5 w-5 text-blue-600" />Send SMS Receipt
-              </DialogTitle>
-            </DialogHeader>
-            <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-              {/* Credits */}
-              {loadingSmsCreds ? (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />Loading SMS info…
-                </div>
-              ) : smsCreds ? (
-                <div className="flex items-center justify-between text-xs bg-muted/40 rounded-lg px-3 py-2">
-                  <span className="text-muted-foreground">SMS Credits</span>
-                  <span className={`font-semibold ${smsCreds.availableCredits < 10 ? 'text-red-600' : 'text-green-700 dark:text-green-400'}`}>
-                    {smsCreds.availableCredits} remaining
-                  </span>
-                </div>
-              ) : (
-                <p className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
-                  SMS credentials not available. Contact admin.
-                </p>
-              )}
-
-              {/* Sender mask */}
-              {smsCreds?.activeMasks && smsCreds.activeMasks.length > 0 && (
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Sender ID</Label>
-                  <Select value={smsMaskId} onValueChange={setSmsMaskId}>
-                    <SelectTrigger className="text-xs h-9 bg-muted/20"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {smsCreds.activeMasks.map(m => <SelectItem key={m.maskId} value={m.maskId} className="text-xs">{m.mask}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Primary recipient */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Student Phone</Label>
-                <div className="relative">
-                  {fetchingPhone && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                  <Input value={smsPhone} onChange={e => setSmsPhone(e.target.value)}
-                    placeholder="Phone number…" className="text-sm h-9 bg-muted/20 border-border/60 pr-8" />
-                </div>
-                {!smsPhone && !fetchingPhone && (
-                  <p className="text-[10px] text-amber-600">No phone on file — enter manually or use custom below.</p>
-                )}
-              </div>
-
-              {/* Custom additional recipient */}
-              <div className="rounded-lg border border-border/50 p-3 space-y-2 bg-muted/10">
-                <p className="text-xs font-semibold text-muted-foreground">Custom / Additional Recipient</p>
-                <Input value={smsCustomName} onChange={e => setSmsCustomName(e.target.value)}
-                  placeholder="Name (optional)…" className="text-xs h-8 bg-background border-border/60" />
-                <Input value={smsCustomPhone} onChange={e => setSmsCustomPhone(e.target.value)}
-                  placeholder="Phone number…" className="text-xs h-8 bg-background border-border/60" />
-              </div>
-
-              {/* Message */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Message</Label>
-                <Textarea value={smsMessage} onChange={e => setSmsMessage(e.target.value)}
-                  rows={4} className="text-xs bg-muted/20 border-border/60 resize-none" />
-                <p className="text-[10px] text-muted-foreground text-right">{smsMessage.length} chars</p>
-              </div>
-            </div>
-            <DialogFooter className="px-5 pb-5 pt-3 border-t border-border gap-2">
-              <Button variant="outline" onClick={() => { setSmsOpen(false); clearStudent(); }} disabled={sendingSms} className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={handleSendSms} disabled={sendingSms || (!smsPhone && !smsCustomPhone)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
-                {sendingSms ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
-                {sendingSms ? 'Sending…' : 'Send'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* ── Printer settings ── */}
-        <Dialog open={printerOpen} onOpenChange={setPrinterOpen}>
-          <DialogContent className="w-[calc(100vw-2rem)] max-w-sm mx-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base">
-                <Printer className="h-5 w-5" />Printer Settings
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Paper Size</Label>
-                <div className="space-y-1.5">
-                  {PRINT_SIZES.map(s => (
-                    <button key={s.id} type="button"
-                      onClick={() => { setPrintSize(s.id); localStorage.setItem(LS_PRINT_SIZE, s.id); }}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
-                        printSize === s.id ? 'border-primary bg-primary/8' : 'border-border hover:bg-muted/50'
-                      }`}>
-                      <div className="flex items-center justify-between">
-                        <span>{s.label}</span>
-                        {printSize === s.id && <CheckCircle className="h-4 w-4 text-primary" />}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {isNative ? (
-                <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2">
-                  App mode: Print opens your device share/print sheet. Send to a Bluetooth printer app, AirPrint, or any print service on your device.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
-                  Browser: The print dialog will open with the receipt sized to the selected paper width.
-                </p>
-              )}
-              <Button onClick={() => {
-                const widthMm = PRINT_SIZES.find(s => s.id === printSize)?.widthMm ?? 80;
-                if (collectedItems.length > 0) {
-                  handlePrint();
-                } else {
-                  doPrint(buildReceiptHtml({
-                    studentName: 'Test Student', instituteId: 'TEST-001',
-                    instituteName: selectedInstitute?.name ?? 'Institute',
-                    className: effectiveClassName || 'Class',
-                    payments: [{ title: 'Test Payment', amount: 1000 }],
-                    tier: 'full', collectedBy, date: todayStr(),
-                    notes: 'Test print', account: 'Cash', widthMm,
-                  }), widthMm);
-                }
-              }} variant="outline" className="w-full">
-                <Printer className="h-4 w-4 mr-2" />Print Test Page
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </>
-    );
-  }
 };
 
 export default CollectPhysicalPayment;
+

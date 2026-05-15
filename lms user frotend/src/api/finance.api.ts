@@ -13,6 +13,7 @@ export type LedgerTxSource =
   | 'TEACHER_PAYOUT'
   | 'TEACHER_DEDUCTION'
   | 'TEACHER_ADVANCE'
+  | 'TEACHER_TOPUP'
   | 'MANUAL';
 
 export interface FinanceAccount {
@@ -233,6 +234,10 @@ export const financeApi = {
   // Teacher advance
   giveTeacherAdvance: (dto: { teacherId: string; amount: number; fromAccountId: string; description: string; adminNote?: string }) =>
     request<void>('POST', '/advance', dto),
+
+  // Teacher wallet top-up (manual credit by admin)
+  topupTeacherWallet: (dto: { teacherId: string; amount: number; fromAccountId: string; description: string; adminNote?: string }) =>
+    request<void>('POST', '/topup', dto),
 
   // Manual record
   addManualRecord: (dto: {
