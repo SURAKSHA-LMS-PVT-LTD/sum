@@ -63,8 +63,22 @@ export const FEATURE_KEYS = {
   STUDENTS: 'students',
   UNVERIFIED_STUDENTS: 'unverified-students',
 
+  // Class scope - Attendance
+  CLASS_MARK_ATTENDANCE: 'class-mark-attendance',
+  CLASS_DAILY_ATTENDANCE: 'class-daily-attendance',
+  CLASS_LIVE_ATTENDANCE: 'class-live-attendance',
+  CLASS_RECORDING_ATTENDANCE: 'class-recording-attendance',
+  CLASS_MY_ATTENDANCE: 'class-my-attendance',
+
+  // Class scope - Users
+  CLASS_PARENTS: 'class-parents',
+
   // Class scope - Payments
   CLASS_PAYMENTS: 'class-payments',
+  CLASS_COLLECT_PAYMENT: 'class-collect-payment',
+
+  // Class scope - Communication
+  CLASS_NOTIFICATIONS: 'class-notifications',
 
   // Subject scope - Academics
   LECTURES: 'lectures',
@@ -75,9 +89,20 @@ export const FEATURE_KEYS = {
   STUDY_MATERIALS: 'study-materials',
   LECTURE_WELCOME_MESSAGE: 'lecture-welcome-message',
 
+  // Subject scope - Attendance
+  SUBJECT_MARK_ATTENDANCE: 'subject-mark-attendance',
+  SUBJECT_DAILY_ATTENDANCE: 'subject-daily-attendance',
+  SUBJECT_LIVE_ATTENDANCE: 'subject-live-attendance',
+  SUBJECT_RECORDING_ATTENDANCE: 'subject-recording-attendance',
+  SUBJECT_MY_ATTENDANCE: 'subject-my-attendance',
+
   // Subject scope - Payments
   SUBJECT_PAYMENTS: 'subject-payments',
-  
+  SUBJECT_COLLECT_PAYMENT: 'subject-collect-payment',
+
+  // Subject scope - Communication
+  SUBJECT_NOTIFICATIONS: 'subject-notifications',
+
   // Common
   MY_ATTENDANCE: 'my-attendance',
 };

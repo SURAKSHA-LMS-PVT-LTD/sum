@@ -47,13 +47,14 @@ import classAttendanceSessionsApi from '@/api/classAttendanceSessions.api';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { isNativePlatform } from '@/services/tokenStorageService';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
+import { instituteSettingsApi, InstitutePrintSettings, PrinterSettings } from '@/api/instituteSettings.api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type SearchMode = 'id' | 'instituteId' | 'phone' | 'email' | 'cardId' | 'name';
 type PaymentMode = 'class' | 'institute';
 type PaymentTier = 'full' | 'half' | 'quarter';
-type PrintSize = '2inch' | '3inch' | '4inch' | 'a4';
+type PrintSize = '2inch' | '3inch' | '4inch' | 'a4'; // keep local alias for convenience
 type PostAction = 'sms' | 'print' | 'both' | 'skip' | null;
 
 interface StudentInfo {
@@ -157,12 +158,40 @@ const AttBadge = ({ code }: { code: number | null }) => {
 
 // ─── Receipt HTML builder ───────────────────────────────────────────────────────
 
+// Sinhala label map for receipt fields
+const SI_LABELS: Record<string, string> = {
+  'Physical Payment Receipt': 'භෞතික ගෙවීම් රිසිට්පත',
+  'Student:': 'සිසුවා:',
+  'ID:': 'හැඳුනුම:',
+  'Class:': 'පන්තිය:',
+  'Date:': 'දිනය:',
+  'Collected by:': 'එකතු කළේ:',
+  'Account:': 'ගිණුම:',
+  'TOTAL': 'එකතුව',
+  'Tier:': 'ශ්‍රේණිය:',
+  'Notes:': 'සටහන:',
+  'Ref:': 'Ref:',
+  'If you face any issue related to this payment in the future, present this receipt to the administration. Keep it safe.':
+    'මෙම ගෙවීම සම්බන්ධයෙන් ගැටලුවක් ඇත්නම් මෙම රිසිට්පත පරිපාලනයට ඉදිරිපත් කරන්න. ආරක්ෂා කර ගන්න.',
+};
+
+function lbl(key: string, lang: 'en' | 'si'): string {
+  return lang === 'si' ? (SI_LABELS[key] ?? key) : key;
+}
+
 function buildReceiptHtml(opts: {
   studentName: string; instituteId?: string; instituteName: string; className: string;
   payments: CollectedItem[]; tier: PaymentTier; collectedBy: string; date: string;
   notes: string; account: string; widthMm: number;
+  language?: 'en' | 'si';
+  headerImageDataUrl?: string | null;
+  footerImageDataUrl?: string | null;
+  customHeaderText?: string | null;
+  customFooterText?: string | null;
 }) {
+  const lang = opts.language ?? 'en';
   const total = opts.payments.reduce((s, p) => s + p.amount * TIER_MULT[opts.tier], 0);
+  const imgStyle = `display:block;width:100%;max-width:${opts.widthMm - 8}mm;height:auto;margin-bottom:4px;`;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title>
 <style>
   @page { margin: 4mm; size: ${opts.widthMm}mm auto; }
@@ -175,23 +204,28 @@ function buildReceiptHtml(opts: {
   .s  { font-size: 9px; color: #555; }
   .pid { font-size: 8px; color: #777; margin: 1px 0 3px 0; }
   .notice { font-size: 8px; border: 1px dashed #999; padding: 4px; margin-top: 8px; text-align: center; }
+  .custom-text { font-size: 9px; text-align: center; margin: 3px 0; }
 </style></head><body>
-<h2>${opts.instituteName}</h2>
-<p class="c s">Physical Payment Receipt</p>
+${opts.headerImageDataUrl ? `<img src="${opts.headerImageDataUrl}" style="${imgStyle}" />` : ''}
+${opts.customHeaderText ? `<p class="custom-text">${opts.customHeaderText}</p>` : ''}
+${!opts.headerImageDataUrl ? `<h2>${opts.instituteName}</h2>` : ''}
+<p class="c s">${lbl('Physical Payment Receipt', lang)}</p>
 <div class="d"></div>
-<div class="r"><span>Student:</span><span>${opts.studentName}</span></div>
-${opts.instituteId ? `<div class="r"><span>ID:</span><span>${opts.instituteId}</span></div>` : ''}
-<div class="r"><span>Class:</span><span>${opts.className}</span></div>
-<div class="r"><span>Date:</span><span>${fmtDate(opts.date)}</span></div>
-<div class="r"><span>Collected by:</span><span>${opts.collectedBy}</span></div>
-<div class="r"><span>Account:</span><span>${opts.account}</span></div>
+<div class="r"><span>${lbl('Student:', lang)}</span><span>${opts.studentName}</span></div>
+${opts.instituteId ? `<div class="r"><span>${lbl('ID:', lang)}</span><span>${opts.instituteId}</span></div>` : ''}
+<div class="r"><span>${lbl('Class:', lang)}</span><span>${opts.className}</span></div>
+<div class="r"><span>${lbl('Date:', lang)}</span><span>${fmtDate(opts.date)}</span></div>
+<div class="r"><span>${lbl('Collected by:', lang)}</span><span>${opts.collectedBy}</span></div>
+<div class="r"><span>${lbl('Account:', lang)}</span><span>${opts.account}</span></div>
 <div class="d"></div>
-${opts.payments.map(p => `<div class="r"><span>${p.title}</span><span>Rs ${(p.amount * TIER_MULT[opts.tier]).toLocaleString()}</span></div>${p.submissionId ? `<div class="pid">Ref: ${p.submissionId}</div>` : ''}`).join('')}
+${opts.payments.map(p => `<div class="r"><span>${p.title}</span><span>Rs ${(p.amount * TIER_MULT[opts.tier]).toLocaleString()}</span></div>${p.submissionId ? `<div class="pid">${lbl('Ref:', lang)} ${p.submissionId}</div>` : ''}`).join('')}
 <div class="d"></div>
-<div class="r b"><span>TOTAL</span><span>Rs ${total.toLocaleString()}</span></div>
-${opts.tier !== 'full' ? `<div class="r s"><span>Tier:</span><span>${TIER_LABEL[opts.tier]}</span></div>` : ''}
-${opts.notes ? `<div class="r s"><span>Notes:</span><span>${opts.notes}</span></div>` : ''}
-<div class="notice">If you face any issue related to this payment in the future, present this receipt to the administration. Keep it safe.</div>
+<div class="r b"><span>${lbl('TOTAL', lang)}</span><span>Rs ${total.toLocaleString()}</span></div>
+${opts.tier !== 'full' ? `<div class="r s"><span>${lbl('Tier:', lang)}</span><span>${TIER_LABEL[opts.tier]}</span></div>` : ''}
+${opts.notes ? `<div class="r s"><span>${lbl('Notes:', lang)}</span><span>${opts.notes}</span></div>` : ''}
+<div class="notice">${lbl('If you face any issue related to this payment in the future, present this receipt to the administration. Keep it safe.', lang)}</div>
+${opts.customFooterText ? `<p class="custom-text">${opts.customFooterText}</p>` : ''}
+${opts.footerImageDataUrl ? `<img src="${opts.footerImageDataUrl}" style="${imgStyle}margin-top:4px;" />` : ''}
 </body></html>`;
 }
 
@@ -318,6 +352,12 @@ const CollectPhysicalPayment: React.FC = () => {
   const [printSize, setPrintSize] = useState<PrintSize>(() =>
     (localStorage.getItem(LS_PRINT_SIZE) as PrintSize) ?? '3inch'
   );
+  const [printSettings, setPrintSettings] = useState<InstitutePrintSettings | null>(null);
+  const [printLang, setPrintLang] = useState<'en' | 'si'>('en');
+  // Editable copies for the settings dialog
+  const [editHeader, setEditHeader] = useState('');
+  const [editFooter, setEditFooter] = useState('');
+  const [savingPrintSettings, setSavingPrintSettings] = useState(false);
 
   // ── mobile step
   const [mobileStep, setMobileStep] = useState<'search' | 'collect'>('search');
@@ -340,6 +380,21 @@ const CollectPhysicalPayment: React.FC = () => {
     financeApi.getAccounts()
       .then(accs => { setFinanceAccounts(accs); if (accs.length > 0) setTargetAccountId(accs[0].id); })
       .catch(() => {});
+  }, [instituteId]);
+
+  // Load printer settings once — includes header/footer images as base64
+  useEffect(() => {
+    if (!instituteId) return;
+    instituteSettingsApi.getPrintSettings(instituteId).then(s => {
+      setPrintSettings(s);
+      // Apply institute default size only if user has no localStorage override
+      if (!localStorage.getItem(LS_PRINT_SIZE) && s.defaultSize) {
+        setPrintSize(s.defaultSize as PrintSize);
+      }
+      setPrintLang(s.language ?? 'en');
+      setEditHeader(s.receiptHeader ?? '');
+      setEditFooter(s.receiptFooter ?? '');
+    }).catch(() => {});
   }, [instituteId]);
 
   // Payments — force-refresh on class change
@@ -743,6 +798,11 @@ const CollectPhysicalPayment: React.FC = () => {
       tier, collectedBy, date: todayStr(), notes,
       account: selectedAccount?.name ?? '',
       widthMm,
+      language: printLang,
+      headerImageDataUrl: printSettings?.headerImageDataUrl,
+      footerImageDataUrl: printSettings?.footerImageDataUrl,
+      customHeaderText: printSettings?.receiptHeader,
+      customFooterText: printSettings?.receiptFooter,
     });
 
     if (isNative) {
@@ -1016,39 +1076,104 @@ const CollectPhysicalPayment: React.FC = () => {
 
       {/* ── Printer settings ── */}
       <Dialog open={printerOpen} onOpenChange={setPrinterOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm mx-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Printer className="h-5 w-5" />Printer Settings
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Paper Size</Label>
-              <div className="space-y-1.5">
+          <div className="space-y-4">
+
+            {/* Paper size */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Paper Size</Label>
+              <div className="grid grid-cols-2 gap-1.5">
                 {PRINT_SIZES.map(s => (
                   <button key={s.id} type="button"
                     onClick={() => { setPrintSize(s.id); localStorage.setItem(LS_PRINT_SIZE, s.id); }}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
+                    className={`text-left px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
                       printSize === s.id ? 'border-primary bg-primary/8' : 'border-border hover:bg-muted/50'
                     }`}>
-                    <div className="flex items-center justify-between">
-                      <span>{s.label}</span>
-                      {printSize === s.id && <CheckCircle className="h-4 w-4 text-primary" />}
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs">{s.label}</span>
+                      {printSize === s.id && <CheckCircle className="h-3.5 w-3.5 text-primary shrink-0" />}
                     </div>
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Language */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Receipt Language</Label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {([['en', 'English'], ['si', 'සිංහල (Sinhala)']] as const).map(([code, label]) => (
+                  <button key={code} type="button"
+                    onClick={() => setPrintLang(code)}
+                    className={`text-left px-3 py-2 rounded-lg border-2 text-xs font-medium transition-all ${
+                      printLang === code ? 'border-primary bg-primary/8' : 'border-border hover:bg-muted/50'
+                    }`}>
+                    <div className="flex items-center justify-between gap-1">
+                      <span>{label}</span>
+                      {printLang === code && <CheckCircle className="h-3.5 w-3.5 text-primary shrink-0" />}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Student names, IDs and class names print as-is. Labels (Student:, Date:, etc.) switch to Sinhala.
+              </p>
+            </div>
+
+            {/* Custom header / footer text */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Custom Receipt Header Text</Label>
+              <Input
+                value={editHeader}
+                onChange={e => setEditHeader(e.target.value)}
+                placeholder="e.g. Your trusted learning partner…"
+                className="text-xs h-8"
+                maxLength={200}
+              />
+              <p className="text-[10px] text-muted-foreground text-right">{editHeader.length}/200</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Custom Receipt Footer Text</Label>
+              <Input
+                value={editFooter}
+                onChange={e => setEditFooter(e.target.value)}
+                placeholder="e.g. Thank you for choosing us!"
+                className="text-xs h-8"
+                maxLength={300}
+              />
+              <p className="text-[10px] text-muted-foreground text-right">{editFooter.length}/300</p>
+            </div>
+
+            {/* Header/footer images status */}
+            {(printSettings?.headerImageDataUrl || printSettings?.footerImageDataUrl) && (
+              <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 px-3 py-2 space-y-1">
+                <p className="text-xs font-semibold text-green-800 dark:text-green-300">Institute branding loaded</p>
+                {printSettings.headerImageDataUrl && (
+                  <p className="text-[10px] text-green-700 dark:text-green-400">✓ Header banner image will appear at top of receipt</p>
+                )}
+                {printSettings.footerImageDataUrl && (
+                  <p className="text-[10px] text-green-700 dark:text-green-400">✓ Footer banner image will appear at bottom of receipt</p>
+                )}
+                <p className="text-[10px] text-muted-foreground">Upload/change banner images in Institute Settings → Report Branding.</p>
+              </div>
+            )}
+
             {isNative ? (
               <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2">
                 App mode: Print opens your device share/print sheet. Send to a Bluetooth printer app, AirPrint, or any print service on your device.
               </p>
             ) : (
               <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
-                Browser: The print dialog will open with the receipt sized to the selected paper width.
+                Browser: Print dialog opens with the receipt sized to the selected paper width.
               </p>
             )}
+
+            {/* Test print */}
             <Button onClick={() => {
               const widthMm = PRINT_SIZES.find(s => s.id === printSize)?.widthMm ?? 80;
               if (collectedItems.length > 0) {
@@ -1061,10 +1186,43 @@ const CollectPhysicalPayment: React.FC = () => {
                   payments: [{ title: 'Test Payment', amount: 1000 }],
                   tier: 'full', collectedBy, date: todayStr(),
                   notes: 'Test print', account: 'Cash', widthMm,
+                  language: printLang,
+                  headerImageDataUrl: printSettings?.headerImageDataUrl,
+                  footerImageDataUrl: printSettings?.footerImageDataUrl,
+                  customHeaderText: editHeader || null,
+                  customFooterText: editFooter || null,
                 }), widthMm);
               }
             }} variant="outline" className="w-full">
               <Printer className="h-4 w-4 mr-2" />Print Test Page
+            </Button>
+
+            {/* Save to institute (admin) */}
+            <Button
+              onClick={async () => {
+                setSavingPrintSettings(true);
+                try {
+                  const updated = await instituteSettingsApi.updatePrinterSettings(instituteId, {
+                    defaultSize: printSize,
+                    language: printLang,
+                    receiptHeader: editHeader || undefined,
+                    receiptFooter: editFooter || undefined,
+                  });
+                  // Refresh print settings cache
+                  const fresh = await instituteSettingsApi.getPrintSettings(instituteId, true);
+                  setPrintSettings(fresh);
+                  toast({ title: 'Printer settings saved for all staff' });
+                } catch {
+                  toast({ title: 'Could not save settings', description: 'Check your permissions', variant: 'destructive' });
+                } finally {
+                  setSavingPrintSettings(false);
+                }
+              }}
+              disabled={savingPrintSettings}
+              className="w-full"
+            >
+              {savingPrintSettings ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save as Institute Default
             </Button>
           </div>
         </DialogContent>

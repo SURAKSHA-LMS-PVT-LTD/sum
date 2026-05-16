@@ -7,3 +7,4 @@ export { NotificationToast } from './NotificationToast';
 export { CreateNotificationForm } from './CreateNotificationForm';
 export { CreateNotificationButton } from './CreateNotificationButton';
 export { NotificationManagement } from './NotificationManagement';
+export { NotificationDetailSheet } from './NotificationDetailSheet';

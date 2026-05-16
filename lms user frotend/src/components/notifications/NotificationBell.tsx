@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/popover';
 import { notificationApiService, Notification } from '@/services/notificationApiService';
 import { NotificationItem } from './NotificationItem';
+import { NotificationDetailSheet } from './NotificationDetailSheet';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
   const loadRecentNotifications = useCallback(async () => {
     try {
@@ -63,9 +65,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
   const handleNotificationClick = (notification: Notification) => {
     setOpen(false);
-    if (notification.actionUrl) {
-      navigate(notification.actionUrl);
-    }
+    setSelectedNotification(notification);
   };
 
   const handleViewAll = () => {
@@ -74,6 +74,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   };
 
   return (
+    <>
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
@@ -153,5 +154,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         </div>
       </PopoverContent>
     </Popover>
+
+    <NotificationDetailSheet
+      notification={selectedNotification}
+      open={!!selectedNotification}
+      onClose={() => setSelectedNotification(null)}
+    />
+    </>
   );
 };

@@ -5,19 +5,20 @@ import { Bell, CheckCheck, RefreshCw, Sparkles } from 'lucide-react';
 import { notificationApiService, Notification } from '@/services/notificationApiService';
 import { DateGroupedNotifications } from './DateGroupedNotifications';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { useNotificationStore } from '@/stores/useNotificationStore';
+import { NotificationDetailSheet } from './NotificationDetailSheet';
 
 export const SystemNotifications: React.FC = () => {
-  const navigate = useNavigate();
   const { triggerForceRefresh } = useForceRefresh();
   const { decrementUnread, resetUnread } = useNotificationStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -25,7 +26,6 @@ export const SystemNotifications: React.FC = () => {
       const result = await notificationApiService.getSystemNotifications({ page, limit: 10 });
       setNotifications(result.data || []);
       setTotalPages(result.totalPages || 1);
-      if (result.unreadCount !== undefined) setUnreadCount(result.unreadCount);
     } catch (error: any) {
       console.error('Failed to load notifications:', error);
       toast({ title: 'Error', description: 'Failed to load notifications', variant: 'destructive' });
@@ -42,7 +42,6 @@ export const SystemNotifications: React.FC = () => {
     try {
       await notificationApiService.markAsRead(notificationId);
       setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
       decrementUnread();
     } catch (error: any) {
       console.error('Failed to mark as read:', error);
@@ -53,7 +52,6 @@ export const SystemNotifications: React.FC = () => {
     try {
       await notificationApiService.markAllSystemAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      setUnreadCount(0);
       resetUnread();
       toast({ title: 'Done', description: 'All notifications marked as read' });
     } catch (error: any) {
@@ -62,7 +60,8 @@ export const SystemNotifications: React.FC = () => {
   };
 
   const handleNotificationClick = (notification: Notification) => {
-    if (notification.actionUrl) navigate(notification.actionUrl);
+    if (!notification.isRead) handleMarkAsRead(notification.id);
+    setSelectedNotification(notification);
   };
 
   const handleRefresh = () => {
@@ -100,6 +99,7 @@ export const SystemNotifications: React.FC = () => {
   }
 
   return (
+    <>
     <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
       {/* Header */}
       <div className="p-4 sm:p-5 border-b border-border/40">
@@ -167,5 +167,12 @@ export const SystemNotifications: React.FC = () => {
         </div>
       )}
     </div>
+
+    <NotificationDetailSheet
+      notification={selectedNotification}
+      open={!!selectedNotification}
+      onClose={() => setSelectedNotification(null)}
+    />
+    </>
   );
 };

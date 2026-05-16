@@ -9,12 +9,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { useNotificationStore } from '@/stores/useNotificationStore';
+import { NotificationDetailSheet } from '@/components/notifications/NotificationDetailSheet';
 
 const AllNotificationsPage: React.FC = () => {
   const navigate = useNavigate();
   const { triggerForceRefresh } = useForceRefresh();
-  const { globalUnreadCount, decrementUnread, resetUnread, refreshUnreadCount } = useNotificationStore();
+  const { globalUnreadCount, decrementUnread, resetUnread } = useNotificationStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -70,13 +72,13 @@ const AllNotificationsPage: React.FC = () => {
   };
 
   const handleNotificationClick = (notification: Notification) => {
-    if (notification.actionUrl) navigate(notification.actionUrl);
+    if (!notification.isRead) handleMarkAsRead(notification.id);
+    setSelectedNotification(notification);
   };
 
   const handleRefresh = () => {
     triggerForceRefresh();
     loadNotifications();
-    refreshUnreadCount();
   };
 
   return (
@@ -187,6 +189,12 @@ const AllNotificationsPage: React.FC = () => {
         )}
       </div>
     </div>
+
+    <NotificationDetailSheet
+      notification={selectedNotification}
+      open={!!selectedNotification}
+      onClose={() => setSelectedNotification(null)}
+    />
   );
 };
 

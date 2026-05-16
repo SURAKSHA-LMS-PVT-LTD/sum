@@ -67,8 +67,11 @@ const NAV_TREE: Array<{
     icon: BookOpen,
     scopeDescription: 'Features available within each class',
     groups: [
-      { id: 'CLASS__ACADEMICS', scope: 'CLASS', category: 'ACADEMICS', label: 'Academics',      icon: GraduationCap, description: 'Subjects, lectures and student management per class' },
-      { id: 'CLASS__PAYMENTS',  scope: 'CLASS', category: 'PAYMENTS',  label: 'Class Payments', icon: CreditCard,    description: 'Per-class fee collection' },
+      { id: 'CLASS__ACADEMICS',      scope: 'CLASS', category: 'ACADEMICS',     label: 'Academics',        icon: GraduationCap, description: 'Subjects and lectures per class' },
+      { id: 'CLASS__SERVICES',       scope: 'CLASS', category: 'SERVICES',      label: 'Students',         icon: Users,         description: 'Enrolled students and pending approvals' },
+      { id: 'CLASS__ATTENDANCE',     scope: 'CLASS', category: 'ATTENDANCE',    label: 'Attendance',       icon: CalendarCheck, description: 'Class-level attendance marking and tracking' },
+      { id: 'CLASS__PAYMENTS',       scope: 'CLASS', category: 'PAYMENTS',      label: 'Payments',         icon: CreditCard,    description: 'Class fee collection and payment collection' },
+      { id: 'CLASS__COMMUNICATION',  scope: 'CLASS', category: 'COMMUNICATION', label: 'Communication',    icon: MessageSquare, description: 'Notifications and messaging inside a class' },
     ],
   },
   {
@@ -77,21 +80,19 @@ const NAV_TREE: Array<{
     icon: FileText,
     scopeDescription: 'Features available within each subject',
     groups: [
-      { id: 'SUBJECT__ACADEMICS', scope: 'SUBJECT', category: 'ACADEMICS', label: 'Academics',       icon: GraduationCap, description: 'Lectures, homework, exams, study materials' },
-      { id: 'SUBJECT__PAYMENTS',  scope: 'SUBJECT', category: 'PAYMENTS',  label: 'Subject Payments', icon: CreditCard,    description: 'Per-subject fee configuration' },
+      { id: 'SUBJECT__ACADEMICS',      scope: 'SUBJECT', category: 'ACADEMICS',     label: 'Academics',        icon: GraduationCap, description: 'Lectures, homework, exams, study materials' },
+      { id: 'SUBJECT__ATTENDANCE',     scope: 'SUBJECT', category: 'ATTENDANCE',    label: 'Attendance',       icon: CalendarCheck, description: 'Subject-level attendance tracking' },
+      { id: 'SUBJECT__PAYMENTS',       scope: 'SUBJECT', category: 'PAYMENTS',      label: 'Payments',         icon: CreditCard,    description: 'Payment collection inside a subject' },
+      { id: 'SUBJECT__COMMUNICATION',  scope: 'SUBJECT', category: 'COMMUNICATION', label: 'Communication',    icon: MessageSquare, description: 'Notifications and messaging inside a subject' },
     ],
   },
 ];
 
 // Map catalog categories to nav node IDs (handles aliases like SERVICES being split)
 function getCategoryNodeId(scope: string, category: string): string {
-  // Admin Tools + Services both go under TOOLS at institute level
-  if (scope === 'INSTITUTE' && (category === 'SERVICES' || category === 'TOOLS')) {
+  // Admin Tools + some Services both go under TOOLS at institute level
+  if (scope === 'INSTITUTE' && (category === 'TOOLS')) {
     return 'INSTITUTE__TOOLS';
-  }
-  // Users go under SERVICES at institute level
-  if (scope === 'INSTITUTE' && category === 'SERVICES') {
-    return 'INSTITUTE__SERVICES';
   }
   return `${scope}__${category}`;
 }
@@ -117,7 +118,7 @@ export const FeatureSettings: React.FC = () => {
     const fetch = async () => {
       setLoading(true);
       try {
-        const res = await enhancedCachedClient.get<CatalogFeature[] | { data: CatalogFeature[] }>('/features/catalog');
+        const res = await enhancedCachedClient.get<CatalogFeature[] | { data: CatalogFeature[] }>('/features/catalog', {}, { forceRefresh: true });
         const list = Array.isArray(res) ? res : (res as any).data ?? [];
         setCatalog(list.filter((f: CatalogFeature) => f.isActive));
       } catch {
@@ -133,14 +134,7 @@ export const FeatureSettings: React.FC = () => {
   const byNodeId = useMemo(() => {
     const map: Record<string, CatalogFeature[]> = {};
     for (const f of catalog) {
-      // Special split: SERVICES at INSTITUTE has Users + Admin Tools depending on feature key
-      let nodeId: string;
-      if (f.scope === 'INSTITUTE' && f.category === 'SERVICES') {
-        const adminToolKeys = ['device-management', 'id-cards', 'organizations', 'system-payment'];
-        nodeId = adminToolKeys.includes(f.key) ? 'INSTITUTE__TOOLS' : 'INSTITUTE__SERVICES';
-      } else {
-        nodeId = getCategoryNodeId(f.scope, f.category);
-      }
+      const nodeId = getCategoryNodeId(f.scope.toUpperCase(), f.category.toUpperCase());
       if (!map[nodeId]) map[nodeId] = [];
       map[nodeId].push(f);
     }
@@ -148,6 +142,7 @@ export const FeatureSettings: React.FC = () => {
   }, [catalog]);
 
   const isEnabled = (key: string) => changes[key] ?? (features[key]?.enabled ?? true);
+  const featureScope = (key: string): string => (features[key]?.scope ?? 'institute').toLowerCase();
   const isDependencyMet = (f: CatalogFeature) => (f.dependencies ?? []).every(dep => isEnabled(dep));
 
   const handleToggle = (key: string, enabled: boolean) => {
@@ -187,35 +182,46 @@ export const FeatureSettings: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Two-layer explanation banner */}
+      {/* Explanation banner */}
       <div className="rounded-xl border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 p-4">
         <div className="flex gap-3">
           <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="space-y-2 text-sm">
-            <p className="font-semibold text-blue-900 dark:text-blue-100">How feature control works — two layers</p>
-            <div className="grid sm:grid-cols-2 gap-3">
+            <p className="font-semibold text-blue-900 dark:text-blue-100">How feature scopes work</p>
+            <div className="grid sm:grid-cols-3 gap-3">
               <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
-                  <span className="text-[10px] font-bold text-red-600">1</span>
-                </div>
+                <div className="w-2 h-2 rounded-full bg-slate-400 mt-1.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-blue-800 dark:text-blue-200">Institute toggle (this page)</p>
+                  <p className="font-medium text-blue-800 dark:text-blue-200">Institute features</p>
                   <p className="text-blue-700/80 dark:text-blue-300/80 text-xs leading-relaxed">
-                    Disabling a feature here removes it <strong>for everyone</strong> in the institute — admins, teachers, students alike. Use this to turn off features you don't need at all.
+                    Disabled = hidden at institute level only. Class &amp; subject nav still shown.
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0">
-                  <ShieldCheck className="h-3 w-3 text-green-600" />
-                </div>
+                <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-blue-800 dark:text-blue-200">User Type permissions</p>
+                  <p className="font-medium text-blue-800 dark:text-blue-200">Class features</p>
                   <p className="text-blue-700/80 dark:text-blue-300/80 text-xs leading-relaxed">
-                    Once a feature is enabled here, go to <strong>User Types &amp; Permissions</strong> to control which user roles can view, create, edit, or delete within that feature.
+                    Disabled = hidden only when inside a class. Institute &amp; subject nav unaffected.
                   </p>
                 </div>
               </div>
+              <div className="flex gap-2">
+                <div className="w-2 h-2 rounded-full bg-violet-500 mt-1.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-blue-800 dark:text-blue-200">Subject features</p>
+                  <p className="text-blue-700/80 dark:text-blue-300/80 text-xs leading-relaxed">
+                    Disabled = hidden only when inside a subject. Institute &amp; class nav unaffected.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1 border-t border-blue-200 dark:border-blue-700">
+              <ShieldCheck className="h-3.5 w-3.5 text-green-600 flex-shrink-0 mt-0.5" />
+              <p className="text-blue-700/80 dark:text-blue-300/80 text-xs">
+                After enabling a feature, use <strong>User Types &amp; Permissions</strong> to control which roles can view, create, edit, or delete within it.
+              </p>
             </div>
           </div>
         </div>
@@ -332,6 +338,14 @@ export const FeatureSettings: React.FC = () => {
                       const depMet = isDependencyMet(feature);
                       const blocked = feature.isCore || !depMet;
                       const changed = changes[feature.key] !== undefined;
+                      // Use catalog scope (always accurate) normalized to lowercase for comparisons
+                      const scope = feature.scope.toLowerCase();
+                      const scopeLabel = scope === 'subject' ? 'Subject' : scope === 'class' ? 'Class' : 'Institute';
+                      const scopeColor = scope === 'subject'
+                        ? 'text-violet-600 border-violet-300 dark:border-violet-700'
+                        : scope === 'class'
+                        ? 'text-blue-600 border-blue-300 dark:border-blue-700'
+                        : 'text-slate-500 border-slate-300 dark:border-slate-600';
 
                       return (
                         <div
@@ -343,6 +357,9 @@ export const FeatureSettings: React.FC = () => {
                           <div className="min-w-0 pr-4 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium text-sm">{feature.label}</span>
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${scopeColor}`}>
+                                {scopeLabel}
+                              </Badge>
                               {feature.pricing === 'PAID' && (
                                 <Badge variant="outline" className="text-amber-600 border-amber-300 text-[10px] px-1.5 py-0 gap-1">
                                   <Lock className="h-2.5 w-2.5" /> PAID
@@ -362,6 +379,11 @@ export const FeatureSettings: React.FC = () => {
                               <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                                 <AlertCircle className="h-3 w-3" />
                                 Requires: {feature.dependencies.join(', ')}
+                              </p>
+                            )}
+                            {!enabled && !feature.isCore && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                Hidden from sidebar {scope === 'class' ? 'when navigating inside a class' : scope === 'subject' ? 'when navigating inside a subject' : 'when at institute level'}
                               </p>
                             )}
                           </div>

@@ -6,9 +6,9 @@ import { notificationApiService, Notification } from '@/services/notificationApi
 import { DateGroupedNotifications } from './DateGroupedNotifications';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { useNotificationStore } from '@/stores/useNotificationStore';
+import { NotificationDetailSheet } from './NotificationDetailSheet';
 
 interface InstituteNotificationsProps {
   instituteId: string;
@@ -21,15 +21,17 @@ export const InstituteNotifications: React.FC<InstituteNotificationsProps> = ({
   instituteId,
   instituteName,
 }) => {
-  const navigate = useNavigate();
   const { triggerForceRefresh } = useForceRefresh();
-  const { decrementUnread, resetUnread, refreshUnreadCount } = useNotificationStore();
+  const { decrementUnread, resetUnread } = useNotificationStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filter, setFilter] = useState<FilterScope>('ALL');
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+
+  // Derived from the loaded list — no extra API call needed
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const loadNotifications = useCallback(async () => {
     if (!instituteId) return;
@@ -50,32 +52,19 @@ export const InstituteNotifications: React.FC<InstituteNotificationsProps> = ({
     }
   }, [instituteId, page, filter]);
 
-  const loadUnreadCount = useCallback(async () => {
-    if (!instituteId) return;
-    try {
-      const result = await notificationApiService.getInstituteUnreadCount(instituteId);
-      setUnreadCount(result.unreadCount || 0);
-    } catch (error: any) {
-      console.error('Failed to load unread count:', error);
-    }
-  }, [instituteId]);
-
   useEffect(() => {
     loadNotifications();
-    loadUnreadCount();
   }, [page, filter]);
 
   const handleRefresh = () => {
     triggerForceRefresh();
     loadNotifications();
-    loadUnreadCount();
   };
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await notificationApiService.markAsRead(notificationId);
       setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
       decrementUnread();
     } catch (error: any) {
       console.error('Failed to mark as read:', error);
@@ -87,9 +76,7 @@ export const InstituteNotifications: React.FC<InstituteNotificationsProps> = ({
     try {
       await notificationApiService.markAllAsRead(instituteId);
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      setUnreadCount(0);
       resetUnread();
-      await refreshUnreadCount();
       toast({ title: 'Done', description: 'All notifications marked as read' });
     } catch (error: any) {
       toast({ title: 'Error', description: 'Failed to mark all as read', variant: 'destructive' });
@@ -97,7 +84,8 @@ export const InstituteNotifications: React.FC<InstituteNotificationsProps> = ({
   };
 
   const handleNotificationClick = (notification: Notification) => {
-    if (notification.actionUrl) navigate(notification.actionUrl);
+    if (!notification.isRead) handleMarkAsRead(notification.id);
+    setSelectedNotification(notification);
   };
 
   const handleFilterChange = (value: string) => {
@@ -135,6 +123,7 @@ export const InstituteNotifications: React.FC<InstituteNotificationsProps> = ({
   }
 
   return (
+    <>
     <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
       {/* Header */}
       <div className="p-4 sm:p-5 space-y-3 border-b border-border/40">
@@ -220,5 +209,12 @@ export const InstituteNotifications: React.FC<InstituteNotificationsProps> = ({
         </div>
       )}
     </div>
+
+    <NotificationDetailSheet
+      notification={selectedNotification}
+      open={!!selectedNotification}
+      onClose={() => setSelectedNotification(null)}
+    />
+    </>
   );
 };

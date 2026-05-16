@@ -112,6 +112,9 @@ const InstituteProfile = () => {
   // ── Institute activation ─────────────────────────────────────
   const [showActivation, setShowActivation] = useState(false);
 
+  // ── Photo policy ─────────────────────────────────────────────
+  const [allowUserPhotoUpload, setAllowUserPhotoUploadState] = useState(true);
+
   // ── Mobile section state ─────────────────────────────────────
   const [mobileSection, setMobileSection] = useState<string | null>(null);
 
@@ -240,7 +243,7 @@ const InstituteProfile = () => {
     if (!currentInstituteId) return;
     setLoading(true);
     try {
-      const [instProfile, userProf] = await Promise.allSettled([
+      const [instProfile, userProf, settingsRes] = await Promise.allSettled([
         enhancedCachedClient.get<InstituteProfileData>(
           `/institutes/${currentInstituteId}/profile`,
           {},
@@ -251,9 +254,15 @@ const InstituteProfile = () => {
           {},
           { ttl: CACHE_TTL.INSTITUTE_PROFILE, userId: currentInstituteId, forceRefresh },
         ),
+        enhancedCachedClient.get<{ allowUserPhotoUpload?: boolean }>(
+          `/institutes/${currentInstituteId}/settings`,
+          {},
+          { ttl: CACHE_TTL.SETTINGS, instituteId: currentInstituteId },
+        ),
       ]);
       if (instProfile.status === 'fulfilled') setInstituteProfile(instProfile.value);
       if (userProf.status === 'fulfilled') setUserProfile(userProf.value);
+      if (settingsRes.status === 'fulfilled') setAllowUserPhotoUploadState(settingsRes.value.allowUserPhotoUpload ?? true);
       if (forceRefresh) setInstituteImageHistory(null);
     } catch (error: any) {
       if (!error?.message?.includes('Rate limited')) {
@@ -294,6 +303,8 @@ const InstituteProfile = () => {
   const latestRecord = historyEntries[0];
   const hasPending = latestRecord?.status === 'PENDING';
   const hasRejected = latestRecord?.status === 'REJECTED';
+  const isAdmin = user?.userType === 'INSTITUTE_ADMIN' || user?.userType === 'SYSTEM_ADMIN';
+  const canChangePhoto = allowUserPhotoUpload || isAdmin;
 
   const getUserInitials = () =>
     `${up?.firstName?.[0] || ''}${up?.lastName?.[0] || ''}`.toUpperCase() || 'U';
@@ -430,11 +441,15 @@ const InstituteProfile = () => {
             )}
           </div>
           <div className="flex flex-col gap-2">
-            <Button size="sm" onClick={() => fileInputRef.current?.click()}>
-              <Camera className="h-3.5 w-3.5 mr-1.5" />
-              {hasRejected ? 'Re-upload Photo' : 'Change Photo'}
-            </Button>
-            {hasPending && (
+            {canChangePhoto ? (
+              <Button size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Camera className="h-3.5 w-3.5 mr-1.5" />
+                {hasRejected ? 'Re-upload Photo' : 'Change Photo'}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">Photo changes are managed by the institute admin.</p>
+            )}
+            {canChangePhoto && hasPending && (
               <Button size="sm" variant="outline"
                 className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
                 onClick={handleDeletePendingImage} disabled={deletingPending}>

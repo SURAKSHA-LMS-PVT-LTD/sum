@@ -41,6 +41,8 @@ interface NavItem {
   locked?: boolean;
   badge?: number;
   path?: string;
+  /** Override the feature key used for the feature-toggle check (defaults to id) */
+  featureKey?: string;
 }
 
 interface NavGroup {
@@ -160,7 +162,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     isViewingAsParent
   } = useAuth();
   const { isTenantLogin } = useTenant();
-  const { isFeatureEnabled } = useFeatures();
+  const { isFeatureEnabled, isFeatureEnabledForScope } = useFeatures();
 
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -177,7 +179,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     }
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
-  const { contextUnreadCount: unreadNotifCount } = useNotificationStore();
+  const { globalUnreadCount: unreadNotifCount } = useNotificationStore();
 
   // Keep sidebar badge in sync when institute selection changes
   React.useEffect(() => {
@@ -315,6 +317,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   //   2. Permission check — if the user has a CUSTOM (non-system) RBAC user type,
   //      use their `canView` permission for that feature key.
   //      Otherwise fall back to the hard-coded role permission matrix.
+  // Determine current navigation scope for scope-aware feature checks
+  const currentNavScope: 'institute' | 'class' | 'subject' = selectedSubject
+    ? 'subject'
+    : selectedClass
+    ? 'class'
+    : 'institute';
+
   const filterFn = React.useCallback((items: NavItem[]) => {
     // Has the user been assigned a custom (non-system) RBAC user type by the institute?
     const slug = rbacContext?.userTypeSlug ?? '';
@@ -324,8 +333,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       // alwaysShow items bypass all checks (Dashboard, Profile, etc.)
       if (item.alwaysShow) return true;
 
-      // Institute-level feature must be enabled first
-      const featureEnabled = isFeatureEnabled(item.id);
+      // Scope-aware feature check using featureKey override when provided.
+      // class-scope keys (class-mark-attendance etc.) only hide items inside a class.
+      // subject-scope keys only hide inside a subject. institute-scope always applies.
+      const featureEnabled = isFeatureEnabledForScope(item.featureKey ?? item.id, currentNavScope);
       if (!featureEnabled) return false;
 
       // Custom RBAC user type: use per-feature canView from the permission matrix
@@ -341,7 +352,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       // Legacy hard-coded role check (system types: student, teacher, admin, etc.)
       return AccessControl.hasPermission(userRole as any, (item.permission || 'view-dashboard') as any);
     });
-  }, [userRole, isFeatureEnabled, rbacContext, rbacLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userRole, isFeatureEnabled, isFeatureEnabledForScope, currentNavScope, rbacContext, rbacLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Build nav groups based on role + selection state ──────────
   const navGroups = React.useMemo((): NavGroup[] => {
@@ -440,7 +451,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         
         groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, defaultOpen: true, items: academicItems });
         groups.push({ id: 'attendance', label: 'Attendance', icon: UserCheck, defaultOpen: true, items: [
-          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
+          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck, featureKey: FEATURE_KEYS.SUBJECT_MY_ATTENDANCE },
           { id: FEATURE_KEYS.CALENDAR_VIEW, label: 'Calendar', icon: Calendar },
         ]});
         // Subject-level payments disabled — class payments handled via enrollment
@@ -531,11 +542,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         const teacherAttendanceLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         const teacherItemLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         groups.push({ id: 'attendance', label: teacherAttendanceLabel, icon: UserCheck, defaultOpen: hasActiveInGroup(['daily-attendance','my-attendance','select-attendance-mark-type','qr-attendance','rfid-attendance','institute-mark-attendance','close-attendance','lecture-live-attendance','lecture-recording-attendance'], activePage), items: [
-          { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode },
-          ...(selectedClass ? [{ id: FEATURE_KEYS.DAILY_ATTENDANCE, label: teacherItemLabel, icon: ClipboardList }] : []),
-          ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3 }] : []),
-          ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3 }] : []),
-          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
+          { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MARK_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MARK_ATTENDANCE } : {}) },
+          ...(selectedClass ? [{ id: FEATURE_KEYS.DAILY_ATTENDANCE, label: teacherItemLabel, icon: ClipboardList, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_DAILY_ATTENDANCE : FEATURE_KEYS.CLASS_DAILY_ATTENDANCE }] : []),
+          ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_LIVE_ATTENDANCE }] : []),
+          ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE }] : []),
+          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MY_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MY_ATTENDANCE } : {}) },
         ]});
 
         if (!selectedClass) {
@@ -554,7 +565,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         if (selectedClass) {
           teacherPaymentItems.push({ id: FEATURE_KEYS.CLASS_PAYMENTS, label: 'Class Fees', icon: Banknote });
         }
-        teacherPaymentItems.push({ id: FEATURE_KEYS.COLLECT_PHYSICAL_PAYMENT, label: 'Collect Payment', icon: Banknote });
+        teacherPaymentItems.push({ id: FEATURE_KEYS.COLLECT_PHYSICAL_PAYMENT, label: 'Collect Payment', icon: Banknote, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_COLLECT_PAYMENT } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_COLLECT_PAYMENT } : {}) });
         if (isFeatureEnabled(FEATURE_KEYS.TEACHER_FINANCE)) {
           teacherPaymentItems.push({ id: 'teacher-finance', label: 'My Earnings', icon: Wallet });
         }
@@ -609,7 +620,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         // Manage Users — consolidated group (the key improvement)
         const manageUserItems: NavItem[] = [
           ...(!selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_USERS, label: 'All Users', icon: Users }] : []),
-          ...(!selectedSubject ? [{ id: FEATURE_KEYS.PARENTS, label: 'Parents', icon: Users }] : []),
+          ...(!selectedSubject ? [{ id: FEATURE_KEYS.PARENTS, label: 'Parents', icon: Users, ...(selectedClass ? { featureKey: FEATURE_KEYS.CLASS_PARENTS } : {}) }] : []),
           ...(selectedClass ? [
             { id: FEATURE_KEYS.STUDENTS, label: 'Students', icon: GraduationCap },
             { id: FEATURE_KEYS.UNVERIFIED_STUDENTS, label: 'Pending Students', icon: UserCheck },
@@ -646,11 +657,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         const attendanceItemLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         const attendanceSectionLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         const attendanceItems: NavItem[] = selectedClass ? [
-          { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode },
-          { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: attendanceItemLabel, icon: ClipboardList },
-          { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3 },
-          { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3 },
-          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
+          { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_MARK_ATTENDANCE : FEATURE_KEYS.CLASS_MARK_ATTENDANCE },
+          { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: attendanceItemLabel, icon: ClipboardList, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_DAILY_ATTENDANCE : FEATURE_KEYS.CLASS_DAILY_ATTENDANCE },
+          { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_LIVE_ATTENDANCE : FEATURE_KEYS.CLASS_LIVE_ATTENDANCE },
+          { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_RECORDING_ATTENDANCE : FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE },
+          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_MY_ATTENDANCE : FEATURE_KEYS.CLASS_MY_ATTENDANCE },
         ] : [
           { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode },
           { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: attendanceItemLabel, icon: ClipboardList },
@@ -681,9 +692,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         if (selectedClass) {
           paymentItems.push({ id: FEATURE_KEYS.CLASS_PAYMENTS, label: 'Class Fees', icon: Banknote });
         }
-        // Subject-level payments disabled — class payments handled via enrollment
-        // Collect Payment is always available when an institute is selected
-        paymentItems.push({ id: FEATURE_KEYS.COLLECT_PHYSICAL_PAYMENT, label: 'Collect Payment', icon: Banknote });
+        paymentItems.push({
+          id: FEATURE_KEYS.COLLECT_PHYSICAL_PAYMENT, label: 'Collect Payment', icon: Banknote,
+          ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_COLLECT_PAYMENT } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_COLLECT_PAYMENT } : {}),
+        });
         if (!selectedClass) {
           paymentItems.push({ id: FEATURE_KEYS.INSTITUTE_BILLING, label: `Billing & Plan${instituteTier && instituteTier !== 'FREE' ? '' : ' — Free'}`, icon: Receipt });
           paymentItems.push({ id: FEATURE_KEYS.INSTITUTE_CREDITS, label: 'Institute Wallet', icon: Wallet });
@@ -727,7 +739,12 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       // Consolidated Communication
       const commItems: NavItem[] = [];
       if (!isTenantLogin) {
-        commItems.push({ id: FEATURE_KEYS.INSTITUTE_NOTIFICATIONS, label: 'All Notifications', icon: Bell, badge: unreadNotifCount });
+        const notifFeatureKey = selectedSubject
+          ? FEATURE_KEYS.SUBJECT_NOTIFICATIONS
+          : selectedClass
+          ? FEATURE_KEYS.CLASS_NOTIFICATIONS
+          : undefined;
+        commItems.push({ id: FEATURE_KEYS.INSTITUTE_NOTIFICATIONS, label: 'All Notifications', icon: Bell, badge: unreadNotifCount, ...(notifFeatureKey ? { featureKey: notifFeatureKey } : {}) });
       }
       if (selectedInstitute) {
         if (!selectedClass) {

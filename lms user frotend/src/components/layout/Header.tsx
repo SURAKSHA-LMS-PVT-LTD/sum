@@ -20,7 +20,7 @@ import { cachedApiClient } from '@/api/cachedClient';
 import SafeImage from '@/components/ui/SafeImage';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
-import { useNotificationStore, refreshContextCount } from '@/stores/useNotificationStore';
+import { useNotificationStore } from '@/stores/useNotificationStore';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
 import ProfileSwitcherSheet from './ProfileSwitcherSheet';
 import { useTenant } from '@/contexts/TenantContext';
@@ -41,7 +41,7 @@ const Header = ({ onMenuClick }: HeaderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const effectiveRole = useInstituteRole();
-  const { contextUnreadCount: unreadCount, initUnreadCount } = useNotificationStore();
+  const { globalUnreadCount: unreadCount, initUnreadCount } = useNotificationStore();
   const { isTenantLogin } = useTenant();
   const [instituteDrawerOpen, setInstituteDrawerOpen] = useState(false);
   const [classDrawerOpen, setClassDrawerOpen] = useState(false);
@@ -106,10 +106,6 @@ const Header = ({ onMenuClick }: HeaderProps) => {
     initUnreadCount();
   }, [initUnreadCount]);
 
-  // Refresh context-specific unread count when selection changes
-  React.useEffect(() => {
-    refreshContextCount(selectedInstitute?.id);
-  }, [selectedInstitute?.id]);
 
   // Reset classes loaded when institute changes
   React.useEffect(() => {

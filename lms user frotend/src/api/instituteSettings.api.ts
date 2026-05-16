@@ -38,6 +38,8 @@ export interface InstituteSettingsResponse {
   imageUrl?: string | null;
   reportHeaderUrl?: string | null;
   reportFooterUrl?: string | null;
+  receiptHeaderUrl?: string | null;
+  receiptFooterUrl?: string | null;
   vision?: string;
   mission?: string;
   websiteUrl?: string;
@@ -45,6 +47,10 @@ export interface InstituteSettingsResponse {
   youtubeChannelUrl?: string;
   isActive: boolean;
   updatedAt: string;
+  isSessionLimitEnabled?: boolean;
+  defaultSessionsPerUserCount?: number;
+  printerSettings?: PrinterSettings | null;
+  allowUserPhotoUpload?: boolean;
 }
 
 export interface InstituteProfileResponse {
@@ -68,9 +74,34 @@ export interface InstituteProfileResponse {
   mission?: string;
 }
 
+// ─── Printer Settings ────────────────────────────────────────────────────────
+
+export type PrintSize = '2inch' | '3inch' | '4inch' | 'a4';
+export type PrintLanguage = 'en' | 'si';
+
+export interface PrinterSettings {
+  defaultSize?: PrintSize;
+  language?: PrintLanguage;
+  receiptHeader?: string | null;
+  receiptFooter?: string | null;
+}
+
+/** Combined response from GET /institutes/:id/print-settings */
+export interface InstitutePrintSettings {
+  defaultSize: PrintSize;
+  language: PrintLanguage;
+  receiptHeader?: string | null;
+  receiptFooter?: string | null;
+  /** Base64 data URL for the receipt header banner (from reportHeaderUrl) */
+  headerImageDataUrl?: string | null;
+  /** Base64 data URL for the receipt footer banner (from reportFooterUrl) */
+  footerImageDataUrl?: string | null;
+}
+
 export interface UpdateInstituteSettingsDto {
   name?: string;
   shortName?: string;
+  printerSettings?: PrinterSettings;
   email?: string;
   phone?: string;
   systemContactEmail?: string;
@@ -91,11 +122,14 @@ export interface UpdateInstituteSettingsDto {
   imageUrl?: string | null;
   reportHeaderUrl?: string | null;
   reportFooterUrl?: string | null;
+  receiptHeaderUrl?: string | null;
+  receiptFooterUrl?: string | null;
   vision?: string;
   mission?: string;
   websiteUrl?: string;
   facebookPageUrl?: string;
   youtubeChannelUrl?: string;
+  allowUserPhotoUpload?: boolean;
 }
 
 // ─── API ─────────────────────────────────────────────────────────
@@ -136,6 +170,25 @@ class InstituteSettingsApi {
 
   async removeGalleryImage(instituteId: string, imageIndex: number): Promise<InstituteSettingsResponse> {
     return apiClient.delete<InstituteSettingsResponse>(`/institutes/${instituteId}/gallery/${imageIndex}`);
+  }
+
+  // ── Printer Settings ──────────────────────────────────────────
+
+  /**
+   * Single call that returns printer config + header/footer images as base64.
+   * Call once on page load for any receipt printing page.
+   */
+  async getPrintSettings(instituteId: string, forceRefresh = false): Promise<InstitutePrintSettings> {
+    return enhancedCachedClient.get<InstitutePrintSettings>(
+      `/institutes/${instituteId}/print-settings`,
+      undefined,
+      { ttl: 5 * 60 * 1000, forceRefresh },
+    );
+  }
+
+  /** Save printer settings (institute admin only). */
+  async updatePrinterSettings(instituteId: string, settings: PrinterSettings): Promise<InstituteSettingsResponse> {
+    return apiClient.patch<InstituteSettingsResponse>(`/institutes/${instituteId}/settings`, { printerSettings: settings });
   }
 
   // ── User Extra Data Schema ─────────────────────────────────────

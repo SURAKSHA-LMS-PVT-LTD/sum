@@ -36,8 +36,9 @@ import {
   Palette, Save, Loader2, Eye, Image, Settings, RefreshCw,
   CheckCircle, AlertCircle, ChevronRight, Server, Link2, Sparkles,
   MessageSquare, Shield, Crown, Zap, Lock, ArrowLeft, Layers,
-  ShieldCheck, Search, Users,
+  ShieldCheck, Search, Users, Printer, Camera,
 } from 'lucide-react';
+import { instituteSettingsApi, type PrinterSettings } from '@/api/instituteSettings.api';
 import InstituteDriveSettings from '@/components/institute-settings/InstituteDriveSettings';
 import { UserExtraColumnsManager } from '@/components/users/UserExtraColumnsManager';
 import { useInstituteUserColumns } from '@/hooks/useInstituteUserColumns';
@@ -67,6 +68,8 @@ interface InstituteSettings {
   imageUrl?: string;
   reportHeaderUrl?: string | null;
   reportFooterUrl?: string | null;
+  receiptHeaderUrl?: string | null;
+  receiptFooterUrl?: string | null;
   vision?: string;
   mission?: string;
   description?: string;
@@ -97,9 +100,11 @@ interface InstituteSettings {
   // Session limit fields
   isSessionLimitEnabled?: boolean;
   defaultSessionsPerUserCount?: number | null;
+  // Printer settings
+  printerSettings?: PrinterSettings | null;
 }
 
-const VALID_TABS = ['basic', 'branding', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features', 'user-types'];
+const VALID_TABS = ['basic', 'branding', 'printer', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features', 'user-types'];
 
 const SECTION_ITEMS: Array<{
   id: string;
@@ -110,6 +115,7 @@ const SECTION_ITEMS: Array<{
 }> = [
   { id: 'basic', label: 'Basic Information', description: 'Name, email, contact details', icon: Building2, color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
   { id: 'branding', label: 'Branding', description: 'Logo, colors, cover image', icon: Palette, color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300' },
+  { id: 'printer', label: 'Printer Settings', description: 'Receipt size, header/footer, language', icon: Printer, color: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300' },
   { id: 'tenant', label: 'Domain & Login Page', description: 'Subdomain, login branding, visibility', icon: Globe, color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' },
   { id: 'sms', label: 'SMS & Messaging', description: 'Sender name, masks, notifications', icon: MessageSquare, color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
   { id: 'location', label: 'Location & Address', description: 'Address, city, district', icon: MapPin, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
@@ -142,6 +148,10 @@ const InstituteSettingsPage = () => {
 
   // Extra user columns schema
   const { columns: extraColumns, save: saveExtraColumns } = useInstituteUserColumns(currentInstituteId);
+
+  // User photo upload policy
+  const [allowUserPhotoUpload, setAllowUserPhotoUpload] = useState(true);
+  const [photoUploadSaving, setPhotoUploadSaving] = useState(false);
 
   // Session limits state
   const [sessionLimitEnabled, setSessionLimitEnabled] = useState(false);
@@ -256,6 +266,10 @@ const InstituteSettingsPage = () => {
   const [smsSaving, setSmsSaving] = useState(false);
   const [selectedSmsMask, setSelectedSmsMask] = useState<string>('__default__');
 
+  // Printer settings state
+  const [printerForm, setPrinterForm] = useState<PrinterSettings>({ defaultSize: '3inch', language: 'en' });
+  const [printerSaving, setPrinterSaving] = useState(false);
+
   // Computed tier helpers (must be after planInfo/settings state declarations)
   const effectiveTier = planInfo?.tier || settings?.tier || 'FREE';
   const isFree = effectiveTier === 'FREE';
@@ -283,6 +297,13 @@ const InstituteSettingsPage = () => {
       setSettings(response);
       setFormData(response);
       setHasChanges(false);
+      setPrinterForm({
+        defaultSize: (response as any).printerSettings?.defaultSize ?? '3inch',
+        language: (response as any).printerSettings?.language ?? 'en',
+        receiptHeader: (response as any).printerSettings?.receiptHeader ?? '',
+        receiptFooter: (response as any).printerSettings?.receiptFooter ?? '',
+      });
+      setAllowUserPhotoUpload(response.allowUserPhotoUpload ?? true);
       setSessionLimitEnabled(response.isSessionLimitEnabled ?? false);
       setDefaultSessionCount(response.defaultSessionsPerUserCount ?? 3);
       setShowCountChanged(false);
@@ -474,6 +495,38 @@ const InstituteSettingsPage = () => {
       toast({ title: 'Error', description: e.message || 'Failed to update SMS settings', variant: 'destructive' });
     } finally {
       setSmsSaving(false);
+    }
+  };
+
+  const handleSavePrinterSettings = async () => {
+    if (!currentInstituteId) return;
+    setPrinterSaving(true);
+    try {
+      await instituteSettingsApi.updatePrinterSettings(currentInstituteId, printerForm);
+      await instituteSettingsApi.getPrintSettings(currentInstituteId, true);
+      toast({ title: 'Success', description: 'Printer settings saved.' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'Failed to save printer settings', variant: 'destructive' });
+    } finally {
+      setPrinterSaving(false);
+    }
+  };
+
+  const handleSavePhotoPolicy = async () => {
+    if (!currentInstituteId) return;
+    setPhotoUploadSaving(true);
+    try {
+      await enhancedCachedClient.patch(
+        `/institutes/${currentInstituteId}/settings`,
+        { allowUserPhotoUpload },
+        { instituteId: currentInstituteId },
+      );
+      await secureCache.clearCache(`/institutes/${currentInstituteId}/settings`, {}, { instituteId: currentInstituteId });
+      toast({ title: 'Success', description: 'Photo policy saved.' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'Failed to save photo policy', variant: 'destructive' });
+    } finally {
+      setPhotoUploadSaving(false);
     }
   };
 
@@ -676,6 +729,7 @@ const InstituteSettingsPage = () => {
             <h2 className="text-lg font-bold text-foreground mb-4">
               {mobileSection === 'basic' && 'Basic Information'}
               {mobileSection === 'branding' && 'Branding'}
+              {mobileSection === 'printer' && 'Printer Settings'}
               {mobileSection === 'tenant' && 'Domain & Login Page'}
               {mobileSection === 'sms' && 'SMS & Messaging'}
               {mobileSection === 'location' && 'Location & Address'}
@@ -886,6 +940,179 @@ const InstituteSettingsPage = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ═══ PRINTER SETTINGS TAB ═══ */}
+        <TabsContent value="printer">
+          <div className="space-y-6">
+            {/* Paper Size */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Printer className="h-5 w-5" />
+                  Receipt Printer Settings
+                </CardTitle>
+                <CardDescription>Configure the default paper size, language, and receipt header/footer for physical payment receipts.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Paper Size */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Default Paper Size</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {(['2inch', '3inch', '4inch', 'a4'] as const).map(size => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setPrinterForm(prev => ({ ...prev, defaultSize: size }))}
+                        className={`flex flex-col items-center justify-center gap-1 rounded-xl border-2 p-4 text-sm font-medium transition-colors ${
+                          printerForm.defaultSize === size
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-card text-muted-foreground hover:border-primary/40'
+                        }`}
+                      >
+                        <Printer className="h-5 w-5" />
+                        <span>{size === 'a4' ? 'A4' : size}</span>
+                        <span className="text-xs opacity-70">
+                          {size === '2inch' ? '58 mm' : size === '3inch' ? '80 mm' : size === '4inch' ? '104 mm' : '210 mm'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Language */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Print Language</Label>
+                  <p className="text-xs text-muted-foreground">Field labels switch language. Student names, IDs, and class names always print as-is.</p>
+                  <div className="flex gap-3">
+                    {([{ value: 'en', label: 'English' }, { value: 'si', label: 'සිංහල (Sinhala)' }] as const).map(lang => (
+                      <button
+                        key={lang.value}
+                        type="button"
+                        onClick={() => setPrinterForm(prev => ({ ...prev, language: lang.value }))}
+                        className={`flex-1 rounded-xl border-2 py-3 px-4 text-sm font-medium transition-colors ${
+                          printerForm.language === lang.value
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-card text-muted-foreground hover:border-primary/40'
+                        }`}
+                      >
+                        {lang.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Custom Header / Footer Text */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Custom Receipt Header Text</Label>
+                    <p className="text-xs text-muted-foreground">Printed at the top of every receipt, below the header image (if set).</p>
+                    <Textarea
+                      value={printerForm.receiptHeader ?? ''}
+                      onChange={e => setPrinterForm(prev => ({ ...prev, receiptHeader: e.target.value }))}
+                      placeholder="e.g. Thank you for your payment!"
+                      rows={2}
+                      maxLength={200}
+                    />
+                    <p className="text-xs text-muted-foreground text-right">{(printerForm.receiptHeader ?? '').length}/200</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Custom Receipt Footer Text</Label>
+                    <p className="text-xs text-muted-foreground">Printed at the bottom of every receipt, above the footer image (if set).</p>
+                    <Textarea
+                      value={printerForm.receiptFooter ?? ''}
+                      onChange={e => setPrinterForm(prev => ({ ...prev, receiptFooter: e.target.value }))}
+                      placeholder="e.g. Queries? Call +94 77 123 4567"
+                      rows={2}
+                      maxLength={200}
+                    />
+                    <p className="text-xs text-muted-foreground text-right">{(printerForm.receiptFooter ?? '').length}/200</p>
+                  </div>
+                </div>
+
+                {isInstituteAdmin && (
+                  <Button onClick={handleSavePrinterSettings} disabled={printerSaving}>
+                    {printerSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Save Printer Settings
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Receipt Header / Footer Image Upload — separate from PDF report banners */}
+            {currentInstituteId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-semibold">Receipt Header &amp; Footer Images</CardTitle>
+                  <CardDescription>
+                    Upload banner images that appear at the top and bottom of every printed receipt.
+                    These are <strong>separate</strong> from the PDF report header/footer — sized for thermal paper widths, not A4.
+                    Images are scaled horizontally to match the selected paper width; vertical height is unrestricted.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <ReportBannerUploader
+                      instituteId={currentInstituteId}
+                      settingsField="receiptHeaderUrl"
+                      currentDisplayUrl={settings?.receiptHeaderUrl || null}
+                      label="Receipt Header Banner"
+                      aspectRatio={
+                        printerForm.defaultSize === '2inch' ? 3 :
+                        printerForm.defaultSize === '3inch' ? 4 :
+                        printerForm.defaultSize === '4inch' ? 5 : 8
+                      }
+                      recommendedSize={
+                        printerForm.defaultSize === '2inch' ? '576 × 192 px' :
+                        printerForm.defaultSize === '3inch' ? '800 × 200 px' :
+                        printerForm.defaultSize === '4inch' ? '1040 × 208 px' : '1400 × 175 px'
+                      }
+                      onUpdate={(updated) => {
+                        instituteSettingsApi.getPrintSettings(currentInstituteId, true);
+                        handleSettingsRefresh(updated as any);
+                      }}
+                    />
+                    <ReportBannerUploader
+                      instituteId={currentInstituteId}
+                      settingsField="receiptFooterUrl"
+                      currentDisplayUrl={settings?.receiptFooterUrl || null}
+                      label="Receipt Footer Banner"
+                      aspectRatio={
+                        printerForm.defaultSize === '2inch' ? 5 :
+                        printerForm.defaultSize === '3inch' ? 7 :
+                        printerForm.defaultSize === '4inch' ? 9 : 14
+                      }
+                      recommendedSize={
+                        printerForm.defaultSize === '2inch' ? '576 × 115 px' :
+                        printerForm.defaultSize === '3inch' ? '800 × 114 px' :
+                        printerForm.defaultSize === '4inch' ? '1040 × 116 px' : '1400 × 100 px'
+                      }
+                      onUpdate={(updated) => {
+                        instituteSettingsApi.getPrintSettings(currentInstituteId, true);
+                        handleSettingsRefresh(updated as any);
+                      }}
+                    />
+                  </div>
+                  {(settings?.receiptHeaderUrl || settings?.receiptFooterUrl) && (
+                    <div className="mt-4 p-3 rounded-lg border border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-800 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                      <p className="text-sm text-green-700 dark:text-green-400">
+                        {settings.receiptHeaderUrl && settings.receiptFooterUrl
+                          ? 'Receipt header and footer images are set and will appear on printed receipts.'
+                          : settings.receiptHeaderUrl
+                          ? 'Receipt header image is set. No footer image uploaded yet.'
+                          : 'Receipt footer image is set. No header image uploaded yet.'}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         {/* ═══ TENANT & DOMAIN TAB ═══ */}
@@ -1615,6 +1842,41 @@ const InstituteSettingsPage = () => {
                   <Button onClick={handleSaveSessionLimits} disabled={sessionLimitSaving}>
                     {sessionLimitSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                     Save Session Limits
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* User Photo Policy */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Camera className="h-5 w-5 text-teal-600" />
+                  User Photo Policy
+                </CardTitle>
+                <CardDescription>
+                  Control whether users can update their own profile photo.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base">Allow Users to Upload Profile Photo</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      When disabled, only institute admins can update a user's profile photo.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={allowUserPhotoUpload}
+                    onCheckedChange={setAllowUserPhotoUpload}
+                    disabled={!isInstituteAdmin}
+                  />
+                </div>
+
+                {isInstituteAdmin && (
+                  <Button onClick={handleSavePhotoPolicy} disabled={photoUploadSaving}>
+                    {photoUploadSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Save Photo Policy
                   </Button>
                 )}
               </CardContent>
