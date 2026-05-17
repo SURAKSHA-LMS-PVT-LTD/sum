@@ -27,6 +27,8 @@ export interface LectureTrackingSettingsProps {
   paymentType?: 'class' | 'subject';
   /** 'class' for class-level lecture forms, 'subject' for subject-level (default) */
   scope?: 'class' | 'subject';
+  /** Hide the live session tracking card entirely (e.g. for recordings-only forms) */
+  hideLive?: boolean;
 }
 
 const LectureTrackingSettings: React.FC<LectureTrackingSettingsProps> = ({
@@ -37,6 +39,7 @@ const LectureTrackingSettings: React.FC<LectureTrackingSettingsProps> = ({
   classId,
   paymentType = 'subject',
   scope = 'subject',
+  hideLive = false,
 }) => {
   const { isFeatureEnabled } = useFeatures();
 
@@ -164,11 +167,11 @@ const LectureTrackingSettings: React.FC<LectureTrackingSettingsProps> = ({
     );
   };
 
-  if (!liveEnabled && !recEnabled) return null;
+  if ((!liveEnabled || hideLive) && !recEnabled) return null;
 
   return (
     <div className="space-y-6">
-      {liveEnabled && (
+      {liveEnabled && !hideLive && (
         <Card className="border-indigo-100 dark:border-indigo-900/50">
           <CardHeader className="pb-3 bg-indigo-50/50 dark:bg-indigo-900/10">
             <div className="flex items-center justify-between">

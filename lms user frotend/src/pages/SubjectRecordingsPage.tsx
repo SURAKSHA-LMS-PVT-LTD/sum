@@ -24,6 +24,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import LectureTrackingSettings, { TrackingSettingsData } from '@/components/common/LectureTrackingSettings';
+import LectureWelcomeMessageSettings, { WelcomeMessageSettingsData } from '@/components/common/LectureWelcomeMessageSettings';
+import LectureMaterialsSection, { LectureMaterial } from '@/components/common/LectureMaterialsSection';
+import LectureThumbnailUpload from '@/components/common/LectureThumbnailUpload';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -163,16 +167,15 @@ const RecordingCard: React.FC<{
 
 // ─── Recording Form Dialog ───────────────────────────────────────────────────
 
-const EMPTY_FORM: Partial<SubjectRecordingCreateData> = {
-  title: '',
-  description: '',
-  platform: 'YOUTUBE',
-  recordingUrl: '',
-  durationSeconds: undefined,
-  status: 'draft',
-  isActive: true,
+const EMPTY_TRACKING: TrackingSettingsData = {
+  liveAttendanceEnabled: false,
+  liveAccessLevel: 'ENROLLED_ONLY',
   recAttendanceEnabled: false,
+  recPlatform: 'SYSTEM',
   recAccessLevel: 'ENROLLED_ONLY',
+};
+
+const EMPTY_WELCOME: WelcomeMessageSettingsData = {
   welcomeMessageEnabled: false,
   welcomeMessageText: '',
   welcomeMessageVoiceEnabled: false,
@@ -188,40 +191,86 @@ const RecordingFormDialog: React.FC<{
   onSaved: () => void;
 }> = ({ open, editing, instituteId, classId, subjectId, onClose, onSaved }) => {
   const { toast } = useToast();
-  const [form, setForm] = useState<Partial<SubjectRecordingCreateData>>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [platform, setPlatform] = useState<RecordingPlatform>('YOUTUBE');
+  const [recordingUrl, setRecordingUrl] = useState('');
+  const [durationSeconds, setDurationSeconds] = useState<number | undefined>();
+  const [status, setStatus] = useState<RecordingStatus>('draft');
+  const [isActive, setIsActive] = useState(true);
+  const [tracking, setTracking] = useState<TrackingSettingsData>(EMPTY_TRACKING);
+  const [welcome, setWelcome] = useState<WelcomeMessageSettingsData>(EMPTY_WELCOME);
+  const [materials, setMaterials] = useState<LectureMaterial[]>([]);
+  const [thumbnailUrl, setThumbnailUrl] = useState('');
+
   useEffect(() => {
-    if (open) {
-      setForm(editing ? {
-        title: editing.title,
-        description: editing.description ?? '',
-        platform: editing.platform,
-        recordingUrl: editing.recordingUrl ?? '',
-        durationSeconds: editing.durationSeconds,
-        status: editing.status,
-        isActive: editing.isActive,
+    if (!open) return;
+    if (editing) {
+      setTitle(editing.title);
+      setDescription(editing.description ?? '');
+      setPlatform(editing.platform);
+      setRecordingUrl(editing.recordingUrl ?? '');
+      setDurationSeconds(editing.durationSeconds);
+      setStatus(editing.status);
+      setIsActive(editing.isActive);
+      setThumbnailUrl(editing.thumbnailUrl ?? '');
+      setMaterials(Array.isArray(editing.materials) ? (editing.materials as LectureMaterial[]) : []);
+      setTracking({
+        liveAttendanceEnabled: false,
+        liveAccessLevel: 'ENROLLED_ONLY',
         recAttendanceEnabled: editing.recAttendanceEnabled,
+        recPlatform: 'SYSTEM',
         recAccessLevel: editing.recAccessLevel,
         recPaymentId: editing.recPaymentId,
+      });
+      setWelcome({
         welcomeMessageEnabled: editing.welcomeMessageEnabled,
         welcomeMessageText: editing.welcomeMessageText ?? '',
         welcomeMessageVoiceEnabled: editing.welcomeMessageVoiceEnabled,
-      } : { ...EMPTY_FORM });
+      });
+    } else {
+      setTitle('');
+      setDescription('');
+      setPlatform('YOUTUBE');
+      setRecordingUrl('');
+      setDurationSeconds(undefined);
+      setStatus('draft');
+      setIsActive(true);
+      setThumbnailUrl('');
+      setMaterials([]);
+      setTracking(EMPTY_TRACKING);
+      setWelcome(EMPTY_WELCOME);
     }
   }, [open, editing]);
 
-  const set = (field: keyof SubjectRecordingCreateData, value: any) =>
-    setForm(prev => ({ ...prev, [field]: value }));
-
   const handleSave = async () => {
-    if (!form.title?.trim()) { toast({ title: 'Title is required', variant: 'destructive' }); return; }
+    if (!title.trim()) { toast({ title: 'Title is required', variant: 'destructive' }); return; }
     setSaving(true);
     try {
+      const payload: Partial<SubjectRecordingCreateData> = {
+        title: title.trim(),
+        description: description || undefined,
+        platform,
+        recordingUrl: recordingUrl || undefined,
+        durationSeconds,
+        status,
+        isActive,
+        thumbnailUrl: thumbnailUrl || undefined,
+        materials: materials.length > 0 ? materials : undefined,
+        recAttendanceEnabled: tracking.recAttendanceEnabled,
+        recAccessLevel: tracking.recAccessLevel,
+        recPaymentId: tracking.recPaymentId,
+        welcomeMessageEnabled: welcome.welcomeMessageEnabled,
+        welcomeMessageText: welcome.welcomeMessageText || undefined,
+        welcomeMessageVoiceEnabled: welcome.welcomeMessageVoiceEnabled,
+      };
+
       if (editing) {
-        await subjectRecordingsApi.update(editing.id, form);
+        await subjectRecordingsApi.update(editing.id, payload);
       } else {
-        await subjectRecordingsApi.create({ ...form, instituteId, classId, subjectId } as SubjectRecordingCreateData);
+        await subjectRecordingsApi.create({ ...payload, instituteId, classId, subjectId } as SubjectRecordingCreateData);
       }
       toast({ title: editing ? 'Recording updated' : 'Recording created' });
       onSaved();
@@ -233,26 +282,27 @@ const RecordingFormDialog: React.FC<{
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit Recording' : 'Add Recording'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-5 py-2">
+          {/* Core fields */}
           <div className="space-y-1.5">
             <Label className="text-xs">Title *</Label>
-            <Input placeholder="Recording title" value={form.title ?? ''} onChange={e => set('title', e.target.value)} />
+            <Input placeholder="Recording title" value={title} onChange={e => setTitle(e.target.value)} />
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs">Description</Label>
-            <Textarea placeholder="Optional description" rows={2} value={form.description ?? ''} onChange={e => set('description', e.target.value)} />
+            <Textarea placeholder="Optional description" rows={2} value={description} onChange={e => setDescription(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Platform</Label>
-              <Select value={form.platform} onValueChange={v => set('platform', v)}>
+              <Select value={platform} onValueChange={v => setPlatform(v as RecordingPlatform)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(Object.keys(platformLabel) as RecordingPlatform[]).map(p => (
@@ -263,7 +313,7 @@ const RecordingFormDialog: React.FC<{
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Status</Label>
-              <Select value={form.status} onValueChange={v => set('status', v as RecordingStatus)}>
+              <Select value={status} onValueChange={v => setStatus(v as RecordingStatus)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="draft" className="text-xs">Draft</SelectItem>
@@ -276,59 +326,46 @@ const RecordingFormDialog: React.FC<{
 
           <div className="space-y-1.5">
             <Label className="text-xs">Recording URL</Label>
-            <Input placeholder="https://..." value={form.recordingUrl ?? ''} onChange={e => set('recordingUrl', e.target.value)} />
+            <Input placeholder="https://..." value={recordingUrl} onChange={e => setRecordingUrl(e.target.value)} />
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs">Duration (seconds)</Label>
-            <Input type="number" min={1} placeholder="e.g. 3600" value={form.durationSeconds ?? ''} onChange={e => set('durationSeconds', e.target.value ? parseInt(e.target.value, 10) : undefined)} />
-          </div>
-
-          {/* Tracking */}
-          <div className="rounded-xl border border-border/50 p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold">Watch Tracking</Label>
-              <Switch checked={form.recAttendanceEnabled ?? false} onCheckedChange={v => set('recAttendanceEnabled', v)} />
-            </div>
-            {form.recAttendanceEnabled && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Access Level</Label>
-                <Select value={form.recAccessLevel} onValueChange={v => set('recAccessLevel', v)}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(accessLevelLabel).map(([v, l]) => (
-                      <SelectItem key={v} value={v} className="text-xs">{l}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          {/* Welcome Message */}
-          <div className="rounded-xl border border-border/50 p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold">Welcome Message</Label>
-              <Switch checked={form.welcomeMessageEnabled ?? false} onCheckedChange={v => set('welcomeMessageEnabled', v)} />
-            </div>
-            {form.welcomeMessageEnabled && (
-              <>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Message Text</Label>
-                  <Textarea rows={2} placeholder="Enter welcome message..." value={form.welcomeMessageText ?? ''} onChange={e => set('welcomeMessageText', e.target.value)} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Voice Enabled</Label>
-                  <Switch checked={form.welcomeMessageVoiceEnabled ?? false} onCheckedChange={v => set('welcomeMessageVoiceEnabled', v)} />
-                </div>
-              </>
-            )}
+            <Input
+              type="number" min={1} placeholder="e.g. 3600"
+              value={durationSeconds ?? ''}
+              onChange={e => setDurationSeconds(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+            />
           </div>
 
           <div className="flex items-center justify-between">
             <Label className="text-xs font-semibold">Active</Label>
-            <Switch checked={form.isActive ?? true} onCheckedChange={v => set('isActive', v)} />
+            <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
+
+          {/* Thumbnail */}
+          <LectureThumbnailUpload thumbnailUrl={thumbnailUrl} onChange={setThumbnailUrl} disabled={saving} />
+
+          <LectureTrackingSettings
+            data={tracking}
+            onChange={setTracking}
+            showPayments={true}
+            instituteId={instituteId}
+            classId={classId}
+            scope="subject"
+            hideLive={true}
+          />
+
+          {/* Welcome message */}
+          <LectureWelcomeMessageSettings data={welcome} onChange={setWelcome} />
+
+          {/* Materials */}
+          <LectureMaterialsSection
+            materials={materials}
+            onChange={setMaterials}
+            instituteId={instituteId}
+            disabled={saving}
+          />
         </div>
 
         <DialogFooter>
