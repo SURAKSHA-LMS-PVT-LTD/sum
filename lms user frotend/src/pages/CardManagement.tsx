@@ -1,32 +1,50 @@
 /**
  * CardManagement - Main page for ID Card management
- * Supports parent-child context for viewing child's cards
+ * Supports parent-child context for viewing child's cards.
+ * InstituteAdmin-only "Templates" tab (feature-gated via ID_CARD_TEMPLATES).
  */
 
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CreditCard, Package, Wallet, ChevronRight, Smartphone, GraduationCap } from 'lucide-react';
+import { CreditCard, Package, Wallet, ChevronRight, Smartphone, GraduationCap, Layers, Download } from 'lucide-react';
 import CardCatalog from '@/components/cards/CardCatalog';
 import MyOrders from '@/components/cards/MyOrders';
 import MyCards from '@/components/cards/MyCards';
 import DigitalIdCard from '@/components/cards/DigitalIdCard';
+import CardTemplateDesigner from '@/components/cards/CardTemplateDesigner';
+import CardTemplateBulkGenerate from '@/components/cards/CardTemplateBulkGenerate';
 import PageContainer from '@/components/layout/PageContainer';
 import AppLayout from '@/components/layout/AppLayout';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteRole } from '@/hooks/useInstituteRole';
+import { useFeatures } from '@/contexts/FeaturesContext';
+import { FEATURE_KEYS } from '@/config/feature-keys';
 
 const CardManagement: React.FC = () => {
   const isMobile = useIsMobile();
   const [mobileSection, setMobileSection] = useState<string | null>(null);
   const { selectedChild, isViewingAsParent, selectedInstitute } = useAuth();
+  const role = useInstituteRole();
+  const { isFeatureEnabled } = useFeatures();
+
   const isChildView = !!(isViewingAsParent && selectedChild);
   const hasInstitute = !!selectedInstitute;
+
+  // Template feature: only InstituteAdmin + feature enabled
+  const isAdmin = role === 'InstituteAdmin';
+  const templateFeatureEnabled = isFeatureEnabled(FEATURE_KEYS.ID_CARD_TEMPLATES);
+  const showTemplates = isAdmin && templateFeatureEnabled;
 
   const sections = [
     { id: 'catalog', icon: CreditCard, label: 'ID Cards', description: 'Order new ID Cards from the catalog', color: 'text-blue-500', component: <CardCatalog /> },
     { id: 'orders', icon: Package, label: 'My Orders', description: 'Track and manage your recent card orders', color: 'text-emerald-500', component: <MyOrders /> },
     { id: 'my-cards', icon: Wallet, label: 'My Cards', description: 'View and manage your active ID cards', color: 'text-indigo-500', component: <MyCards /> },
     ...(!hasInstitute ? [{ id: 'digital-id', icon: Smartphone, label: 'Digital ID', description: 'Preview and download your digital ID card', color: 'text-violet-500', component: <DigitalIdCard /> }] : []),
+    ...(showTemplates ? [
+      { id: 'template-designer', icon: Layers, label: 'Card Designer', description: 'Design custom ID card templates', color: 'text-rose-500', component: <CardTemplateDesigner /> },
+      { id: 'bulk-generate', icon: Download, label: 'Bulk Generate', description: 'Generate cards for all users and download as ZIP', color: 'text-amber-500', component: <CardTemplateBulkGenerate /> },
+    ] : []),
   ];
 
   const activeMobileComponent = sections.find(s => s.id === mobileSection)?.component;
@@ -97,45 +115,24 @@ const CardManagement: React.FC = () => {
               )}
 
               {!isMobile ? (
-                <Tabs defaultValue="catalog" className="space-y-10">
-                  <TabsList className={`grid w-full max-w-lg h-12 ${hasInstitute ? 'grid-cols-3' : 'grid-cols-4'}`}>
-                    <TabsTrigger value="catalog" className="flex items-center gap-2 py-2.5">
-                      <CreditCard className="h-4 w-4" />
-                      <span className="hidden sm:inline">Cards</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="orders" className="flex items-center gap-2 py-2.5">
-                      <Package className="h-4 w-4" />
-                      <span className="hidden sm:inline">Orders</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="my-cards" className="flex items-center gap-2 py-2.5">
-                      <Wallet className="h-4 w-4" />
-                      <span className="hidden sm:inline">My Cards</span>
-                    </TabsTrigger>
-                    {!hasInstitute && (
-                      <TabsTrigger value="digital-id" className="flex items-center gap-2 py-2.5">
-                        <Smartphone className="h-4 w-4" />
-                        <span className="hidden sm:inline">Digital ID</span>
-                      </TabsTrigger>
-                    )}
+                <Tabs defaultValue="catalog" className="space-y-8">
+                  <TabsList className={`grid w-full h-12`} style={{ gridTemplateColumns: `repeat(${sections.length}, 1fr)` }}>
+                    {sections.map(s => {
+                      const Icon = s.icon;
+                      return (
+                        <TabsTrigger key={s.id} value={s.id} className="flex items-center gap-2 py-2.5">
+                          <Icon className="h-4 w-4" />
+                          <span className="hidden sm:inline">{s.label}</span>
+                        </TabsTrigger>
+                      );
+                    })}
                   </TabsList>
-  
-                  <TabsContent value="catalog" className="mt-8">
-                    <CardCatalog />
-                  </TabsContent>
-  
-                  <TabsContent value="orders" className="mt-8">
-                    <MyOrders />
-                  </TabsContent>
-  
-                  <TabsContent value="my-cards" className="mt-8">
-                    <MyCards />
-                  </TabsContent>
 
-                  {!hasInstitute && (
-                    <TabsContent value="digital-id" className="mt-8">
-                      <DigitalIdCard />
+                  {sections.map(s => (
+                    <TabsContent key={s.id} value={s.id} className="mt-8">
+                      {s.component}
                     </TabsContent>
-                  )}
+                  ))}
                 </Tabs>
               ) : (
                 <div className="mt-4">

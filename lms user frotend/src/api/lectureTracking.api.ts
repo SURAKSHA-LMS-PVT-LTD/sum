@@ -89,6 +89,23 @@ export interface HeartbeatActivity {
   wallTime?: number;
 }
 
+export interface AttendanceVisit {
+  joinTime?: string;
+  leaveTime?: string;
+  durationMinutes?: number;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface AttendanceGridCell {
+  attended: boolean;
+  loginCount?: number;
+  joinTime?: string;
+  leaveTime?: string;
+  durationMinutes?: number;
+  visits?: AttendanceVisit[];
+}
+
 export interface AttendanceGridResult {
   lectures: Array<{
     id: string;
@@ -102,13 +119,7 @@ export interface AttendanceGridResult {
     name: string;
     imageUrl?: string | null;
   }>;
-  grid: Record<
-    string,
-    Record<
-      string,
-      { attended: boolean; joinTime?: string; leaveTime?: string; durationMinutes?: number }
-    >
-  >;
+  grid: Record<string, Record<string, AttendanceGridCell>>;
 }
 
 export interface LiveAttendanceRow {
@@ -118,10 +129,12 @@ export interface LiveAttendanceRow {
   isGuest: boolean;
   guestEmail?: string;
   guestPhone?: string;
+  loginCount?: number;
   joinTime?: string;
   leaveTime?: string;
   durationMinutes?: number | null;
   ipAddress?: string;
+  visits?: AttendanceVisit[];
 }
 
 export interface RecordingSessionRow {

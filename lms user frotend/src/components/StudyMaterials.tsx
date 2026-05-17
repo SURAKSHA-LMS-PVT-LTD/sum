@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { studyMaterialApi, StudyMaterial, StudyMaterialCreateData } from '@/api/studyMaterial.api';
 import { driveAccessApi, uploadToGoogleDrive } from '@/api/driveAccess.api';
 import { instituteDriveApi, InstituteDriveStatus } from '@/api/instituteDriveAccess.api';
@@ -116,6 +117,7 @@ const emptyForm: FormState = {
 const StudyMaterials: React.FC = () => {
   const { user, currentInstituteId, selectedClass, selectedSubject } = useAuth();
   const { toast } = useToast();
+  const { subjectLabel } = useInstituteLabels();
 
   const [materials, setMaterials] = useState<StudyMaterial[]>([]);
   const [loading, setLoading] = useState(true);
@@ -420,8 +422,8 @@ const StudyMaterials: React.FC = () => {
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">
           <AlertTriangle className="h-7 w-7 text-muted-foreground mb-3" />
-          <h3 className="font-semibold mb-1">Select a Subject</h3>
-          <p className="text-sm text-muted-foreground">Choose a class & subject to view study materials.</p>
+          <h3 className="font-semibold mb-1">Select a {subjectLabel}</h3>
+          <p className="text-sm text-muted-foreground">Choose a class & {subjectLabel.toLowerCase()} to view study materials.</p>
         </CardContent>
       </Card>
     );
@@ -730,7 +732,7 @@ const StudyMaterials: React.FC = () => {
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">Study Materials</h1>
           <p className="text-[11px] sm:text-xs text-muted-foreground">
-            {selectedSubject?.name || 'Subject'}
+            {selectedSubject?.name || subjectLabel}
           </p>
         </div>
         {isTeacherOrAdmin && (

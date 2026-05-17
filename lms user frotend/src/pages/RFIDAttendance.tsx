@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Wifi, ArrowLeft, CalendarClock, MapPin, CheckCircle, User, Loader2, Building2, GraduationCap, BookOpen, AlertCircle } from 'lucide-react';
+import { Wifi, WifiOff, ArrowLeft, CalendarClock, MapPin, CheckCircle, User, Loader2, Building2, GraduationCap, BookOpen, AlertCircle, Nfc } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -15,6 +15,33 @@ import { AttendanceStatus, ALL_ATTENDANCE_STATUSES, ATTENDANCE_STATUS_CONFIG, Ad
 import { useTodayCalendarEvents, DEFAULT_EVENT_ID } from '@/hooks/useTodayCalendarEvents';
 import EventSelector from '@/components/attendance/EventSelector';
 import AttendanceLocationViewer from '@/components/dialogs/AttendanceLocationViewer';
+
+// Web NFC API type declarations (not in standard TS lib yet)
+declare global {
+  interface NDEFReadingEvent extends Event {
+    serialNumber: string;
+    message: NDEFMessage;
+  }
+  interface NDEFMessage {
+    records: NDEFRecord[];
+  }
+  interface NDEFRecord {
+    recordType: string;
+    mediaType?: string;
+    data?: DataView;
+    toRecords?: () => NDEFRecord[];
+  }
+  interface NDEFReader extends EventTarget {
+    scan(options?: { signal?: AbortSignal }): Promise<void>;
+    onreading: ((event: NDEFReadingEvent) => void) | null;
+    onreadingerror: ((event: Event) => void) | null;
+  }
+  interface Window {
+    NDEFReader?: new () => NDEFReader;
+  }
+}
+
+const NFC_SUPPORTED = typeof window !== 'undefined' && 'NDEFReader' in window;
 
 interface LocationViewData {
   studentName: string;
@@ -54,8 +81,13 @@ const RfidAttendance = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [locationViewerOpen, setLocationViewerOpen] = useState(false);
   const [locationViewData, setLocationViewData] = useState<LocationViewData | null>(null);
+  const [nfcActive, setNfcActive] = useState(false);
+  const [nfcError, setNfcError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const clearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const nfcAbortRef = useRef<AbortController | null>(null);
+  // Ref so the NFC callback always has fresh handleMarkAttendance without re-scanning
+  const handleMarkRef = useRef<((id: string) => void) | null>(null);
 
   const calendarInfo = useTodayCalendarEvents(currentInstituteId, selectedClass?.id?.toString());
 
@@ -98,52 +130,40 @@ const RfidAttendance = () => {
     return () => { if (clearTimeoutRef.current) clearTimeout(clearTimeoutRef.current); };
   }, [lastAttendance]);
 
-  const handleMarkAttendance = async () => {
-    if (!rfidCardId.trim()) {
-      toast({ title: "Error", description: "Please enter or scan an RFID card ID", variant: "destructive" });
-      return;
-    }
+  const markById = async (cardId: string) => {
+    if (!cardId.trim()) return;
     if (!currentInstituteId || !selectedInstitute?.name) {
       toast({ title: "Error", description: "Please select an institute first", variant: "destructive" });
       return;
     }
-    if (lastAttendance && lastAttendance.rfidCardId === rfidCardId.trim()) {
+    if (lastAttendance && lastAttendance.rfidCardId === cardId.trim()) {
       toast({ title: "Duplicate Detected", description: `Attendance already marked for ${lastAttendance.studentName}`, variant: "destructive" });
       return;
     }
 
     setIsProcessing(true);
     try {
-      // ✅ NEW: Build address coordinates object
       const addressCoordinates: AddressCoordinates | undefined = location
-        ? {
-            latitude: location.latitude,
-            longitude: location.longitude,
-          }
+        ? { latitude: location.latitude, longitude: location.longitude }
         : undefined;
 
       const markPayload: any = {
-        studentCardId: rfidCardId.trim(),
+        studentCardId: cardId.trim(),
         instituteId: currentInstituteId.toString(),
         instituteName: selectedInstitute.name,
         classId: selectedClass?.id.toString(),
         className: selectedClass?.name,
         subjectId: selectedSubject?.id.toString(),
         subjectName: selectedSubject?.name,
-        // ✅ NEW: Use address object instead of separate latitude/longitude
         address: addressCoordinates,
-        // Location display name (human-readable address)
         location: location?.address,
         markingMethod: 'rfid/nfc' as const,
         status: status,
       };
 
-      // Only send eventId for institute scope (class/subject scope → eventId is always null)
       if (!selectedClass && selectedEventId !== DEFAULT_EVENT_ID) {
         markPayload.eventId = selectedEventId;
       }
-
-      // Link to session when marking at class level
       if (sessionId) {
         markPayload.classSessionId = sessionId;
       }
@@ -152,9 +172,9 @@ const RfidAttendance = () => {
       if (result.success) {
         const studentName = result.name || 'Student';
         setLastAttendance({
-          rfidCardId: rfidCardId.trim(),
+          rfidCardId: cardId.trim(),
           studentName,
-          userIdByInstitute: rfidCardId.trim(),
+          userIdByInstitute: cardId.trim(),
           status: result.status || status,
           timestamp: Date.now(),
           imageUrl: result.imageUrl || undefined,
@@ -167,23 +187,70 @@ const RfidAttendance = () => {
       }
     } catch (error: any) {
       console.error('Attendance marking error:', error);
-      
       let errorMessage = 'Failed to mark attendance';
       if (error instanceof Error) {
-        const errorMsg = error.message;
-        // Check for 404 "User not found" error
-        if (errorMsg.includes('404') && errorMsg.includes('User not found')) {
+        const msg = error.message;
+        if (msg.includes('404') && msg.includes('User not found')) {
           errorMessage = 'Invalid user id';
         } else {
-          errorMessage = errorMsg;
+          errorMessage = msg;
         }
       }
-      
       toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // Keep ref in sync so NFC callback has latest version
+  useEffect(() => { handleMarkRef.current = markById; });
+
+  const handleMarkAttendance = () => markById(rfidCardId);
+
+  const startNfc = useCallback(async () => {
+    if (!NFC_SUPPORTED) {
+      setNfcError('Web NFC is not supported on this device/browser. Use Chrome on Android.');
+      return;
+    }
+    try {
+      const controller = new AbortController();
+      nfcAbortRef.current = controller;
+      const reader = new window.NDEFReader!();
+      reader.onreading = (event: NDEFReadingEvent) => {
+        // serialNumber is the card UID returned as a colon-separated hex string e.g. "04:AB:CD:EF"
+        const uid = event.serialNumber.replace(/:/g, '').toUpperCase();
+        if (uid) {
+          setRfidCardId(uid);
+          handleMarkRef.current?.(uid);
+        }
+      };
+      reader.onreadingerror = () => {
+        toast({ title: "NFC Error", description: "Could not read the card. Try again.", variant: "destructive" });
+      };
+      await reader.scan({ signal: controller.signal });
+      setNfcActive(true);
+      setNfcError(null);
+      toast({ title: "NFC Active", description: "Hold an NFC card near the back of the phone." });
+    } catch (err: any) {
+      setNfcActive(false);
+      if (err?.name === 'AbortError') return;
+      if (err?.name === 'NotAllowedError') {
+        setNfcError('NFC permission denied. Allow NFC access in browser settings.');
+      } else {
+        setNfcError(err?.message || 'Failed to start NFC scanner.');
+      }
+    }
+  }, [toast]);
+
+  const stopNfc = useCallback(() => {
+    nfcAbortRef.current?.abort();
+    nfcAbortRef.current = null;
+    setNfcActive(false);
+    toast({ title: "NFC Stopped", description: "NFC card scanning has been stopped." });
+  }, [toast]);
+
+  // Auto-stop NFC on unmount
+  useEffect(() => () => { nfcAbortRef.current?.abort(); }, []);
 
   const openLocationViewer = () => {
     if (lastAttendance && location) {
@@ -391,9 +458,44 @@ const RfidAttendance = () => {
 
               {/* Right - Inputs */}
               <div className="p-6 lg:p-8 flex flex-col justify-center space-y-5">
+                {/* NFC Toggle — only shown when Web NFC is available (Android Chrome) */}
+                {NFC_SUPPORTED && (
+                  <div className={`flex items-center justify-between rounded-xl px-4 py-3 border-2 transition-colors ${
+                    nfcActive ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/20' : 'border-border bg-muted/30'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      {nfcActive
+                        ? <Nfc className="h-5 w-5 text-violet-600 animate-pulse" />
+                        : <WifiOff className="h-5 w-5 text-muted-foreground" />}
+                      <div>
+                        <p className="text-sm font-medium leading-tight">
+                          {nfcActive ? 'NFC Active — tap a card' : 'NFC Card Scanner'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {nfcActive ? 'Hold 13.56 MHz card near phone back' : 'Tap to enable NFC reading'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant={nfcActive ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={nfcActive ? stopNfc : startNfc}
+                      className={nfcActive ? 'bg-violet-600 hover:bg-violet-700 text-white' : ''}
+                    >
+                      {nfcActive ? 'Stop' : 'Start'}
+                    </Button>
+                  </div>
+                )}
+                {nfcError && (
+                  <p className="text-xs text-destructive flex items-center gap-1.5 -mt-2 px-1">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />{nfcError}
+                  </p>
+                )}
+
                 <div className="space-y-2">
-                  <Label htmlFor="rfid-card-input" className="text-sm font-medium text-foreground">RFID ID</Label>
-                  <Input id="rfid-card-input" ref={inputRef} type="text" placeholder="Scan or enter RFID ID..." value={rfidCardId}
+                  <Label htmlFor="rfid-card-input" className="text-sm font-medium text-foreground">RFID / NFC Card ID</Label>
+                  <Input id="rfid-card-input" ref={inputRef} type="text" placeholder="Tap card or type ID..." value={rfidCardId}
                     onChange={(e) => setRfidCardId(e.target.value)} onKeyPress={handleKeyPress} disabled={isProcessing}
                     className="h-12 text-base border-2 border-input focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0" autoFocus />
                 </div>

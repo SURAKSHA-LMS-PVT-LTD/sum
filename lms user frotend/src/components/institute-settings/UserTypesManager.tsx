@@ -12,6 +12,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { userTypesApi, UserType } from '@/api/userTypes.api';
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
   Plus, Trash2, Edit2, Save, Loader2, Shield, Users, Lock,
   Eye, FilePen, Pencil, BarChart2, Check, Upload,
   Building2, BookOpen, FileText,
@@ -120,7 +123,7 @@ export const UserTypesManager: React.FC = () => {
   // Create/Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<UserType | null>(null);
-  const [form, setForm] = useState({ name: '', namePlural: '', description: '', color: '#6366f1', isPublic: true });
+  const [form, setForm] = useState({ name: '', namePlural: '', description: '', color: '#6366f1', isPublic: true, baseTypeSlug: '' });
   const [formSaving, setFormSaving] = useState(false);
 
   // ── Data loading ───────────────────────────────────────────────────────────
@@ -255,13 +258,13 @@ export const UserTypesManager: React.FC = () => {
 
   const openCreate = () => {
     setEditingType(null);
-    setForm({ name: '', namePlural: '', description: '', color: '#6366f1', isPublic: true });
+    setForm({ name: '', namePlural: '', description: '', color: '#6366f1', isPublic: true, baseTypeSlug: '' });
     setDialogOpen(true);
   };
 
   const openEdit = (ut: UserType) => {
     setEditingType(ut);
-    setForm({ name: ut.name, namePlural: ut.namePlural ?? '', description: ut.description ?? '', color: ut.color ?? '#6366f1', isPublic: ut.isPublic });
+    setForm({ name: ut.name, namePlural: ut.namePlural ?? '', description: ut.description ?? '', color: ut.color ?? '#6366f1', isPublic: ut.isPublic, baseTypeSlug: '' });
     setDialogOpen(true);
   };
 
@@ -293,6 +296,7 @@ export const UserTypesManager: React.FC = () => {
           description: form.description,
           color: form.color,
           isPublic: form.isPublic,
+          ...(form.baseTypeSlug ? { baseTypeSlug: form.baseTypeSlug } : {}),
         });
         toast({ title: 'User type created' });
         await refreshUserTypes(created.id);
@@ -646,6 +650,32 @@ export const UserTypesManager: React.FC = () => {
                   />
                 </div>
               </div>
+              {!editingType && (
+                <div>
+                  <Label>Base permissions from</Label>
+                  <p className="text-xs text-muted-foreground mb-1.5">Copy starting permissions from an existing user type</p>
+                  <Select
+                    value={form.baseTypeSlug || 'none'}
+                    onValueChange={v => setForm(f => ({ ...f, baseTypeSlug: v === 'none' ? '' : v }))}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Start blank (no base)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" className="text-sm">Start blank (no base)</SelectItem>
+                      {userTypes.filter(ut => ut.isSystemType).map(ut => (
+                        <SelectItem key={ut.slug} value={ut.slug} className="text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: ut.color ?? '#6366f1' }} />
+                            {ut.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <div>
                   <Label>Visible in enrolment forms</Label>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInstituteLabels } from '@/hooks/useInstituteLabels';
-import { instituteApi } from '@/api/institute.api';
+import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { BookOpen, Loader2, Search } from 'lucide-react';
 import type { Subject } from '@/contexts/types/auth.types';
 import { getImageUrl } from '@/utils/imageUrlHelper';
@@ -34,13 +34,20 @@ const DashboardSubjectCards = () => {
 
     const load = async () => {
       try {
-        const result = await instituteApi.getClassSubjects(
-          selectedInstitute.id,
-          selectedClass.id,
-          { userId: user?.id, role: selectedInstitute.userRole }
+        const result = await enhancedCachedClient.get<any>(
+          `/institutes/${selectedInstitute.id}/classes/${selectedClass.id}/subjects`,
+          undefined,
+          {
+            ttl: 15,
+            useStaleWhileRevalidate: true,
+            userId: user?.id,
+            instituteId: selectedInstitute.id,
+            classId: selectedClass.id,
+            role: selectedInstitute.userRole,
+          }
         );
         if (cancelled) return;
-        const raw = (result as any)?.data || result || [];
+        const raw = (result as any)?.data ?? (Array.isArray(result) ? result : []);
         const list = Array.isArray(raw) ? raw : [];
         // Flatten nested { subject: {...}, subjectId, teacher } structure
         const normalized = list.map((item: any) => {

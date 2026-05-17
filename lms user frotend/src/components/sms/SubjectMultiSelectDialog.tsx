@@ -10,6 +10,7 @@ import { apiClient } from "@/api/client";
 import { CACHE_TTL } from "@/config/cacheTTL";
 import { getImageUrl } from "@/utils/imageUrlHelper";
 import { Image as ImageIcon, Search } from "lucide-react";
+import { useInstituteLabels } from "@/hooks/useInstituteLabels";
 
 export interface SmsSubjectOption {
   id: string;
@@ -38,9 +39,11 @@ export default function SubjectMultiSelectDialog({
   role,
   selectedIds,
   onChange,
-  triggerLabel = "Select subjects",
+  triggerLabel,
   classIds,
 }: Props) {
+  const { subjectLabel, subjectsLabel } = useInstituteLabels();
+  const resolvedTriggerLabel = triggerLabel ?? `Select ${subjectsLabel.toLowerCase()}`;
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -144,12 +147,12 @@ export default function SubjectMultiSelectDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline">{triggerLabel}</Button>
+        <Button type="button" variant="outline">{resolvedTriggerLabel}</Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            Select Subjects
+            Select {subjectsLabel}
             {classIds && classIds.length > 0 && (
               <span className="text-sm font-normal text-muted-foreground ml-2">
                 (filtered for {classIds.length} selected class{classIds.length > 1 ? 'es' : ''})
@@ -160,15 +163,15 @@ export default function SubjectMultiSelectDialog({
 
         <div className="flex items-center gap-2">
           <Search className="h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search subject" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${subjectLabel.toLowerCase()}`} />
         </div>
 
         <ScrollArea className="h-[420px] rounded-md border bg-card">
           <div className="divide-y">
             {loading ? (
-              <div className="p-4 text-sm text-muted-foreground">Loading subjects…</div>
+              <div className="p-4 text-sm text-muted-foreground">Loading {subjectsLabel.toLowerCase()}…</div>
             ) : filtered.length === 0 ? (
-              <div className="p-4 text-sm text-muted-foreground">No subjects found.</div>
+              <div className="p-4 text-sm text-muted-foreground">No {subjectsLabel.toLowerCase()} found.</div>
             ) : (
               filtered.map((s) => (
                 <button
@@ -181,7 +184,7 @@ export default function SubjectMultiSelectDialog({
                   <div className="h-10 w-10 rounded-md overflow-hidden bg-muted shrink-0">
                     <img
                       src={getImageUrl(s.imgUrl)}
-                      alt={s.name ? `Subject ${s.name} image` : "Subject image"}
+                      alt={s.name ? `${subjectLabel} ${s.name} image` : `${subjectLabel} image`}
                       className="h-full w-full object-cover"
                       loading="lazy"
                       onError={(e) => {

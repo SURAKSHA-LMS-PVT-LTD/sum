@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { instituteApi } from '@/api/institute.api';
+import { instituteClassesApi } from '@/api/instituteClasses.api';
 import { School, ChevronRight, ChevronLeft, Loader2, BookOpen, Search } from 'lucide-react';
 import type { Class } from '@/contexts/types/auth.types';
 import { getImageUrl } from '@/utils/imageUrlHelper';
@@ -33,12 +33,12 @@ const DashboardClassCards = ({ compact = false }: { compact?: boolean }) => {
     let cancelled = false;
     const load = async () => {
       try {
-        const result = await instituteApi.getInstituteClasses(selectedInstitute.id, {
+        const result = await instituteClassesApi.getByInstitute(selectedInstitute.id, {
           userId: user?.id,
           role: selectedInstitute.userRole,
         });
         if (cancelled) return;
-        const data = (result as any)?.data || result || [];
+        const data = (result as any)?.data ?? (Array.isArray(result) ? result : []);
         setClasses(Array.isArray(data) ? data : []);
       } catch (e) {
         if (cancelled) return;

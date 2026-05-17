@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/api/client';
 import { lectureApi } from '@/api/lecture.api';
+import { subjectRecordingsApi } from '@/api/subjectRecordings.api';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatNameToInitials } from '@/utils/nameFormatters';
 
@@ -77,6 +78,7 @@ const StudentSubjectProfilePage: React.FC = () => {
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
+
 
   const loadStudent = useCallback(async () => {
     if (!instituteId || !studentId) return;
@@ -156,6 +158,29 @@ const StudentSubjectProfilePage: React.FC = () => {
   useEffect(() => {
     if (openSections.has('activities') && !activitiesLoaded) loadActivities();
   }, [openSections, activitiesLoaded, loadActivities]);
+
+  const [recActivities, setRecActivities] = useState<any[]>([]);
+  const [loadingRecActivities, setLoadingRecActivities] = useState(false);
+  const [recActivitiesError, setRecActivitiesError] = useState<string | null>(null);
+  const [recActivitiesLoaded, setRecActivitiesLoaded] = useState(false);
+
+  const loadRecActivities = useCallback(async () => {
+    if (!instituteId || !classId || !subjectId || !studentId) return;
+    setLoadingRecActivities(true);
+    setRecActivitiesError(null);
+    try {
+      const acts = await subjectRecordingsApi.getStudentActivities(studentId, instituteId, classId, subjectId);
+      setRecActivities(acts);
+      setRecActivitiesLoaded(true);
+    } catch (e: any) {
+      setRecActivitiesError(e?.response?.data?.message || 'Failed to load recording activities');
+    } finally { setLoadingRecActivities(false); }
+  }, [instituteId, classId, subjectId, studentId]);
+
+  useEffect(() => {
+    if (openSections.has('rec-activities') && !recActivitiesLoaded) loadRecActivities();
+  }, [openSections, recActivitiesLoaded, loadRecActivities]);
+
 
   const initials = (student?.nameWithInitials ?? student?.name ?? '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
   const [imagePreviewOpen, setImagePreviewOpen] = React.useState<{url:string;title:string}|null>(null);
@@ -271,7 +296,6 @@ const StudentSubjectProfilePage: React.FC = () => {
                     <p className="text-xs font-semibold truncate">{a.lecture.title}</p>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">{new Date(a.lecture.startTime).toLocaleString()}</span>
                   </div>
-                  
                   <div className="flex flex-wrap gap-2 text-[10px] items-center">
                     {a.lecture.liveAttendanceEnabled && (
                       <span className={`px-1.5 py-0.5 rounded font-medium flex items-center gap-1 ${a.live ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -279,7 +303,6 @@ const StudentSubjectProfilePage: React.FC = () => {
                         {a.live ? `Present (${a.live.totalDurationMinutes}m)` : 'Absent (Live)'}
                       </span>
                     )}
-                    
                     {a.lecture.recAttendanceEnabled && (
                       <span className={`px-1.5 py-0.5 rounded font-medium flex items-center gap-1 ${a.recording ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
                         <PlayCircle className="h-3 w-3" />
@@ -287,7 +310,6 @@ const StudentSubjectProfilePage: React.FC = () => {
                       </span>
                     )}
                   </div>
-
                   {a.live?.sessions?.length > 0 && (
                     <div className="text-[10px] text-muted-foreground">
                       <strong>Live Joins:</strong> {a.live.sessions.map((s: any, i: number) => (
@@ -298,7 +320,6 @@ const StudentSubjectProfilePage: React.FC = () => {
                       ))}
                     </div>
                   )}
-
                   {a.recording?.sessions?.length > 0 && (
                     <div className="text-[10px] text-muted-foreground mt-1">
                       <strong>Rec Sessions ({a.recording.sessionCount}):</strong> {a.recording.sessions.map((s: any, i: number) => (
@@ -308,6 +329,99 @@ const StudentSubjectProfilePage: React.FC = () => {
                         </span>
                       ))}
                     </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+
+        <Section id="rec-activities" icon={PlayCircle} title="Recording Activities" isOpen={openSections.has('rec-activities')} onToggle={() => toggleSection('rec-activities')} loading={loadingRecActivities} error={recActivitiesError} onRetry={() => { setRecActivitiesLoaded(false); loadRecActivities(); }}>
+          {loadingRecActivities ? <div className="space-y-2"><div className="h-10 bg-muted/50 rounded animate-pulse"/><div className="h-10 bg-muted/50 rounded animate-pulse"/></div> : recActivities.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No recording activities found.</p> : (
+            <div className="space-y-3">
+              {recActivities.map((a: any) => (
+                <div key={a.recording.id} className="rounded-xl border border-border/50 bg-muted/20 px-3 py-3 flex flex-col gap-2">
+                  {/* Recording header */}
+                  <div className="flex justify-between items-start gap-2">
+                    <p className="text-xs font-semibold truncate">{a.recording.title}</p>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/50">{a.recording.platform}</span>
+                      {a.recording.durationSeconds && (
+                        <span className="text-[10px] text-muted-foreground">{Math.floor(a.recording.durationSeconds / 60)}m</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {a.watching ? (
+                    <>
+                      {/* Aggregate badges */}
+                      <div className="flex flex-wrap gap-1.5 text-[10px] items-center">
+                        <span className="px-1.5 py-0.5 rounded font-medium flex items-center gap-1 bg-blue-100 text-blue-700">
+                          <PlayCircle className="h-3 w-3" />
+                          {a.watching.totalWatchedMinutes}m video
+                        </span>
+                        {a.watching.totalEffectiveMinutes !== undefined && a.watching.totalEffectiveMinutes !== a.watching.totalWatchedMinutes && (
+                          <span className="px-1.5 py-0.5 rounded font-medium bg-sky-100 text-sky-700">
+                            {a.watching.totalEffectiveMinutes}m actual
+                          </span>
+                        )}
+                        <span className="px-1.5 py-0.5 rounded font-medium bg-violet-100 text-violet-700">
+                          {a.watching.sessionCount} visit{a.watching.sessionCount > 1 ? 's' : ''}
+                        </span>
+                        {a.watching.avgPlaybackSpeed && a.watching.avgPlaybackSpeed > 1 && (
+                          <span className={`px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5 ${a.watching.avgPlaybackSpeed >= 2 ? 'bg-red-100 text-red-700' : a.watching.avgPlaybackSpeed >= 1.5 ? 'bg-orange-100 text-orange-700' : 'bg-amber-100 text-amber-700'}`}>
+                            avg {a.watching.avgPlaybackSpeed}x
+                          </span>
+                        )}
+                        {a.watching.maxPlaybackSpeed && a.watching.maxPlaybackSpeed > a.watching.avgPlaybackSpeed && (
+                          <span className="px-1.5 py-0.5 rounded font-medium bg-red-50 text-red-600">
+                            max {a.watching.maxPlaybackSpeed}x
+                          </span>
+                        )}
+                        {a.watching.completionPercent !== null && (
+                          <span className={`px-1.5 py-0.5 rounded font-medium ${a.watching.completionPercent >= 80 ? 'bg-green-100 text-green-700' : a.watching.completionPercent >= 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {a.watching.completionPercent}% complete
+                          </span>
+                        )}
+                      </div>
+                      {/* First / last visit */}
+                      <div className="flex gap-3 text-[10px] text-muted-foreground">
+                        <span>First: <span className="font-medium text-foreground">{new Date(a.watching.firstWatchedAt).toLocaleString()}</span></span>
+                        {a.watching.sessionCount > 1 && (
+                          <span>Last: <span className="font-medium text-foreground">{new Date(a.watching.lastWatchedAt).toLocaleString()}</span></span>
+                        )}
+                      </div>
+                      {/* Per-visit breakdown */}
+                      {a.watching.sessions.length > 0 && (
+                        <div className="mt-0.5 space-y-1">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Visit History</p>
+                          {a.watching.sessions.map((s: any) => (
+                            <div key={s.sessionId} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] bg-background/60 rounded-lg px-2 py-1.5 border border-border/40">
+                              <span className="font-semibold text-muted-foreground">#{s.visitNumber}</span>
+                              <span className="text-foreground">{new Date(s.startTime).toLocaleString()}</span>
+                              <span className="text-muted-foreground">→</span>
+                              <span className="text-foreground">{s.endTime ? new Date(s.endTime).toLocaleTimeString() : <span className="italic">ongoing</span>}</span>
+                              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">{s.watchedMinutes}m {s.watchedSeconds % 60}s</span>
+                              {s.effectiveSeconds !== undefined && s.effectiveSeconds !== s.watchedSeconds && (
+                                <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-600">{s.effectiveMinutes}m actual</span>
+                              )}
+                              {s.playbackSpeed && s.playbackSpeed !== 1 && (
+                                <span className={`px-1.5 py-0.5 rounded font-medium ${s.playbackSpeed >= 2 ? 'bg-red-100 text-red-700' : s.playbackSpeed >= 1.5 ? 'bg-orange-100 text-orange-700' : 'bg-amber-100 text-amber-700'}`}>
+                                  {s.playbackSpeed}x
+                                </span>
+                              )}
+                              {s.durationSeconds && <span className="text-muted-foreground">({Math.floor(s.durationSeconds / 60)}m session)</span>}
+                              <span className="text-muted-foreground">pos: {s.lastPosition}s</span>
+                              {!s.isCompleted && <span className="text-amber-600 italic">no end</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-500 flex items-center gap-1 w-fit">
+                      <PlayCircle className="h-3 w-3" />Not Watched
+                    </span>
                   )}
                 </div>
               ))}

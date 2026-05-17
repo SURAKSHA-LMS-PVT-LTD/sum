@@ -8,6 +8,7 @@ import {
   CreateNotificationPayload
 } from '@/services/adminNotificationService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,8 +41,9 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { Loader2, Send, Clock, Bell, ChevronsUpDown, Check } from 'lucide-react';
+import { Loader2, Send, Bell, ChevronsUpDown, Check, ImageIcon, X } from 'lucide-react';
 import { apiClient } from '@/api/client';
+import { profileImageApi } from '@/api/profileImage.api';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -63,6 +65,7 @@ interface SubjectOption {
 
 export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, onSuccess }) => {
   const { user, selectedInstitute } = useAuth();
+  const { subjectLabel } = useInstituteLabels();
   
   const isSuperAdmin = user?.userType === 'SUPERADMIN' || user?.userType === 'SA';
   
@@ -74,7 +77,10 @@ export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, on
   // Form State
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState(''); // final published URL after upload
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [imageUploading, setImageUploading] = useState(false);
   const [actionUrl, setActionUrl] = useState('');
   const [scope, setScope] = useState<NotificationScope>(
     isSuperAdmin ? NotificationScope.GLOBAL : NotificationScope.INSTITUTE
@@ -85,9 +91,7 @@ export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, on
   const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [priority, setPriority] = useState<NotificationPriority>(NotificationPriority.NORMAL);
-  const [sendImmediately, setSendImmediately] = useState(true);
-  const [scheduledAt, setScheduledAt] = useState('');
-  
+
   const [loading, setLoading] = useState(false);
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
@@ -189,39 +193,73 @@ export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, on
     }
   };
 
+  const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      toast.error('Only JPEG, PNG, WebP or GIF images are allowed');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5 MB');
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setImageUrl(''); // will be set after upload on submit
+
+    // Upload immediately so we have the URL ready
+    setImageUploading(true);
+    try {
+      const signed = await profileImageApi.generateSignedUrl(file.name, file.type, file.size);
+      await profileImageApi.uploadToStorage(signed.uploadUrl, file, signed.fields);
+      const publicUrl = await profileImageApi.verifyAndPublish(signed.relativePath);
+      setImageUrl(publicUrl);
+    } catch (err: any) {
+      toast.error(err.message || 'Image upload failed');
+      setImageFile(null);
+      setImagePreview('');
+    } finally {
+      setImageUploading(false);
+    }
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setImageUrl('');
+  };
+
   const resetForm = () => {
     setTitle('');
     setBody('');
     setImageUrl('');
+    setImageFile(null);
+    setImagePreview('');
     setActionUrl('');
     setScope(isSuperAdmin ? NotificationScope.GLOBAL : NotificationScope.INSTITUTE);
     setTargetUserTypes([NotificationTargetUserType.ALL]);
     setSelectedClassId('');
     setSelectedSubjectId('');
     setPriority(NotificationPriority.NORMAL);
-    setSendImmediately(true);
-    setScheduledAt('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (imageUploading) { toast.error('Please wait — image is still uploading'); return; }
     setLoading(true);
 
     try {
-      // Validation
       if (!title.trim()) throw new Error('Title is required');
       if (!body.trim()) throw new Error('Message body is required');
       if (targetUserTypes.length === 0) throw new Error('Select at least one target audience');
-      
       if (scope !== NotificationScope.GLOBAL && !selectedInstitute?.id) {
         throw new Error('Institute must be selected for non-global notifications');
       }
-      if (scope === NotificationScope.CLASS && !selectedClassId) {
-        throw new Error('Please select a class');
-      }
-      if (scope === NotificationScope.SUBJECT && !selectedSubjectId) {
-        throw new Error('Please select a subject');
-      }
+      if (scope === NotificationScope.CLASS && !selectedClassId) throw new Error('Please select a class');
+      if (scope === NotificationScope.SUBJECT && !selectedSubjectId) throw new Error(`Please select a ${subjectLabel.toLowerCase()}`);
 
       const payload: CreateNotificationPayload = {
         title: title.trim(),
@@ -229,37 +267,23 @@ export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, on
         scope,
         targetUserTypes,
         priority,
-        sendImmediately
+        sendImmediately: true,
       };
 
-      // Optional fields
-      if (imageUrl.trim()) payload.imageUrl = imageUrl.trim();
+      if (imageUrl) payload.imageUrl = imageUrl;
       if (actionUrl.trim()) payload.actionUrl = actionUrl.trim();
-      
-      // Scope-specific fields
-      if (scope !== NotificationScope.GLOBAL) {
-        payload.instituteId = selectedInstitute!.id;
-      }
-      if (scope === NotificationScope.CLASS || scope === NotificationScope.SUBJECT) {
-        payload.classId = selectedClassId;
-      }
-      if (scope === NotificationScope.SUBJECT) {
-        payload.subjectId = selectedSubjectId;
-      }
-      
-      // Scheduled notifications
-      if (!sendImmediately && scheduledAt) {
-        payload.scheduledAt = new Date(scheduledAt).toISOString();
-        payload.sendImmediately = false;
-      }
+
+      if (scope !== NotificationScope.GLOBAL) payload.instituteId = selectedInstitute!.id;
+      if (scope === NotificationScope.CLASS || scope === NotificationScope.SUBJECT) payload.classId = selectedClassId;
+      if (scope === NotificationScope.SUBJECT) payload.subjectId = selectedSubjectId;
 
       await adminNotificationService.createNotification(payload);
-      toast.success(sendImmediately ? 'Notification sent successfully!' : 'Notification scheduled successfully!');
+      toast.success('Notification sent successfully!');
       resetForm();
       onOpenChange(false);
       onSuccess?.();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to create notification');
+      toast.error(err.message || 'Failed to send notification');
     } finally {
       setLoading(false);
     }
@@ -386,7 +410,7 @@ export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, on
           {/* Subject Selection with Search */}
           {scope === NotificationScope.SUBJECT && selectedClassId && (
             <div className="space-y-2">
-              <Label>Select Subject *</Label>
+              <Label>Select {subjectLabel} *</Label>
               <Popover open={subjectSearchOpen} onOpenChange={setSubjectSearchOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -399,8 +423,8 @@ export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, on
                     {loadingSubjects 
                       ? "Loading..." 
                       : selectedSubjectId 
-                        ? subjects.find(s => s.id === selectedSubjectId)?.name || "Select a subject"
-                        : "Select a subject"
+                        ? subjects.find(s => s.id === selectedSubjectId)?.name || `Select a ${subjectLabel.toLowerCase()}`
+                        : `Select a ${subjectLabel.toLowerCase()}`
                     }
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -481,16 +505,40 @@ export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, on
             </Select>
           </div>
 
-          {/* Image URL */}
+          {/* Image Upload */}
           <div className="space-y-2">
-            <Label htmlFor="imageUrl">Image URL (optional)</Label>
-            <Input
-              id="imageUrl"
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/image.jpg"
-            />
+            <Label>Image (optional)</Label>
+            {imagePreview ? (
+              <div className="relative w-full rounded-xl overflow-hidden border border-border/50">
+                <img src={imagePreview} alt="preview" className="w-full max-h-40 object-cover" />
+                {imageUploading && (
+                  <div className="absolute inset-0 bg-background/70 flex items-center justify-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm">Uploading…</span>
+                  </div>
+                )}
+                {!imageUploading && (
+                  <button
+                    type="button"
+                    onClick={clearImage}
+                    className="absolute top-2 right-2 h-7 w-7 rounded-full bg-background/80 flex items-center justify-center hover:bg-background"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 w-full h-24 rounded-xl border-2 border-dashed border-border/60 cursor-pointer hover:bg-muted/40 transition-colors">
+                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Click to upload image</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleImageFileSelect}
+                />
+              </label>
+            )}
           </div>
 
           {/* Action URL */}
@@ -506,49 +554,16 @@ export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, on
             <p className="text-xs text-muted-foreground">Where to navigate when notification is clicked</p>
           </div>
 
-          {/* Schedule Toggle */}
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="sendImmediately"
-              checked={sendImmediately}
-              onCheckedChange={(checked) => setSendImmediately(!!checked)}
-            />
-            <label htmlFor="sendImmediately" className="text-sm cursor-pointer">
-              Send Immediately
-            </label>
-          </div>
-
-          {/* Schedule Date */}
-          {!sendImmediately && (
-            <div className="space-y-2">
-              <Label htmlFor="scheduledAt">Schedule For</Label>
-              <Input
-                id="scheduledAt"
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
-                min={new Date().toISOString().slice(0, 16)}
-                required={!sendImmediately}
-              />
-            </div>
-          )}
-
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || imageUploading}>
               {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {sendImmediately ? 'Sending...' : 'Scheduling...'}
-                </>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</>
               ) : (
-                <>
-                  {sendImmediately ? <Send className="mr-2 h-4 w-4" /> : <Clock className="mr-2 h-4 w-4" />}
-                  {sendImmediately ? 'Send Now' : 'Schedule'}
-                </>
+                <><Send className="mr-2 h-4 w-4" />Send Now</>
               )}
             </Button>
           </div>

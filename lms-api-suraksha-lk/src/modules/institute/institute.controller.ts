@@ -345,11 +345,11 @@ export class InstitutesController {
       // Access control will be handled by decorators
 
       // Validate input parameters
-      if (!instituteId || isNaN(Number(instituteId))) {
+      if (!instituteId) {
         throw new BadRequestException('Invalid institute ID format');
       }
 
-      if (!classId || isNaN(Number(classId))) {
+      if (!classId) {
         throw new BadRequestException('Invalid class ID format');
       }
 
@@ -670,6 +670,31 @@ export class InstitutesController {
     @Request() req: JwtRequest,
   ) {
     return this.institutesService.getUserExtraDataSchema(id, req.user);
+  }
+
+  @Get(':id/design-templates')
+  @UseGuards(FlexibleAccessGuard)
+  @RequireAnyOfRoles({ global: [UserType.SUPERADMIN], instituteAdmin: true })
+  @ApiOperation({ summary: 'Get institute design templates (certificates, birthday wishes, etc.)' })
+  @ApiParam({ name: 'id', description: 'Institute ID' })
+  async getDesignTemplates(
+    @Param('id', ParseIdPipe) id: string,
+    @Request() req: JwtRequest,
+  ) {
+    return this.institutesService.getDesignTemplates(id, req.user);
+  }
+
+  @Post(':id/design-templates')
+  @UseGuards(FlexibleAccessGuard)
+  @RequireAnyOfRoles({ global: [UserType.SUPERADMIN], instituteAdmin: true })
+  @ApiOperation({ summary: 'Save institute design templates (replaces all templates)' })
+  @ApiParam({ name: 'id', description: 'Institute ID' })
+  async saveDesignTemplates(
+    @Param('id', ParseIdPipe) id: string,
+    @Body() body: { templates: any[] },
+    @Request() req: JwtRequest,
+  ) {
+    return this.institutesService.saveDesignTemplates(id, body.templates ?? [], req.user);
   }
 
   @Patch(':id/user-extra-data-schema')

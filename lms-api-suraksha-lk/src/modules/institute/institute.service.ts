@@ -442,6 +442,7 @@ export class InstitutesService {
       updatedAt: institute.updatedAt,
       isSessionLimitEnabled: institute.isSessionLimitEnabled,
       defaultSessionsPerUserCount: institute.defaultSessionsPerUserCount,
+      isStrictSessionLimit: institute.isStrictSessionLimit,
       // Report branding — returned as full URLs so frontend can fetch directly
       reportHeaderUrl: institute.reportHeaderUrl ? this.cloudStorageService.getFullUrl(institute.reportHeaderUrl) : null,
       reportFooterUrl: institute.reportFooterUrl ? this.cloudStorageService.getFullUrl(institute.reportFooterUrl) : null,
@@ -514,8 +515,10 @@ export class InstitutesService {
   }
 
   private async fetchImageAsDataUrl(imageUrl: string): Promise<string | null> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(imageUrl);
+      const response = await fetch(imageUrl, { signal: controller.signal });
       if (!response.ok) {
         this.logger.warn(`Failed to fetch report image ${imageUrl}: ${response.status} ${response.statusText}`);
         return null;
@@ -527,6 +530,8 @@ export class InstitutesService {
     } catch (error) {
       this.logger.warn(`Error fetching report image ${imageUrl}: ${error instanceof Error ? error.message : error}`);
       return null;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -621,6 +626,7 @@ export class InstitutesService {
     // Session limits
     if (dto.isSessionLimitEnabled !== undefined) updateData.isSessionLimitEnabled = dto.isSessionLimitEnabled;
     if (dto.defaultSessionsPerUserCount !== undefined) updateData.defaultSessionsPerUserCount = dto.defaultSessionsPerUserCount;
+    if (dto.isStrictSessionLimit !== undefined) updateData.isStrictSessionLimit = dto.isStrictSessionLimit;
 
     // Report branding — S3 relative paths; track replaced paths for deletion
     if (dto.reportHeaderUrl !== undefined) {
@@ -841,6 +847,33 @@ export class InstitutesService {
     });
 
     return schema;
+  }
+
+  // ───────────────────────────────────────────────────
+  // Design Templates
+  // ───────────────────────────────────────────────────
+
+  async getDesignTemplates(instituteId: string, user: any): Promise<any[]> {
+    InstituteAccessValidator.validateInstituteAccess(user, instituteId);
+    const institute = await this.instituteRepository.findOne({
+      where: { id: instituteId, isActive: true },
+      select: ['id', 'designTemplates'],
+    });
+    if (!institute) throw new NotFoundException(`Institute ${instituteId} not found`);
+    return institute.designTemplates ?? [];
+  }
+
+  async saveDesignTemplates(instituteId: string, templates: any[], user: any): Promise<any[]> {
+    InstituteAccessValidator.validateInstituteAccess(user, instituteId);
+    const institute = await this.instituteRepository.findOne({
+      where: { id: instituteId, isActive: true },
+    });
+    if (!institute) throw new NotFoundException(`Institute ${instituteId} not found`);
+    await this.instituteRepository.update(instituteId, {
+      designTemplates: templates,
+      updatedAt: now(),
+    });
+    return templates;
   }
 
   // ───────────────────────────────────────────────────

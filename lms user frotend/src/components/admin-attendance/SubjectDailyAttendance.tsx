@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import adminAttendanceApi from '@/api/adminAttendance.api';
 import { cachedApiClient } from '@/api/cachedClient';
 import { getAuthHeadersSync } from '@/services/tokenStorageService';
@@ -22,6 +23,7 @@ interface Option { id: string; name: string }
 
 const SubjectDailyAttendance: React.FC = () => {
   const { currentInstituteId } = useAuth();
+  const { subjectLabel } = useInstituteLabels();
   const [classes, setClasses] = useState<Option[]>([]);
   const [subjects, setSubjects] = useState<Option[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -153,9 +155,9 @@ const SubjectDailyAttendance: React.FC = () => {
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-medium">Subject</Label>
+              <Label className="text-xs font-medium">{subjectLabel}</Label>
               <Select value={selectedSubject} onValueChange={handleSubjectChange} disabled={!selectedClass}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="Select Subject" /></SelectTrigger>
+                <SelectTrigger className="text-sm"><SelectValue placeholder={`Select ${subjectLabel}`} /></SelectTrigger>
                 <SelectContent>
                   {subjects.map(s => <SelectItem key={s.id} value={s.id} className="text-sm">{s.name}</SelectItem>)}
                 </SelectContent>

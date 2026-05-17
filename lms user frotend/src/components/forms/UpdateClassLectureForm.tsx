@@ -325,6 +325,7 @@ const UpdateClassLectureForm = ({ lecture, onClose, onSuccess }: UpdateClassLect
               instituteId={context.instituteId}
               classId={context.classId}
               paymentType="class"
+              scope="class"
             />
 
             <LectureWelcomeMessageSettings

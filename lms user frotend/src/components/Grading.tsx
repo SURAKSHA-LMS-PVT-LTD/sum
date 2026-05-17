@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RefreshCw } from 'lucide-react';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { AccessControl } from '@/utils/permissions';
 import { useToast } from '@/hooks/use-toast';
 import DataTable from '@/components/ui/data-table';
@@ -15,6 +16,7 @@ import { cachedApiClient } from '@/api/cachedClient';
 
 const Grading = () => {
   const { user, selectedInstitute, selectedClass, selectedSubject, currentInstituteId, currentClassId, currentSubjectId } = useAuth();
+  const { subjectLabel } = useInstituteLabels();
   const { toast } = useToast();
   const [selectedClassFilter, setSelectedClassFilter] = useState('');
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('');
@@ -303,7 +305,7 @@ const Grading = () => {
                 
                 <Select value={selectedSubjectFilter} onValueChange={setSelectedSubjectFilter}>
                   <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Select Subject" />
+                    <SelectValue placeholder={`Select ${subjectLabel}`} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Mathematics">Mathematics</SelectItem>

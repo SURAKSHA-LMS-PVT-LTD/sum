@@ -6,8 +6,18 @@ terraform {
       version = "~> 5.0"
     }
   }
-  # Local state is fine for testing; for production add a GCS backend:
-  # backend "gcs" { bucket = "YOUR_PROJECT-tfstate"; prefix = "lms" }
+
+  # Remote state in GCS — prevents state loss if your laptop dies and allows
+  # team members to run terraform safely.
+  # Setup (one-time, before first terraform init):
+  #   gsutil mb -l us-central1 gs://YOUR_PROJECT_ID-tfstate
+  #   gsutil versioning set on gs://YOUR_PROJECT_ID-tfstate
+  # Then uncomment this block and replace YOUR_PROJECT_ID:
+  #
+  # backend "gcs" {
+  #   bucket  = "YOUR_PROJECT_ID-tfstate"
+  #   prefix  = "lms/prod"
+  # }
 }
 
 provider "google" {

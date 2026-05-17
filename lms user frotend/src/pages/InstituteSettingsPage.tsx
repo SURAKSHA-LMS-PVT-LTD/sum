@@ -100,6 +100,7 @@ interface InstituteSettings {
   // Session limit fields
   isSessionLimitEnabled?: boolean;
   defaultSessionsPerUserCount?: number | null;
+  isStrictSessionLimit?: boolean;
   // Printer settings
   printerSettings?: PrinterSettings | null;
 }
@@ -155,6 +156,7 @@ const InstituteSettingsPage = () => {
 
   // Session limits state
   const [sessionLimitEnabled, setSessionLimitEnabled] = useState(false);
+  const [strictSessionLimit, setStrictSessionLimit] = useState(false);
   const [defaultSessionCount, setDefaultSessionCount] = useState<number>(3);
   const [sessionLimitMode, setSessionLimitMode] = useState<'NEW_USERS_ONLY' | 'ALL_USERS' | 'USERS_WITH_PREVIOUS_LIMIT' | 'CUSTOM'>('NEW_USERS_ONLY');
   const [sessionLimitSaving, setSessionLimitSaving] = useState(false);
@@ -305,6 +307,7 @@ const InstituteSettingsPage = () => {
       });
       setAllowUserPhotoUpload(response.allowUserPhotoUpload ?? true);
       setSessionLimitEnabled(response.isSessionLimitEnabled ?? false);
+      setStrictSessionLimit(response.isStrictSessionLimit ?? false);
       setDefaultSessionCount(response.defaultSessionsPerUserCount ?? 3);
       setShowCountChanged(false);
       if (smsRes) {
@@ -536,6 +539,7 @@ const InstituteSettingsPage = () => {
     try {
       const payload: Record<string, any> = {
         isSessionLimitEnabled: sessionLimitEnabled,
+        isStrictSessionLimit: strictSessionLimit,
       };
       if (sessionLimitEnabled && showCountChanged) {
         payload.defaultSessionsPerUserCount = defaultSessionCount;
@@ -1788,6 +1792,42 @@ const InstituteSettingsPage = () => {
                       <p className="text-xs text-muted-foreground">
                         New users who don't have a custom limit will use this default.
                       </p>
+                    </div>
+
+                    <Separator />
+
+                    {/* Strict enforcement toggle */}
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <Label className="text-base">Strict Device Enforcement</Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {strictSessionLimit
+                              ? 'Strict — login from a new device is blocked when the limit is reached. The user must ask the admin to remove an existing session first.'
+                              : 'Relaxed — when the limit is reached, the oldest session is automatically signed out so the new device can log in.'}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={strictSessionLimit}
+                          onCheckedChange={setStrictSessionLimit}
+                          disabled={!isInstituteAdmin}
+                        />
+                      </div>
+                      {strictSessionLimit ? (
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/10 px-3 py-2.5">
+                          <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                          <p className="text-xs text-amber-800 dark:text-amber-300">
+                            <span className="font-semibold">Strict mode:</span> If a user is logged in on iPhone 12 Pro Max (limit = 1), trying to log in on Samsung S21 will be rejected. The admin must go to Device Management and remove the iPhone session before the Samsung can log in.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-900/10 px-3 py-2.5">
+                          <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                          <p className="text-xs text-blue-800 dark:text-blue-300">
+                            <span className="font-semibold">Relaxed mode:</span> If a user is logged in on iPhone 12 Pro Max (limit = 1) and logs in on Samsung S21, the iPhone session is automatically signed out. All sessions appear in device history.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Apply mode — only shown when count changed */}

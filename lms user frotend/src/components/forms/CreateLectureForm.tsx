@@ -383,6 +383,7 @@ const CreateLectureForm = ({ onClose, onSuccess, courseId }: CreateLectureFormPr
               showPayments={true}
               instituteId={selectedInstitute?.id?.toString()}
               classId={selectedClass?.id?.toString()}
+              scope="subject"
             />
 
             <LectureWelcomeMessageSettings

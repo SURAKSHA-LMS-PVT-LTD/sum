@@ -125,6 +125,7 @@ const ClassCalendarPage = React.lazy(() => import('@/pages/ClassCalendarPage'));
 const DeviceManagement = React.lazy(() => import('@/pages/DeviceManagement'));
 const Feedback = React.lazy(() => import('@/components/Feedback'));
 const GlobalIdCardsPage = React.lazy(() => import('@/pages/GlobalIdCardsPage'));
+const InstituteDesignsPage = React.lazy(() => import('@/pages/InstituteDesignsPage'));
 const Payments = React.lazy(() => import('@/pages/Payments'));
 const InstituteHouses = React.lazy(() => import('@/pages/InstituteHouses'));
 const HouseDetail = React.lazy(() => import('@/pages/HouseDetail'));
@@ -133,6 +134,7 @@ const InstituteCreditsPage = React.lazy(() => import('@/pages/InstituteCreditsPa
 const CollectPhysicalPayment = React.lazy(() => import('@/pages/CollectPhysicalPayment'));
 const FinanceHubPage = React.lazy(() => import('@/pages/FinanceHubPage'));
 const TeacherFinancePage = React.lazy(() => import('@/pages/TeacherFinancePage'));
+const SubjectRecordingsPage = React.lazy(() => import('@/pages/SubjectRecordingsPage'));
 
 
 interface AppContentProps {
@@ -878,6 +880,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <FeatureGatedPage featureKey="exams" component={<Exams />} />;
         case 'study-materials':
           return <FeatureGatedPage featureKey="study-materials" component={<StudyMaterials />} />;
+        case 'subject-recordings':
+          return <FeatureGatedPage featureKey="subject-recordings" component={<SubjectRecordingsPage />} />;
         case 'results':
           return <FeatureGatedPage featureKey="exams" component={<Results />} />;
         case 'institute-lectures':
@@ -1129,6 +1133,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <FeatureGatedPage featureKey="homework" component={<StudentHomeworkSubmissions />} />;
         case 'study-materials':
           return <FeatureGatedPage featureKey="study-materials" component={<StudyMaterials />} />;
+        case 'subject-recordings':
+          return <FeatureGatedPage featureKey="subject-recordings" component={<SubjectRecordingsPage />} />;
         case 'exams':
           return <FeatureGatedPage featureKey="exams" component={<Exams />} />;
         case 'results':
@@ -1285,7 +1291,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       'parent-attendance',
       'my-attendance',
       'class-calendar',
-      'device-management'
+      'device-management',
+      'institute-designs'
     ];
     
     // Only redirect to institute selector if institute is not selected AND not loading from URL AND page is not in exception list
@@ -1416,6 +1423,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         return <FeatureGatedPage featureKey="homework" component={<StudentHomeworkSubmissions />} />;
       case 'study-materials':
         return <FeatureGatedPage featureKey="study-materials" component={<StudyMaterials />} />;
+      case 'subject-recordings':
+        return <FeatureGatedPage featureKey="subject-recordings" component={<SubjectRecordingsPage />} />;
       case 'exams':
         return <FeatureGatedPage featureKey="exams" component={<Exams />} />;
       case 'results':
@@ -1509,6 +1518,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         return <FeatureGatedPage featureKey="suraksha-finance" component={<FinanceHubPage />} />;
       case 'teacher-finance':
         return <FeatureGatedPage featureKey="teacher-finance" component={<TeacherFinancePage />} />;
+      case 'institute-designs':
+        return <InstituteDesignsPage />;
       default:
         return <Dashboard />;
     }

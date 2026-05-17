@@ -336,22 +336,24 @@ const DeviceManagement = () => {
 
         {/* Top-level tab switcher */}
         <Tabs defaultValue="attendance-devices">
-          {showSessionsTab && (
-            <TabsList className="mb-2">
-              <TabsTrigger value="attendance-devices" className="flex items-center gap-1.5">
-                <Tablet className="h-4 w-4" />
-                Attendance Devices
-              </TabsTrigger>
-              <TabsTrigger value="user-sessions" className="flex items-center gap-1.5">
-                <Monitor className="h-4 w-4" />
-                User Sessions
-              </TabsTrigger>
-              <TabsTrigger value="user-devices" className="flex items-center gap-1.5">
-                <User className="h-4 w-4" />
-                User Devices
-              </TabsTrigger>
-            </TabsList>
-          )}
+          <TabsList className={`mb-2 ${!showSessionsTab ? 'hidden' : ''}`}>
+            <TabsTrigger value="attendance-devices" className="flex items-center gap-1.5">
+              <Tablet className="h-4 w-4" />
+              Attendance Devices
+            </TabsTrigger>
+            {showSessionsTab && (
+              <>
+                <TabsTrigger value="user-sessions" className="flex items-center gap-1.5">
+                  <Monitor className="h-4 w-4" />
+                  User Sessions
+                </TabsTrigger>
+                <TabsTrigger value="user-devices" className="flex items-center gap-1.5">
+                  <User className="h-4 w-4" />
+                  User Devices
+                </TabsTrigger>
+              </>
+            )}
+          </TabsList>
 
           <TabsContent value="attendance-devices" className="space-y-6">
         {/* Stats Cards (System Admin) */}
@@ -1209,6 +1211,13 @@ function DeviceLimitEditor({ userId, instituteId, currentLimit, onUpdated }: Dev
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Sync displayed value when the parent refreshes data
+  useEffect(() => {
+    if (!editing) {
+      setValue(currentLimit !== null ? String(currentLimit) : '');
+    }
+  }, [currentLimit, editing]);
+
   useEffect(() => {
     if (editing && inputRef.current) inputRef.current.focus();
   }, [editing]);
@@ -1385,13 +1394,26 @@ function UserSessionsTab({ instituteId }: { instituteId: string }) {
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 20, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(1);
+    }, 350);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await instituteSessionApi.listSessions(instituteId, { page, limit: 20 });
+      const params: { page: number; limit: number; userId?: string } = { page, limit: 20 };
+      if (debouncedSearch.trim()) params.userId = debouncedSearch.trim();
+      const res = await instituteSessionApi.listSessions(instituteId, params);
       setSessions(res.data || []);
       setMeta(res.meta || { total: 0, page: 1, limit: 20, totalPages: 1 });
     } catch (err: any) {
@@ -1399,17 +1421,14 @@ function UserSessionsTab({ instituteId }: { instituteId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [instituteId, page, toast]);
+  }, [instituteId, page, debouncedSearch, toast]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Group sessions by user
+  // Group sessions by user (all results are already server-filtered)
   const grouped: GroupedUser[] = React.useMemo(() => {
-    const filtered = search
-      ? sessions.filter(s => s.userIdByInstitute?.toLowerCase().includes(search.toLowerCase()) || s.userId.toLowerCase().includes(search.toLowerCase()))
-      : sessions;
     const map = new Map<string, GroupedUser>();
-    for (const s of filtered) {
+    for (const s of sessions) {
       if (!map.has(s.userId)) {
         map.set(s.userId, {
           userId: s.userId,
@@ -1421,7 +1440,7 @@ function UserSessionsTab({ instituteId }: { instituteId: string }) {
       map.get(s.userId)!.sessions.push(s);
     }
     return Array.from(map.values());
-  }, [sessions, search]);
+  }, [sessions]);
 
   const toggleExpand = (userId: string) => {
     setExpandedUsers(prev => {
@@ -1461,7 +1480,7 @@ function UserSessionsTab({ instituteId }: { instituteId: string }) {
           <Input
             placeholder="Filter by user ID..."
             value={search}
-            onChange={e => { setSearch(e.target.value); }}
+            onChange={e => handleSearchChange(e.target.value)}
             className="pl-9"
           />
         </div>

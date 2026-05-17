@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { Building, Users, CheckCircle, RefreshCw, MapPin, Mail, Phone, Youtube, Facebook, Globe, Plus, ArrowLeft } from 'lucide-react';
+import { Building, Users, CheckCircle, RefreshCw, MapPin, Mail, Phone, Youtube, Facebook, Globe, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cachedApiClient } from '@/api/cachedClient';
 import { getBaseUrl } from '@/contexts/utils/auth.api';
@@ -330,19 +330,13 @@ const InstituteSelector = ({
       {institutes.length === 0 && !isLoading && hasAutoLoaded && <div className="flex flex-col items-center justify-center py-6 sm:py-12 px-2">
           <Building className="h-8 w-8 sm:h-12 sm:w-12 text-gray-300 dark:text-gray-600 mb-2 sm:mb-3" />
           <p className="text-gray-600 dark:text-gray-400 mb-3 sm:mb-4 text-center text-xs sm:text-sm">
-            No institutes found. Click to retry or create a new one.
+            No institutes found. Contact your administrator to get enrolled.
           </p>
           <div className="flex items-center gap-3">
             <Button onClick={handleLoadInstitutes} variant="outline" className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm h-7 sm:h-8">
               <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
               Retry
             </Button>
-            {!isTenantLogin && (
-              <Button onClick={() => navigate('/register/institute')} className="bg-primary hover:bg-primary/90 text-primary-foreground px-3 sm:px-4 py-1.5 text-xs sm:text-sm h-7 sm:h-8">
-                <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
-                Create New
-              </Button>
-            )}
           </div>
         </div>}
 
@@ -357,12 +351,6 @@ const InstituteSelector = ({
               Your Institutes ({institutes.length})
             </h2>
             <div className="flex items-center gap-2">
-              {!isTenantLogin && (
-                <Button onClick={() => navigate('/register/institute')} variant="default" size="sm" className="h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-2.5">
-                  <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1" />
-                  <span className="hidden xs:inline">Create New</span>
-                </Button>
-              )}
               <Button onClick={handleLoadInstitutes} variant="outline" size="sm" disabled={isLoading} className="h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-2.5">
                 <RefreshCw className={`h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1 ${isLoading ? 'animate-spin' : ''}`} />
                 <span className="hidden xs:inline">Refresh</span>

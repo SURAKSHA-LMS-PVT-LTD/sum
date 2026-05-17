@@ -49,6 +49,7 @@ export interface InstituteSettingsResponse {
   updatedAt: string;
   isSessionLimitEnabled?: boolean;
   defaultSessionsPerUserCount?: number;
+  isStrictSessionLimit?: boolean;
   printerSettings?: PrinterSettings | null;
   allowUserPhotoUpload?: boolean;
 }
@@ -130,6 +131,7 @@ export interface UpdateInstituteSettingsDto {
   facebookPageUrl?: string;
   youtubeChannelUrl?: string;
   allowUserPhotoUpload?: boolean;
+  isStrictSessionLimit?: boolean;
 }
 
 // ─── API ─────────────────────────────────────────────────────────

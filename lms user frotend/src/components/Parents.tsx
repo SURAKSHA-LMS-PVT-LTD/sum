@@ -401,7 +401,7 @@ const Parents = () => {
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
             <Users className="w-6 h-6 md:w-8 md:h-8" />
-            Institute Parents
+            {selectedClass ? 'Class Parents' : 'Parents'}
           </h1>
           <div className="text-sm md:text-base text-muted-foreground">
             <p>
@@ -645,7 +645,7 @@ const Parents = () => {
             )}
           </div>
         ) : (
-          <MUITable title="Institute Parents" columns={columns} data={filteredData} page={tableData.pagination.page} rowsPerPage={tableData.pagination.limit} totalCount={tableData.pagination.totalCount} onPageChange={tableData.actions.setPage} onRowsPerPageChange={tableData.actions.setLimit} rowsPerPageOptions={tableData.availableLimits} allowAdd={false} allowEdit={false} allowDelete={false} />
+          <MUITable title={selectedClass ? 'Class Parents' : 'Parents'} columns={columns} data={filteredData} page={tableData.pagination.page} rowsPerPage={tableData.pagination.limit} totalCount={tableData.pagination.totalCount} onPageChange={tableData.actions.setPage} onRowsPerPageChange={tableData.actions.setLimit} rowsPerPageOptions={tableData.availableLimits} allowAdd={false} allowEdit={false} allowDelete={false} />
         )}
       </div>
 

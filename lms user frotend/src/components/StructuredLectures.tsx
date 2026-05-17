@@ -23,6 +23,7 @@ import {
   ChevronDown, ChevronRight, RotateCcw, ExternalLink, Cloud, HardDrive, Link2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useToast } from '@/hooks/use-toast';
 import { structuredLecturesApi, StructuredLecture, StructuredLecturesResponse } from '@/api/structuredLectures.api';
@@ -312,6 +313,7 @@ const StructuredLectures = () => {
   const { selectedInstitute, selectedSubject, selectedClassGrade } = useAuth();
   const userRole = useInstituteRole();
   const { toast } = useToast();
+  const { subjectLabel } = useInstituteLabels();
 
   const canManage = MANAGE_ROLES.includes(userRole);
 
@@ -723,7 +725,7 @@ const StructuredLectures = () => {
                   ? 'Try adjusting your filters or search term.'
                   : selectedSubject
                     ? `No lectures for ${selectedSubject.name} yet.`
-                    : 'Select a subject or click Add Lecture to get started.'}
+                    : `Select a ${subjectLabel.toLowerCase()} or click Add Lecture to get started.`}
               </p>
               {canManage && (
                 <Button onClick={() => setShowCreate(true)} className="mt-4 rounded-xl gap-2" size="sm">

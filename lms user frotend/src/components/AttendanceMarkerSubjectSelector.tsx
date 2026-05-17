@@ -96,14 +96,14 @@ const AttendanceMarkerSubjectSelector = () => {
       setDataLoaded(true);
       
       if (subjectsData.length === 0) {
-        toast.error('No subjects found for this class');
+        toast.error(`No ${subjectsLabel.toLowerCase()} found for this class`);
       } else {
-        toast.success(`Loaded ${subjectsData.length} subjects`);
+        toast.success(`Loaded ${subjectsData.length} ${subjectsLabel.toLowerCase()}`);
       }
-      
+
     } catch (error: any) {
       console.error('Error fetching subjects:', error);
-      toast.error(`Failed to load subjects: ${getErrorMessage(error, 'Unknown error occurred')}`);
+      toast.error(`Failed to load ${subjectsLabel.toLowerCase()}: ${getErrorMessage(error, 'Unknown error occurred')}`);
       setSubjects([]);
       setDataLoaded(false);
     } finally {
@@ -190,7 +190,7 @@ const AttendanceMarkerSubjectSelector = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading subjects...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading {subjectsLabel.toLowerCase()}...</p>
         </div>
       </div>
     );

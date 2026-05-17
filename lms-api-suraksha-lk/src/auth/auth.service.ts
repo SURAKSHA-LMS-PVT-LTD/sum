@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -1443,6 +1444,10 @@ export class AuthService {
     try {
       const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
 
+      if (!refreshSecret) {
+        throw new Error('JWT_REFRESH_SECRET is not configured');
+      }
+
       // Verify refresh token
       const payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: refreshSecret
@@ -1450,6 +1455,10 @@ export class AuthService {
 
       if (payload.type !== 'refresh') {
         throw new UnauthorizedException('Invalid token type');
+      }
+
+      if (!payload.sub) {
+        throw new UnauthorizedException('Invalid token payload');
       }
 
       // 🔐 SECURITY: Lookup by hashed token (with plain-text fallback for migration)
@@ -1572,14 +1581,16 @@ export class AuthService {
   }
 
   /**
-   * 🗑️ Cleanup expired refresh tokens
-   * Should be run periodically (cron job)
+   * 🗑️ Cleanup expired refresh tokens — runs every day at 02:30 Sri Lanka time.
+   * Prevents the refresh_tokens table growing unboundedly.
    */
+  @Cron('0 30 2 * * *', { name: 'cleanup-expired-refresh-tokens', timeZone: 'Asia/Colombo' })
   async cleanupExpiredTokens(): Promise<void> {
     try {
-      await this.refreshTokenRepository.delete({
-        expiresAt: LessThan(now())
+      const result = await this.refreshTokenRepository.delete({
+        expiresAt: LessThan(now()),
       });
+      this.logger.log(`Token cleanup: removed ${result.affected ?? 0} expired refresh tokens`);
     } catch (error) {
       this.logger.error(`Failed to cleanup expired tokens: ${error.message}`);
     }
@@ -1752,6 +1763,10 @@ export class AuthService {
     try {
       const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
 
+      if (!refreshSecret) {
+        throw new Error('JWT_REFRESH_SECRET is not configured');
+      }
+
       // Verify refresh token
       const payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: refreshSecret
@@ -1759,6 +1774,10 @@ export class AuthService {
 
       if (payload.type !== 'refresh') {
         throw new UnauthorizedException('Invalid token type');
+      }
+
+      if (!payload.sub) {
+        throw new UnauthorizedException('Invalid token payload');
       }
 
       // 📱 SECURITY: Verify device ID matches token

@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, ChevronRight, ChevronLeft, School, BookOpen, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { useToast } from '@/hooks/use-toast';
 import { cachedApiClient } from '@/api/cachedClient';
 import AssignUsersDialog from '@/components/forms/AssignUsersDialog';
@@ -60,6 +61,7 @@ const StudentEnrollDrilldown: React.FC<StudentEnrollDrilldownProps> = ({
 }) => {
   const { user, loadUserInstitutes, selectedInstitute, selectedClass } = useAuth();
   const { toast } = useToast();
+  const { subjectLabel, subjectsLabel } = useInstituteLabels();
 
   // ── Step & selection state ────────────────────────────────────────────────
   const [step, setStep] = useState<EnrollStep>(startStep);
@@ -155,7 +157,7 @@ const StudentEnrollDrilldown: React.FC<StudentEnrollDrilldownProps> = ({
   const stepTitle: Record<EnrollStep, string> = {
     institute: 'Select Institute',
     class: `Select Class — ${pickedInstitute?.shortName ?? pickedInstitute?.name ?? ''}`,
-    subject: `Select Subject — ${pickedClass?.name ?? ''}`,
+    subject: `Select ${subjectLabel} — ${pickedClass?.name ?? ''}`,
   };
 
   const stepIcon: Record<EnrollStep, React.ReactNode> = {
@@ -280,7 +282,7 @@ const StudentEnrollDrilldown: React.FC<StudentEnrollDrilldownProps> = ({
                 {step === 'subject' && (
                   <div className="space-y-1">
                     {subjects.length === 0 ? (
-                      <p className="text-center text-sm text-muted-foreground py-8">No subjects found</p>
+                      <p className="text-center text-sm text-muted-foreground py-8">No {subjectsLabel.toLowerCase()} found</p>
                     ) : subjects.map((sub) => (
                       <button
                         key={sub.id}

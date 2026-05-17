@@ -175,6 +175,14 @@ export class InstituteEntity {
   @Column({ name: 'default_sessions_per_user_count', type: 'int', default: 1, comment: 'Default device limit when new users enroll' })
   defaultSessionsPerUserCount: number;
 
+  @Column({
+    name: 'is_strict_session_limit',
+    type: 'boolean',
+    default: false,
+    comment: 'When true, new login blocked if limit reached. When false, oldest session auto-kicked.',
+  })
+  isStrictSessionLimit: boolean = false;
+
   // Login Page Customization
   @Column({ name: 'custom_login_enabled', type: 'boolean', default: false, comment: 'Whether custom login page is active' })
   customLoginEnabled: boolean;
@@ -287,6 +295,14 @@ export class InstituteEntity {
     comment: 'When false, institute users cannot upload their own profile photo — only admins can update it',
   })
   allowUserPhotoUpload: boolean = true;
+
+  @Column({
+    name: 'design_templates',
+    type: 'json',
+    nullable: true,
+    comment: 'Institute-level design templates for certificates, birthday wishes, etc.',
+  })
+  designTemplates?: any[];
 
 }
 

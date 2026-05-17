@@ -338,6 +338,7 @@ const CreateClassLectureForm = ({ onClose, onSuccess }: CreateClassLectureFormPr
               instituteId={selectedInstitute?.id?.toString()}
               classId={selectedClass?.id?.toString()}
               paymentType="class"
+              scope="class"
             />
 
             <LectureWelcomeMessageSettings

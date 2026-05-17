@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BookMarked } from 'lucide-react';
 import { instituteApi } from '@/api/institute.api';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 
 export interface SubjectOption {
   id: string;
@@ -34,12 +35,15 @@ const SubjectSelect: React.FC<SubjectSelectProps> = ({
   classId,
   value,
   onChange,
-  label = 'Subject',
-  placeholder = 'Select subject…',
+  label,
+  placeholder,
   required = false,
   disabled = false,
   className,
 }) => {
+  const { subjectLabel } = useInstituteLabels();
+  const resolvedLabel = label ?? subjectLabel;
+  const resolvedPlaceholder = placeholder ?? `Select ${subjectLabel.toLowerCase()}…`;
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -62,16 +66,16 @@ const SubjectSelect: React.FC<SubjectSelectProps> = ({
 
   if (loading) return (
     <div className={`space-y-1 ${className ?? ''}`}>
-      {label && <Label className="text-sm font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>}
+      {resolvedLabel && <Label className="text-sm font-medium">{resolvedLabel}{required && <span className="text-destructive ml-0.5">*</span>}</Label>}
       <Skeleton className="h-10 w-full" />
     </div>
   );
 
   return (
     <div className={`space-y-1 ${className ?? ''}`}>
-      {label && (
+      {resolvedLabel && (
         <Label className="text-sm font-medium">
-          {label}{required && <span className="text-destructive ml-0.5">*</span>}
+          {resolvedLabel}{required && <span className="text-destructive ml-0.5">*</span>}
         </Label>
       )}
       <Select
@@ -85,7 +89,7 @@ const SubjectSelect: React.FC<SubjectSelectProps> = ({
         <SelectTrigger>
           <div className="flex items-center gap-2">
             <BookMarked className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <SelectValue placeholder={!classId ? 'Select class first' : subjects.length === 0 ? 'No subjects found' : placeholder} />
+            <SelectValue placeholder={!classId ? 'Select class first' : subjects.length === 0 ? `No ${subjectLabel.toLowerCase()}s found` : resolvedPlaceholder} />
           </div>
         </SelectTrigger>
         <SelectContent>

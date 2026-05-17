@@ -38,7 +38,7 @@ export const userTypesApi = {
     return apiClient.get<UserType>(`/user-types/${id}`);
   },
 
-  async create(instituteId: string, data: Omit<UserType, 'id' | 'slug' | 'isSystemType' | 'createdAt' | 'updatedAt'>): Promise<UserType> {
+  async create(instituteId: string, data: Omit<UserType, 'id' | 'slug' | 'isSystemType' | 'createdAt' | 'updatedAt'> & { baseTypeSlug?: string }): Promise<UserType> {
     return apiClient.post<UserType>(`/user-types/institute/${instituteId}`, data);
   },
 

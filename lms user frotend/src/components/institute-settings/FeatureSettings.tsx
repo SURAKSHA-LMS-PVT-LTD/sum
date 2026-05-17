@@ -7,6 +7,7 @@ import { useFeatures } from '@/contexts/FeaturesContext';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import {
   Loader2, Lock, Building2, BookOpen, FileText,
   GraduationCap, Users, CalendarCheck, CreditCard,
@@ -38,60 +39,17 @@ interface NavNode {
   description: string;
 }
 
-const NAV_TREE: Array<{
-  scope: string;
-  scopeLabel: string;
-  icon: React.ElementType;
-  scopeDescription: string;
-  groups: NavNode[];
-}> = [
-  {
-    scope: 'INSTITUTE',
-    scopeLabel: 'Institute Level',
-    icon: Building2,
-    scopeDescription: 'Features available across the whole institute',
-    groups: [
-      { id: 'INSTITUTE__ACADEMICS',     scope: 'INSTITUTE', category: 'ACADEMICS',     label: 'Academics',          icon: GraduationCap, description: 'Classes, subjects, lectures and structured learning' },
-      { id: 'INSTITUTE__SERVICES',      scope: 'INSTITUTE', category: 'SERVICES',      label: 'User Management',    icon: Users,         description: 'Manage all users, parents and photo verification' },
-      { id: 'INSTITUTE__ATTENDANCE',    scope: 'INSTITUTE', category: 'ATTENDANCE',    label: 'Attendance',         icon: CalendarCheck, description: 'QR, RFID, daily and lecture attendance tracking' },
-      { id: 'INSTITUTE__COMMUNICATION', scope: 'INSTITUTE', category: 'COMMUNICATION', label: 'Communication',      icon: MessageSquare, description: 'SMS, notifications and messaging features' },
-      { id: 'INSTITUTE__PAYMENTS',      scope: 'INSTITUTE', category: 'PAYMENTS',      label: 'Payments & Billing', icon: CreditCard,    description: 'Fees collection, billing and institute wallet' },
-      { id: 'INSTITUTE__TRANSPORT',     scope: 'INSTITUTE', category: 'TRANSPORT',     label: 'Transport',          icon: Truck,         description: 'Student transport and routing' },
-      { id: 'INSTITUTE__BRANDING',      scope: 'INSTITUTE', category: 'BRANDING',      label: 'Domain & Branding',  icon: Globe,         description: 'Subdomain, custom domain and login page branding' },
-      { id: 'INSTITUTE__TOOLS',         scope: 'INSTITUTE', category: 'TOOLS',         label: 'Admin Tools',        icon: Wrench,        description: 'Device management, ID cards and system tools' },
-    ],
-  },
-  {
-    scope: 'CLASS',
-    scopeLabel: 'Class Level',
-    icon: BookOpen,
-    scopeDescription: 'Features available within each class',
-    groups: [
-      { id: 'CLASS__ACADEMICS',      scope: 'CLASS', category: 'ACADEMICS',     label: 'Academics',        icon: GraduationCap, description: 'Subjects and lectures per class' },
-      { id: 'CLASS__SERVICES',       scope: 'CLASS', category: 'SERVICES',      label: 'Students',         icon: Users,         description: 'Enrolled students and pending approvals' },
-      { id: 'CLASS__ATTENDANCE',     scope: 'CLASS', category: 'ATTENDANCE',    label: 'Attendance',       icon: CalendarCheck, description: 'Class-level attendance marking and tracking' },
-      { id: 'CLASS__PAYMENTS',       scope: 'CLASS', category: 'PAYMENTS',      label: 'Payments',         icon: CreditCard,    description: 'Class fee collection and payment collection' },
-      { id: 'CLASS__COMMUNICATION',  scope: 'CLASS', category: 'COMMUNICATION', label: 'Communication',    icon: MessageSquare, description: 'Notifications and messaging inside a class' },
-    ],
-  },
-  {
-    scope: 'SUBJECT',
-    scopeLabel: 'Subject Level',
-    icon: FileText,
-    scopeDescription: 'Features available within each subject',
-    groups: [
-      { id: 'SUBJECT__ACADEMICS',      scope: 'SUBJECT', category: 'ACADEMICS',     label: 'Academics',        icon: GraduationCap, description: 'Lectures, homework, exams, study materials' },
-      { id: 'SUBJECT__ATTENDANCE',     scope: 'SUBJECT', category: 'ATTENDANCE',    label: 'Attendance',       icon: CalendarCheck, description: 'Subject-level attendance tracking' },
-      { id: 'SUBJECT__PAYMENTS',       scope: 'SUBJECT', category: 'PAYMENTS',      label: 'Payments',         icon: CreditCard,    description: 'Payment collection inside a subject' },
-      { id: 'SUBJECT__COMMUNICATION',  scope: 'SUBJECT', category: 'COMMUNICATION', label: 'Communication',    icon: MessageSquare, description: 'Notifications and messaging inside a subject' },
-    ],
-  },
-];
+// NAV_TREE is now built inside the component so it can use dynamic subject labels.
 
 // Map catalog categories to nav node IDs (handles aliases like SERVICES being split)
-function getCategoryNodeId(scope: string, category: string): string {
-  // Admin Tools + some Services both go under TOOLS at institute level
-  if (scope === 'INSTITUTE' && (category === 'TOOLS')) {
+// Keys that are categorised as SERVICES in the DB but shown under Admin Tools in the UI
+const ADMIN_TOOLS_KEYS = new Set(['device-management', 'institute-designs']);
+
+function getCategoryNodeId(scope: string, category: string, key?: string): string {
+  if (scope === 'INSTITUTE' && key && ADMIN_TOOLS_KEYS.has(key)) {
+    return 'INSTITUTE__TOOLS';
+  }
+  if (scope === 'INSTITUTE' && category === 'TOOLS') {
     return 'INSTITUTE__TOOLS';
   }
   return `${scope}__${category}`;
@@ -104,6 +62,51 @@ export const FeatureSettings: React.FC = () => {
   const instituteId = selectedInstitute?.id;
   const { features, refetchFeatures } = useFeatures();
   const { toast } = useToast();
+  const { subjectLabel, subjectsLabel } = useInstituteLabels();
+
+  const NAV_TREE = useMemo(() => [
+    {
+      scope: 'INSTITUTE',
+      scopeLabel: 'Institute Level',
+      icon: Building2,
+      scopeDescription: 'Features available across the whole institute',
+      groups: [
+        { id: 'INSTITUTE__ACADEMICS',     scope: 'INSTITUTE', category: 'ACADEMICS',     label: 'Academics',          icon: GraduationCap, description: `Classes, ${subjectsLabel.toLowerCase()}, lectures and structured learning` },
+        { id: 'INSTITUTE__SERVICES',      scope: 'INSTITUTE', category: 'SERVICES',      label: 'User Management',    icon: Users,         description: 'Manage all users, parents and photo verification' },
+        { id: 'INSTITUTE__ATTENDANCE',    scope: 'INSTITUTE', category: 'ATTENDANCE',    label: 'Attendance',         icon: CalendarCheck, description: 'QR, RFID, daily and lecture attendance tracking' },
+        { id: 'INSTITUTE__COMMUNICATION', scope: 'INSTITUTE', category: 'COMMUNICATION', label: 'Communication',      icon: MessageSquare, description: 'SMS, notifications and messaging features' },
+        { id: 'INSTITUTE__PAYMENTS',      scope: 'INSTITUTE', category: 'PAYMENTS',      label: 'Payments & Billing', icon: CreditCard,    description: 'Fees collection, billing and institute wallet' },
+        { id: 'INSTITUTE__TRANSPORT',     scope: 'INSTITUTE', category: 'TRANSPORT',     label: 'Transport',          icon: Truck,         description: 'Student transport and routing' },
+        { id: 'INSTITUTE__BRANDING',      scope: 'INSTITUTE', category: 'BRANDING',      label: 'Domain & Branding',  icon: Globe,         description: 'Subdomain, custom domain and login page branding' },
+        { id: 'INSTITUTE__TOOLS',         scope: 'INSTITUTE', category: 'TOOLS',         label: 'Admin Tools',        icon: Wrench,        description: 'Device management, ID cards and system tools' },
+      ],
+    },
+    {
+      scope: 'CLASS',
+      scopeLabel: 'Class Level',
+      icon: BookOpen,
+      scopeDescription: 'Features available within each class',
+      groups: [
+        { id: 'CLASS__ACADEMICS',      scope: 'CLASS', category: 'ACADEMICS',     label: 'Academics',        icon: GraduationCap, description: `${subjectsLabel} and lectures per class` },
+        { id: 'CLASS__SERVICES',       scope: 'CLASS', category: 'SERVICES',      label: 'Students',         icon: Users,         description: 'Enrolled students and pending approvals' },
+        { id: 'CLASS__ATTENDANCE',     scope: 'CLASS', category: 'ATTENDANCE',    label: 'Attendance',       icon: CalendarCheck, description: 'Class-level attendance marking and tracking' },
+        { id: 'CLASS__PAYMENTS',       scope: 'CLASS', category: 'PAYMENTS',      label: 'Payments',         icon: CreditCard,    description: 'Class fee collection and payment collection' },
+        { id: 'CLASS__COMMUNICATION',  scope: 'CLASS', category: 'COMMUNICATION', label: 'Communication',    icon: MessageSquare, description: 'Notifications and messaging inside a class' },
+      ],
+    },
+    {
+      scope: 'SUBJECT',
+      scopeLabel: `${subjectLabel} Level`,
+      icon: FileText,
+      scopeDescription: `Features available within each ${subjectLabel.toLowerCase()}`,
+      groups: [
+        { id: 'SUBJECT__ACADEMICS',      scope: 'SUBJECT', category: 'ACADEMICS',     label: 'Academics',        icon: GraduationCap, description: `Lectures, homework, exams, recordings and study materials` },
+        { id: 'SUBJECT__ATTENDANCE',     scope: 'SUBJECT', category: 'ATTENDANCE',    label: 'Attendance',       icon: CalendarCheck, description: `${subjectLabel}-level attendance tracking` },
+        { id: 'SUBJECT__PAYMENTS',       scope: 'SUBJECT', category: 'PAYMENTS',      label: 'Payments',         icon: CreditCard,    description: `Payment collection inside a ${subjectLabel.toLowerCase()}` },
+        { id: 'SUBJECT__COMMUNICATION',  scope: 'SUBJECT', category: 'COMMUNICATION', label: 'Communication',    icon: MessageSquare, description: `Notifications and messaging inside a ${subjectLabel.toLowerCase()}` },
+      ],
+    },
+  ], [subjectLabel, subjectsLabel]);
 
   const [catalog, setCatalog] = useState<CatalogFeature[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,7 +137,7 @@ export const FeatureSettings: React.FC = () => {
   const byNodeId = useMemo(() => {
     const map: Record<string, CatalogFeature[]> = {};
     for (const f of catalog) {
-      const nodeId = getCategoryNodeId(f.scope.toUpperCase(), f.category.toUpperCase());
+      const nodeId = getCategoryNodeId(f.scope.toUpperCase(), f.category.toUpperCase(), f.key);
       if (!map[nodeId]) map[nodeId] = [];
       map[nodeId].push(f);
     }
@@ -142,7 +145,6 @@ export const FeatureSettings: React.FC = () => {
   }, [catalog]);
 
   const isEnabled = (key: string) => changes[key] ?? (features[key]?.enabled ?? true);
-  const featureScope = (key: string): string => (features[key]?.scope ?? 'institute').toLowerCase();
   const isDependencyMet = (f: CatalogFeature) => (f.dependencies ?? []).every(dep => isEnabled(dep));
 
   const handleToggle = (key: string, enabled: boolean) => {
@@ -210,9 +212,9 @@ export const FeatureSettings: React.FC = () => {
               <div className="flex gap-2">
                 <div className="w-2 h-2 rounded-full bg-violet-500 mt-1.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-blue-800 dark:text-blue-200">Subject features</p>
+                  <p className="font-medium text-blue-800 dark:text-blue-200">{subjectLabel} features</p>
                   <p className="text-blue-700/80 dark:text-blue-300/80 text-xs leading-relaxed">
-                    Disabled = hidden only when inside a subject. Institute &amp; class nav unaffected.
+                    Disabled = hidden only when inside a {subjectLabel.toLowerCase()}. Institute &amp; class nav unaffected.
                   </p>
                 </div>
               </div>
@@ -232,7 +234,7 @@ export const FeatureSettings: React.FC = () => {
         <div>
           <h2 className="text-lg font-semibold">Feature Management</h2>
           <p className="text-sm text-muted-foreground">
-            Enable or disable features at each level — institute, class or subject.
+            Enable or disable features at each level — institute, class or {subjectLabel.toLowerCase()}.
           </p>
         </div>
         {changesCount > 0 && (
@@ -340,7 +342,7 @@ export const FeatureSettings: React.FC = () => {
                       const changed = changes[feature.key] !== undefined;
                       // Use catalog scope (always accurate) normalized to lowercase for comparisons
                       const scope = feature.scope.toLowerCase();
-                      const scopeLabel = scope === 'subject' ? 'Subject' : scope === 'class' ? 'Class' : 'Institute';
+                      const scopeLabel = scope === 'subject' ? subjectLabel : scope === 'class' ? 'Class' : 'Institute';
                       const scopeColor = scope === 'subject'
                         ? 'text-violet-600 border-violet-300 dark:border-violet-700'
                         : scope === 'class'
@@ -383,7 +385,7 @@ export const FeatureSettings: React.FC = () => {
                             )}
                             {!enabled && !feature.isCore && (
                               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                Hidden from sidebar {scope === 'class' ? 'when navigating inside a class' : scope === 'subject' ? 'when navigating inside a subject' : 'when at institute level'}
+                                Hidden from sidebar {scope === 'class' ? 'when navigating inside a class' : scope === 'subject' ? `when navigating inside a ${subjectLabel.toLowerCase()}` : 'when at institute level'}
                               </p>
                             )}
                           </div>

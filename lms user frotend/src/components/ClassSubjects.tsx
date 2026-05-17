@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { RefreshCw, Filter, UserPlus, UserMinus, Settings, Copy, Lock, Unlock, KeyRound, ChevronDown, BookOpen, ChevronsDownUp, ChevronsUpDown, LayoutGrid, Table2, Search, X, Link2, CreditCard, Key, MoreVertical } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useViewMode } from '@/hooks/useViewMode';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -61,6 +62,7 @@ interface SubjectData {
 }
 
 const ClassSubjects = () => {
+  const { subjectsLabel } = useInstituteLabels();
   const {
     user,
     selectedInstitute,
@@ -776,7 +778,7 @@ const ClassSubjects = () => {
                 {isLoading ? (
                   <div className="flex justify-center py-16"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                 ) : (
-                  <EmptyState icon={BookOpen} title="No Subjects Found" description="No subjects match your current filters." />
+                  <EmptyState icon={BookOpen} title={`No ${subjectsLabel} Found`} description={`No ${subjectsLabel.toLowerCase()} match your current filters.`} />
                 )}
               </div>
             ) : (showAllCards ? filteredSubjects : filteredSubjects.slice(0, CARD_INITIAL_SHOW)).map((subject: SubjectData) => {

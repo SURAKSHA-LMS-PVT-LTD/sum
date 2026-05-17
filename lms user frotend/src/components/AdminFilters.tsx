@@ -1,11 +1,13 @@
 
 import React, { useState } from 'react';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Filter, X } from 'lucide-react';
 
 const AdminFilters = () => {
+  const { subjectLabel } = useInstituteLabels();
   const [selectedInstitute, setSelectedInstitute] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
@@ -96,7 +98,7 @@ const AdminFilters = () => {
             </label>
             <Select value={selectedSubject} onValueChange={setSelectedSubject}>
               <SelectTrigger>
-                <SelectValue placeholder="Select Subject" />
+                <SelectValue placeholder={`Select ${subjectLabel}`} />
               </SelectTrigger>
               <SelectContent>
                 {mockSubjects.map((subject) => (

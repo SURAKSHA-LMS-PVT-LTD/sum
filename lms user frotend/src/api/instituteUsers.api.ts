@@ -6,6 +6,14 @@ import { apiClient } from './client';
 class InstituteUsersApi {
   // (existing methods)
 
+  async getDesignTemplates(instituteId: string): Promise<any[]> {
+    return apiClient.get(`/institutes/${instituteId}/design-templates`);
+  }
+
+  async saveDesignTemplates(instituteId: string, templates: any[]): Promise<any[]> {
+    return apiClient.post(`/institutes/${instituteId}/design-templates`, { templates });
+  }
+
   async getUsersByInstituteAndType(
     instituteId: string,
     userTypeId: string,

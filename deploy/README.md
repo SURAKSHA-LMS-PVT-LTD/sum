@@ -63,8 +63,8 @@ scp deploy/scripts/01-server-setup.sh ubuntu@SERVER_IP:~/
 ssh ubuntu@SERVER_IP 'bash ~/01-server-setup.sh'
 ```
 
-The script installs: Node 20, PM2, MySQL 8, Redis, Nginx, Certbot, UFW, fail2ban.
-Generated passwords are saved to `~/credentials.txt`.
+The script installs: Node 20 (nvm), PM2, Cloud SQL Auth Proxy, Redis 7, Nginx, Certbot, UFW, fail2ban.
+The Redis password is generated randomly and saved to `~/credentials.txt`.
 
 ### Step 3 — Create .env
 
@@ -75,20 +75,24 @@ nano ~/apps/lms-api/.env
 chmod 600 ~/apps/lms-api/.env
 ```
 
-Fill these values:
+Start from `lms-api-suraksha-lk/.env.example` — every `CHANGE_ME` must be filled:
 
-| Variable | Where to get it |
+| Variable | How to generate / where to find |
 |---|---|
-| `DB_PASSWORD` | `db_password` from your `terraform.tfvars` |
-| `REDIS_PASSWORD` | `~/credentials.txt` on the server |
+| `DB_PASSWORD` | `db_password` you set in `terraform.tfvars` |
+| `REDIS_PASSWORD` | `grep Redis ~/credentials.txt` |
 | `BACKUP_BUCKET` | `terraform output -raw backup_bucket` |
-| `JWT_SECRET` | `openssl rand -base64 64 \| tr -d '\n'` |
-| `JWT_REFRESH_SECRET` | `openssl rand -base64 64 \| tr -d '\n'` |
-| `BCRYPT_PEPPER` | `openssl rand -hex 32` |
-| `ENCRYPTION_KEY` | `openssl rand -hex 32` |
+| `JWT_SECRET` | `openssl rand -hex 64` |
+| `JWT_REFRESH_SECRET` | `openssl rand -hex 64` (different from JWT_SECRET) |
+| `UPLOAD_TOKEN_SECRET` | `openssl rand -hex 64` |
+| `BCRYPT_PEPPER` | `openssl rand -hex 64` — **back this up; never change it after first use** |
+| `SPECIAL_API_KEY` | `openssl rand -hex 32` |
 | `DRIVE_TOKEN_ENCRYPTION_KEY` | `openssl rand -hex 32` |
+| `TELEGRAM_SECRET_TOKEN` | `openssl rand -hex 32` |
+| `GCS_*` / `FIREBASE_*` | JSON key fields from GCP service account JSON file |
+| `GOOGLE_CLIENT_ID/SECRET` | Google Cloud Console → OAuth 2.0 credentials |
 
-`DB_HOST=127.0.0.1` and `DB_PORT=3306` are correct as-is — the Cloud SQL Auth Proxy is already running on those coordinates.
+`DB_HOST=127.0.0.1` and `DB_PORT=3306` are correct as-is — the Cloud SQL Auth Proxy listens there.
 
 ### Step 4 — Deploy backend
 
@@ -195,6 +199,65 @@ sudo ufw status verbose
 # fail2ban
 sudo fail2ban-client status
 sudo fail2ban-client status sshd
+```
+
+---
+
+## Secret rotation checklist
+
+Run through this any time a secret may have been compromised, or every 90 days.
+
+### JWT secrets (JWT_SECRET, JWT_REFRESH_SECRET, UPLOAD_TOKEN_SECRET)
+```bash
+# 1. Generate new values
+openssl rand -hex 64   # new JWT_SECRET
+openssl rand -hex 64   # new JWT_REFRESH_SECRET
+
+# 2. Update .env on server, then reload — all active sessions are invalidated
+pm2 reload lms-api --update-env
+```
+All logged-in users will be signed out and must log in again. This is expected.
+
+### BCRYPT_PEPPER — EXTREME CAUTION
+Changing BCRYPT_PEPPER invalidates ALL existing password hashes.
+Every user would need to reset their password before this can be changed.
+Only rotate if you are certain the old value was exfiltrated AND you have a
+migration plan in place (force-reset emails to all users).
+
+### Database password
+```bash
+# 1. Change in Cloud SQL console or via Terraform:
+#    Update db_password in terraform.tfvars, then: terraform apply
+
+# 2. Update .env on server:
+nano ~/apps/lms-api/.env   # update DB_PASSWORD
+pm2 reload lms-api --update-env
+```
+
+### Redis password
+```bash
+# 1. Generate new password
+NEW_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
+
+# 2. Update Redis config
+sudo sed -i "s/^requirepass .*/requirepass $NEW_PASS/" /etc/redis/redis.conf
+sudo systemctl restart redis-server
+
+# 3. Update .env on server
+nano ~/apps/lms-api/.env   # update REDIS_PASSWORD
+pm2 reload lms-api --update-env
+echo "New Redis password: $NEW_PASS" >> ~/credentials.txt
+```
+
+### AWS / GCS / Firebase / Google OAuth
+Revoke the old key/secret in the respective cloud console,
+generate a new one, update `.env`, then `pm2 reload lms-api --update-env`.
+
+### After any rotation — verify
+```bash
+pm2 status                    # all processes online
+curl -sf https://lmsapi.suraksha.lk/health && echo "API healthy"
+pm2 logs lms-api --lines 30   # check for auth errors
 ```
 
 ---

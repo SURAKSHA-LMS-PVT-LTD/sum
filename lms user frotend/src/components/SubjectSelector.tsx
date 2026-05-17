@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ChildCurrentSelection from '@/components/ChildCurrentSelection';
 import { enrollmentApi } from '@/api/enrollment.api';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 
 interface Subject {
   id: string;
@@ -537,9 +538,7 @@ const SubjectSelector = () => {
       </div>;
   }
   const isTuitionInstitute = selectedInstitute?.type === 'tuition_institute';
-  // useInstituteLabels doesn't provide subject-related labels, so we use defaults
-  const subjectLabel = 'Subject';
-  const subjectLabelPlural = 'Subjects';
+  const { subjectLabel, subjectsLabel: subjectLabelPlural } = useInstituteLabels();
 
   return <div className="space-y-2 sm:space-y-4 p-1 sm:p-2 md:p-0">
       {/* Show Current Child Selection for Parent flow */}
@@ -573,7 +572,7 @@ const SubjectSelector = () => {
 
       {subjectsData.length === 0 && !isLoading ? <div className="text-center py-10">
           <p className="text-muted-foreground">
-            No subjects found for this class
+            No {subjectLabelPlural.toLowerCase()} found for this class
           </p>
         </div> : <div className="flex flex-col min-h-[calc(100vh-180px)]">
           {/* Unified Card View - Same size on all devices */}

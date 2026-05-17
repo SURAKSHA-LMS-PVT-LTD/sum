@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { instituteApi } from '@/api/institute.api';
 import { instituteClassesApi, InstituteClass } from '@/api/instituteClasses.api';
 import { usersApi, UserLookupResult, normalizePhoneNumber } from '@/api/users.api';
@@ -202,6 +203,7 @@ type Lang = keyof typeof FORM_LABELS;
 const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSubmit, onCancel, mode = 'dialog' }) => {
   const { toast } = useToast();
   const { currentInstituteId } = useAuth();
+  const { subjectsLabel } = useInstituteLabels();
   const navigate = useNavigate();
   const isPageMode = mode === 'page';
   const [isLoading, setIsLoading] = useState(false);
@@ -848,11 +850,11 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
                           </label>
                         ))}
                         {classSubjects[enrollment.classId].length === 0 && (
-                          <p className="text-xs text-muted-foreground">{L.noSubjectsFound}</p>
+                          <p className="text-xs text-muted-foreground">No {subjectsLabel.toLowerCase()} found for this class</p>
                         )}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">{L.loadingSubjects}</p>
+                      <p className="text-xs text-muted-foreground">Loading {subjectsLabel.toLowerCase()}...</p>
                     )}
                   </div>
                 ))}

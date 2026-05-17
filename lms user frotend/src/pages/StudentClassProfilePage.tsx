@@ -14,6 +14,7 @@ import { apiClient } from '@/api/client';
 import { classPaymentsApi } from '@/api/classPayments.api';
 import { lectureApi } from '@/api/lecture.api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { formatNameToInitials } from '@/utils/nameFormatters';
 import { generateStudentClassReport } from '@/utils/studentClassReport';
 import ReportDialog, { type ReportDialogResult } from '@/components/ReportDialog';
@@ -109,6 +110,7 @@ const StudentClassProfilePage: React.FC = () => {
   const studentIdMatch = location.pathname.match(/\/student\/([^\/]+)\/profile/);
   const studentId = studentIdMatch ? studentIdMatch[1] : undefined;
   const { selectedInstitute, selectedClass } = useAuth();
+  const { subjectsLabel } = useInstituteLabels();
 
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [loadingStudent, setLoadingStudent] = useState(true);
@@ -730,7 +732,7 @@ const StudentClassProfilePage: React.FC = () => {
         </Section>
 
         <Section id="subjects" icon={BookOpen} title="Enrolled Subjects" isOpen={openSections.has('subjects')} onToggle={() => toggleSection('subjects')} loading={loadingSubjects} error={subjectsError} onRetry={() => { setSubjectsLoaded(false); loadSubjects(); }}>
-          {loadingSubjects ? <div className="space-y-2">{Array(3).fill(0).map((_, i) => <SkeletonRow key={i} />)}</div> : subjects.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No subjects found for this class.</p> : (
+          {loadingSubjects ? <div className="space-y-2">{Array(3).fill(0).map((_, i) => <SkeletonRow key={i} />)}</div> : subjects.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No {subjectsLabel.toLowerCase()} found for this class.</p> : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {subjects.map(s => (
                 <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">

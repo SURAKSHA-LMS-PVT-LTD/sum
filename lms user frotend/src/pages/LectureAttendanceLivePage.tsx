@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { lectureApi, Lecture } from '@/api/lecture.api';
@@ -14,8 +14,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from '@/components/ui/sheet';
+import {
   ArrowLeft, Calendar, Users,
-  Loader2, RefreshCw, ChevronRight, Clock, FileDown, CheckCircle2, XCircle,
+  Loader2, RefreshCw, Clock, FileDown, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
 import { useContextUrlSync } from '@/utils/pageNavigation';
@@ -48,6 +51,14 @@ export default function LectureAttendanceLivePage() {
   // ── Dedicated grid view state ─────────────────────────────────────────────
   const [viewGrid, setViewGrid] = useState<AttendanceGridResult | null>(null);
   const [loadingViewGrid, setLoadingViewGrid] = useState(false);
+
+  // ── Visit detail popup ────────────────────────────────────────────────────
+  const [visitPopup, setVisitPopup] = useState<{
+    studentName: string;
+    lectureTitle: string;
+    loginCount: number;
+    visits: Array<{ joinTime?: string; leaveTime?: string; durationMinutes?: number; ipAddress?: string; userAgent?: string }>;
+  } | null>(null);
 
   const viewMode = searchParams.get('view') === 'grid' ? 'grid' : 'list';
   const lectureIdsParam = searchParams.get('lectureIds') || '';
@@ -297,9 +308,12 @@ export default function LectureAttendanceLivePage() {
           const cell = viewGrid?.grid?.[student.id]?.[lecture.id];
           return {
             lectureId: lecture.id,
+            lectureTitle: lecture.title,
             attended: !!cell?.attended,
+            loginCount: cell?.loginCount,
             joinTime: cell?.joinTime,
             durationMinutes: cell?.durationMinutes,
+            visits: cell?.visits,
           };
         }),
       };
@@ -356,6 +370,60 @@ export default function LectureAttendanceLivePage() {
             className={selectedClass.name}
             studentDirectoryById={studentDirectoryById}
           />
+
+          {/* Visit Detail Sheet */}
+          <Sheet open={!!visitPopup} onOpenChange={open => { if (!open) setVisitPopup(null); }}>
+            <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+              <SheetHeader className="pb-4">
+                <SheetTitle className="text-base">{visitPopup?.studentName}</SheetTitle>
+                <SheetDescription className="text-xs">{visitPopup?.lectureTitle}</SheetDescription>
+              </SheetHeader>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold text-primary">
+                    {visitPopup?.loginCount ?? 0} login{(visitPopup?.loginCount ?? 0) !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                {(visitPopup?.visits ?? []).map((v, i) => (
+                  <div key={i} className="rounded-lg border bg-card p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Login #{i + 1}</span>
+                      {v.durationMinutes != null && (
+                        <span className="text-xs font-medium text-green-700 bg-green-500/10 px-2 py-0.5 rounded-full">
+                          {v.durationMinutes} min
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <p className="text-muted-foreground">Join time</p>
+                        <p className="font-medium">{v.joinTime ? new Date(v.joinTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}</p>
+                        {v.joinTime && <p className="text-muted-foreground/70">{new Date(v.joinTime).toLocaleDateString()}</p>}
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Leave time</p>
+                        <p className="font-medium">{v.leaveTime ? new Date(v.leaveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}</p>
+                        {v.leaveTime && <p className="text-muted-foreground/70">{new Date(v.leaveTime).toLocaleDateString()}</p>}
+                      </div>
+                    </div>
+                    {v.ipAddress && (
+                      <div className="text-xs">
+                        <p className="text-muted-foreground">IP Address</p>
+                        <p className="font-mono font-medium">{v.ipAddress}</p>
+                      </div>
+                    )}
+                    {v.userAgent && (
+                      <div className="text-xs">
+                        <p className="text-muted-foreground">Device</p>
+                        <p className="font-medium break-all text-muted-foreground/80">{v.userAgent}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </SheetContent>
+          </Sheet>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -472,14 +540,33 @@ export default function LectureAttendanceLivePage() {
                           <TableCell className="text-xs text-muted-foreground/70 font-mono">{row.id.slice(0, 12)}</TableCell>
                           {row.cells.map(cell => (
                             <TableCell key={cell.lectureId} className="text-center p-2">
-                              <div className={`inline-flex flex-col items-center justify-center gap-1 min-h-[50px] px-2 py-1 rounded-lg transition-all ${
-                                cell.attended
-                                  ? 'bg-green-500/15 border border-green-500/30'
-                                  : 'bg-red-500/10 border border-red-500/20'
-                              }`}>
+                              <div
+                                className={`inline-flex flex-col items-center justify-center gap-1 min-h-[50px] px-2 py-1 rounded-lg transition-all ${
+                                  cell.attended
+                                    ? 'bg-green-500/15 border border-green-500/30 cursor-pointer hover:bg-green-500/25'
+                                    : 'bg-red-500/10 border border-red-500/20'
+                                }`}
+                                onClick={() => {
+                                  if (cell.attended && (cell.loginCount ?? 0) > 0) {
+                                    setVisitPopup({
+                                      studentName: row.name,
+                                      lectureTitle: cell.lectureTitle,
+                                      loginCount: cell.loginCount ?? 1,
+                                      visits: cell.visits ?? [],
+                                    });
+                                  }
+                                }}
+                              >
                                 {cell.attended ? (
                                   <>
-                                    <CheckCircle2 className="h-4 w-4 text-green-600 font-bold" />
+                                    <div className="flex items-center gap-1">
+                                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                      {(cell.loginCount ?? 1) > 1 && (
+                                        <span className="text-[9px] font-bold text-white bg-orange-500 rounded-full px-1 leading-4">
+                                          ×{cell.loginCount}
+                                        </span>
+                                      )}
+                                    </div>
                                     <span className="text-[10px] font-semibold text-green-700 whitespace-nowrap">
                                       {cell.joinTime ? new Date(cell.joinTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Present'}
                                     </span>

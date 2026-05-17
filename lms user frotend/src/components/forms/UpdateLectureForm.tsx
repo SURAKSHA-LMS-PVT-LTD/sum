@@ -357,6 +357,7 @@ const UpdateLectureForm = ({ lecture, onClose, onSuccess }: UpdateLectureFormPro
               showPayments={true}
               instituteId={lecture.instituteId?.toString()}
               classId={lecture.classId?.toString()}
+              scope="subject"
             />
 
             <LectureWelcomeMessageSettings

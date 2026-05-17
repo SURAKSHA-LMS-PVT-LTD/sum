@@ -43,10 +43,12 @@ export const FEATURE_KEYS = {
 
   // Institute scope - Admin Tools
   DEVICE_MANAGEMENT: 'device-management',
+  INSTITUTE_DESIGNS: 'institute-designs',
 
   // Institute scope - Services
   TRANSPORT: 'transport',
   ID_CARDS: 'id-cards',
+  ID_CARD_TEMPLATES: 'id-card-templates',
   ORGANIZATIONS: 'organizations',
   SYSTEM_PAYMENT: 'system-payment',
 
@@ -83,6 +85,7 @@ export const FEATURE_KEYS = {
   // Subject scope - Academics
   LECTURES: 'lectures',
   FREE_LECTURES: 'free-lectures',
+  SUBJECT_RECORDINGS: 'subject-recordings',
   HOMEWORK: 'homework',
   EXAMS: 'exams',
   GRADING: 'grading',

@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import ClassMultiSelectDialog, { SmsClassOption } from '@/components/sms/ClassMultiSelectDialog';
 import SubjectMultiSelectDialog, { SmsSubjectOption } from '@/components/sms/SubjectMultiSelectDialog';
 import { creditsApi, type CreditBalance, type CreditTransaction } from '@/api/credits.api';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 
 
 interface SenderMask {
@@ -44,6 +45,7 @@ interface SMSCredentials {
 const SMS = () => {
   const { currentInstituteId, selectedInstituteType } = useAuth();
   const instituteRole = useInstituteRole();
+  const { subjectLabel, subjectsLabel } = useInstituteLabels();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { navigateToPage } = useAppNavigation();
@@ -773,7 +775,7 @@ const SMS = () => {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <Label htmlFor="subject-ids">Subjects</Label>
+                    <Label htmlFor="subject-ids">{subjectsLabel}</Label>
                     {selectedClasses.length > 0 && (
                       <span className="text-xs text-muted-foreground">
                         Showing subjects for {selectedClasses.length} selected class{selectedClasses.length > 1 ? 'es' : ''}
@@ -791,7 +793,7 @@ const SMS = () => {
                         setSelectedSubjects(ids);
                         if (items) setSelectedSubjectItems(items);
                       }}
-                      triggerLabel={selectedSubjects.length > 0 ? `${selectedSubjects.length} Selected` : "Select Subjects"}
+                      triggerLabel={selectedSubjects.length > 0 ? `${selectedSubjects.length} Selected` : `Select ${subjectsLabel}`}
                     />
                   </div>
 

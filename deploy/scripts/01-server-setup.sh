@@ -232,8 +232,9 @@ info "Redis running with password (saved to ~/credentials.txt)"
 section "Nginx"
 
 sudo tee /etc/nginx/conf.d/rate-limit.conf <<'RLCONF'
-limit_req_zone $binary_remote_addr zone=api_limit:10m rate=20r/s;
-limit_req_zone $binary_remote_addr zone=web_limit:10m rate=60r/s;
+limit_req_zone $binary_remote_addr zone=api_limit:10m  rate=20r/s;
+limit_req_zone $binary_remote_addr zone=web_limit:10m  rate=60r/s;
+limit_req_zone $binary_remote_addr zone=auth_limit:5m  rate=5r/s;
 RLCONF
 
 sudo mkdir -p /etc/nginx/snippets

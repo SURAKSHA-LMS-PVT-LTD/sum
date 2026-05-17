@@ -24,7 +24,7 @@ import {
 import GlobalSearch from '@/components/GlobalSearch';
 import surakshaLogoSidebar from '@/assets/suraksha-logo-sidebar.png';
 import surakshaMainLogo from '@/assets/surakshalms-main-logo.png';
-import { useNotificationStore, refreshContextCount } from '@/stores/useNotificationStore';
+import { useNotificationStore } from '@/stores/useNotificationStore';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { useInstituteLabels } from '@/hooks/useInstituteLabels';
@@ -179,11 +179,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     }
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
-  const { globalUnreadCount: unreadNotifCount } = useNotificationStore();
+  const { globalUnreadCount: unreadNotifCount, refreshUnreadCount } = useNotificationStore();
 
   // Keep sidebar badge in sync when institute selection changes
   React.useEffect(() => {
-    refreshContextCount(selectedInstitute?.id);
+    refreshUnreadCount();
   }, [selectedInstitute?.id]);
 
   // Load user avatar + institute tier in a single /me request (one API call with join)
@@ -224,6 +224,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   }, [selectedInstitute?.id, user?.imageUrl, isViewingAsParent, selectedChild?.user?.imageUrl]);
 
   const isTuitionInstitute = (selectedInstitute?.type || '').toLowerCase() === 'tuition_institute';
+  const { subjectLabel, subjectsLabel } = useInstituteLabels();
   const userRole = useInstituteRole();
   const { context: rbacContext, loading: rbacLoading } = useRbac();
 
@@ -397,7 +398,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       const mainItems: NavItem[] = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, alwaysShow: true },
       ];
-      if (!isTenantLogin) {
+      if (!isTenantLogin && !selectedInstitute) {
         mainItems.push({ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true });
       }
       groups.push({ id: 'main', label: 'Main', icon: Home, alwaysFlat: true, defaultOpen: true, items: mainItems });
@@ -415,7 +416,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
       if (selectedInstitute && selectedClass && !selectedSubject) {
         groups.push({ id: 'class', label: 'Class', icon: School, alwaysFlat: true, items: [
-          { id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true },
+          { id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true },
           { id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video },
           { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Activity', icon: BarChart3 },
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
@@ -489,7 +490,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         selectedInstitute
           ? { id: 'institute-profile', label: 'My Profile', icon: User, alwaysShow: true }
           : { id: 'profile', label: 'My Profile', icon: User, alwaysShow: true },
-        ...(selectedInstitute ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
+        ...(selectedInstitute && !selectedClass ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
         { id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true },
       ]});
 
@@ -502,7 +503,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     if (userRole === 'Teacher') {
       groups.push({ id: 'main', label: 'Main', icon: Home, alwaysFlat: true, items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, alwaysShow: true },
-        ...(!isTenantLogin ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
+        ...(!isTenantLogin && !selectedInstitute ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
       ]});
 
       if (!isTenantLogin) {
@@ -515,10 +516,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       if (selectedInstitute) {
         groups.push({ id: 'class-nav', label: 'Class Navigation', icon: School, alwaysFlat: true, items: [
           ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
-          ...(selectedInstitute && !selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: 'Institute Subjects', icon: BookOpen }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
+          // Institute Subjects and Institute Lectures only at institute level
+          ...(!selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectsLabel}`, icon: BookOpen }] : []),
           ...(!selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video }] : []),
-          ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video }] : []),
           ...(!selectedClass && !isTuitionInstitute ? [{ id: FEATURE_KEYS.HOUSES, label: 'Houses', icon: Flag }] : []),
         ].filter(i => i !== undefined) as NavItem[]});
 
@@ -539,11 +541,12 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           ]});
         }
 
-        const teacherAttendanceLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
-        const teacherItemLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
+        const teacherAttendanceLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : `${subjectLabel} Attendance`) : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
+        const teacherItemLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : `${subjectLabel} Attendance`) : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         groups.push({ id: 'attendance', label: teacherAttendanceLabel, icon: UserCheck, defaultOpen: hasActiveInGroup(['daily-attendance','my-attendance','select-attendance-mark-type','qr-attendance','rfid-attendance','institute-mark-attendance','close-attendance','lecture-live-attendance','lecture-recording-attendance'], activePage), items: [
           { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MARK_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MARK_ATTENDANCE } : {}) },
           ...(selectedClass ? [{ id: FEATURE_KEYS.DAILY_ATTENDANCE, label: teacherItemLabel, icon: ClipboardList, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_DAILY_ATTENDANCE : FEATURE_KEYS.CLASS_DAILY_ATTENDANCE }] : []),
+          // Live/Recording attendance only when a class is selected
           ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_LIVE_ATTENDANCE }] : []),
           ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE }] : []),
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MY_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MY_ATTENDANCE } : {}) },
@@ -587,7 +590,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         selectedInstitute
           ? { id: 'institute-profile', label: 'My Profile', icon: User, alwaysShow: true }
           : { id: 'profile', label: 'My Profile', icon: User, alwaysShow: true },
-        ...(selectedInstitute ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
+        ...(selectedInstitute && !selectedClass ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
         { id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true },
       ]});
 
@@ -600,14 +603,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     if (userRole === 'InstituteAdmin') {
       groups.push({ id: 'main', label: 'Main', icon: Home, alwaysFlat: true, items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, alwaysShow: true },
-        ...(!isTenantLogin ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
+        ...(!isTenantLogin && !selectedInstitute ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
       ]});
 
       if (selectedInstitute) {
         // Class/Subject navigation
         groups.push({ id: 'institute-nav', label: 'Navigate', icon: School, alwaysFlat: true, items: [
           ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
         ]});
 
         // Houses
@@ -633,16 +636,20 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
         // Academics
         const academicItems: NavItem[] = [
-          { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School, alwaysShow: !selectedClass },
-          { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: 'Institute Subjects', icon: BookOpen, alwaysShow: !selectedClass },
-          ...(!selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video }] : []),
+          // All Classes and Institute Subjects only at institute level (no class selected)
+          ...(!selectedClass ? [
+            { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School },
+            { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectsLabel}`, icon: BookOpen },
+            { id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video },
+          ] : []),
           ...(selectedClass && !selectedSubject ? [
             { id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video },
-            { id: FEATURE_KEYS.CLASS_SUBJECTS, label: 'Class Subjects', icon: BookOpen },
+            { id: FEATURE_KEYS.CLASS_SUBJECTS, label: `Class ${subjectsLabel}`, icon: BookOpen },
           ] : []),
           ...(selectedClass && selectedSubject ? [
             { id: FEATURE_KEYS.LECTURES, label: 'Lectures', icon: Video },
             { id: FEATURE_KEYS.FREE_LECTURES, label: 'Free Lectures', icon: Video },
+            { id: FEATURE_KEYS.SUBJECT_RECORDINGS, label: 'Recordings', icon: Video },
             { id: FEATURE_KEYS.HOMEWORK, label: 'Homework', icon: Notebook },
             { id: FEATURE_KEYS.EXAMS, label: 'Exams', icon: Award },
             { id: FEATURE_KEYS.STUDY_MATERIALS, label: 'Study Materials', icon: FileText },
@@ -650,23 +657,23 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           ...(!isTuitionInstitute && !selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_ORGANIZATIONS, label: 'Organization', icon: Building2 }] : []),
         ];
         groups.push({ id: 'academics', label: 'Academics', icon: BookOpen,
-          defaultOpen: hasActiveInGroup(['classes','institute-subjects','lectures','homework','exams','study-materials'], activePage),
+          defaultOpen: hasActiveInGroup(['classes','institute-subjects','institute-lectures','class-lectures','class-subjects','lectures','subject-recordings','homework','exams','study-materials'], activePage),
           items: academicItems });
 
         // Attendance
-        const attendanceItemLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
-        const attendanceSectionLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : 'Subject Attendance') : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
+        const attendanceItemLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : `${subjectLabel} Attendance`) : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
+        const attendanceSectionLabel = (selectedClass && selectedSubject) ? (isTuitionInstitute ? 'Month Attendance' : `${subjectLabel} Attendance`) : (selectedClass ? 'Class Attendance' : 'Institute Attendance');
         const attendanceItems: NavItem[] = selectedClass ? [
           { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_MARK_ATTENDANCE : FEATURE_KEYS.CLASS_MARK_ATTENDANCE },
           { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: attendanceItemLabel, icon: ClipboardList, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_DAILY_ATTENDANCE : FEATURE_KEYS.CLASS_DAILY_ATTENDANCE },
-          { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_LIVE_ATTENDANCE : FEATURE_KEYS.CLASS_LIVE_ATTENDANCE },
-          { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_RECORDING_ATTENDANCE : FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE },
+          // Live/Recording attendance only when a class is selected (lecture-based features)
+          { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_LIVE_ATTENDANCE },
+          { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE },
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_MY_ATTENDANCE : FEATURE_KEYS.CLASS_MY_ATTENDANCE },
         ] : [
+          // Institute level — no lecture attendance here
           { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode },
           { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: attendanceItemLabel, icon: ClipboardList },
-          { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3 },
-          { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3 },
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
           { id: FEATURE_KEYS.ADMIN_ATTENDANCE, label: 'Advanced Attendance', icon: BarChart3 },
         ];
@@ -682,6 +689,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               { id: FEATURE_KEYS.CALENDAR_VIEW, label: 'View Calendar', icon: Calendar },
               { id: FEATURE_KEYS.CALENDAR_MANAGEMENT, label: 'Manage Calendar', icon: CalendarDays },
             ]});
+        }
+
+        // Designs (certificates, birthday wishes, etc.) — InstituteAdmin only, no class selected
+        if (!selectedClass) {
+          groups.push({ id: 'designs', label: 'Designs', icon: Palette,
+            defaultOpen: activePage === 'institute-designs',
+            items: [{ id: FEATURE_KEYS.INSTITUTE_DESIGNS, label: 'Designs', icon: Palette }] });
         }
 
         // Fees & Payments
@@ -731,7 +745,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           ? { id: 'institute-profile', label: 'My Profile', icon: User, alwaysShow: true }
           : { id: 'profile', label: 'My Profile', icon: User, alwaysShow: true },
       ];
-      if (selectedInstitute) {
+      if (selectedInstitute && !selectedClass) {
         accountItems.push({ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true });
         accountItems.push({ id: FEATURE_KEYS.DEVICE_MANAGEMENT, label: 'Device Management', icon: Wifi });
       }
@@ -775,7 +789,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     if (userRole === 'Parent') {
       groups.push({ id: 'main', label: 'Main', icon: Home, alwaysFlat: true, items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, alwaysShow: true },
-        ...(!isTenantLogin ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
+        ...(!isTenantLogin && !selectedInstitute ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
         { id: 'my-children', label: 'My Children', icon: Users, alwaysShow: true },
       ]});
 
@@ -789,7 +803,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     if (selectedChild && selectedInstitute) {
       groups.push({ id: 'child-nav', label: 'Navigate', icon: School, alwaysFlat: true, items: [
         ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-        ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
+        ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
       ]});
 
       groups.push({ id: 'academics', label: 'Academics', icon: BookOpen,
@@ -833,13 +847,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     if (userRole === 'AttendanceMarker') {
       groups.push({ id: 'main', label: 'Main', icon: Home, alwaysFlat: true, items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, alwaysShow: true },
-        ...(!isTenantLogin ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
+        ...(!isTenantLogin && !selectedInstitute ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
       ]});
 
       if (selectedInstitute) {
         groups.push({ id: 'class-nav', label: 'Navigate', icon: School, alwaysFlat: true, items: [
           ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
         ]});
 
         groups.push({ id: 'attendance', label: 'Attendance', icon: UserCheck, defaultOpen: true, items: [
@@ -879,8 +893,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
       groups.push({ id: 'account', label: 'Account', icon: User, items: [
         { id: 'profile', label: 'My Profile', icon: User, alwaysShow: true },
-        ...(selectedInstitute ? [{ id: 'institute-profile', label: 'Institute Profile', icon: Building2, alwaysShow: true }] : []),
-        ...(selectedInstitute ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
+        ...(selectedInstitute && !selectedClass ? [{ id: 'institute-profile', label: 'Institute Profile', icon: Building2, alwaysShow: true }] : []),
+        ...(selectedInstitute && !selectedClass ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
         { id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true },
       ]});
 
@@ -902,13 +916,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     if (rbacContext?.userTypeId && !SYSTEM_TYPE_SLUGS.has(rbacContext.userTypeSlug ?? '')) {
       groups.push({ id: 'main', label: 'Main', icon: Home, alwaysFlat: true, items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, alwaysShow: true },
-        ...(!isTenantLogin ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
+        ...(!isTenantLogin && !selectedInstitute ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
       ]});
 
       if (selectedInstitute) {
         groups.push({ id: 'navigate', label: 'Navigate', icon: School, alwaysFlat: true, items: [
           ...(!selectedClass ? [{ id: 'select-class', label: 'Select Class', icon: School, alwaysShow: true }] : []),
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen, alwaysShow: true }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen, alwaysShow: true }] : []),
         ]});
 
         groups.push({ id: 'manage-users', label: 'Manage Users', icon: UserCog, items: [
@@ -921,13 +935,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
         groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
           { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School },
-          { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: 'Institute Subjects', icon: BookOpen },
+          { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectsLabel}`, icon: BookOpen },
           { id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video },
           ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video }] : []),
-          ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_SUBJECTS, label: 'Class Subjects', icon: BookOpen }] : []),
+          ...(selectedClass ? [{ id: FEATURE_KEYS.CLASS_SUBJECTS, label: `Class ${subjectsLabel}`, icon: BookOpen }] : []),
           ...(selectedClass && selectedSubject ? [
             { id: FEATURE_KEYS.LECTURES, label: 'Lectures', icon: Video },
             { id: FEATURE_KEYS.FREE_LECTURES, label: 'Free Lectures', icon: Video },
+            { id: FEATURE_KEYS.SUBJECT_RECORDINGS, label: 'Recordings', icon: Video },
             { id: FEATURE_KEYS.HOMEWORK, label: 'Homework', icon: Notebook },
             { id: FEATURE_KEYS.EXAMS, label: 'Exams', icon: Award },
             { id: FEATURE_KEYS.STUDY_MATERIALS, label: 'Study Materials', icon: FileText },
@@ -974,7 +989,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     // ==========================================================
     groups.push({ id: 'main', label: 'Main', icon: Home, alwaysFlat: true, items: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, alwaysShow: true },
-      ...(!isTenantLogin ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
+      ...(!isTenantLogin && !selectedInstitute ? [{ id: 'select-institute', label: 'Institutes', icon: Building2, alwaysShow: true }] : []),
       ...((userRole === 'User' || userRole === 'UserWithoutStudent') ? [{ id: 'my-children', label: 'My Children', icon: Users, alwaysShow: true }] : []),
     ]});
 
@@ -996,10 +1011,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
       groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
         { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School },
-        { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: 'Institute Subjects', icon: BookOpen },
+        { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectsLabel}`, icon: BookOpen },
         ...(user?.role !== 'SystemAdmin' ? [
           { id: 'select-class', label: 'Select Class', icon: School },
-          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: 'Select Subject', icon: BookOpen }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: 'select-subject', label: `Select ${subjectLabel}`, icon: BookOpen }] : []),
         ] : []),
         { id: 'institutes', label: 'Institutes', icon: Building2 },
       ]});
@@ -1033,7 +1048,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     return groups;
   }, [userRole, selectedInstitute?.id, selectedClass?.id, selectedSubject?.id,
       selectedChild?.id, selectedOrganization?.id, selectedTransport?.id,
-      isTuitionInstitute, activePage, user?.role, currentPage, unreadNotifCount]);
+      isTuitionInstitute, subjectLabel, subjectsLabel, activePage, user?.role, currentPage, unreadNotifCount]);
 
   // Context breadcrumb
   const showContextBar = !isCollapsed && user?.role !== 'SystemAdmin'

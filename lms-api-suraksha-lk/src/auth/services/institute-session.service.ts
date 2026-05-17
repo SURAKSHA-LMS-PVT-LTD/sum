@@ -1,8 +1,8 @@
 import {
-  Injectable, Logger, ConflictException, UnauthorizedException, NotFoundException, ForbiddenException,
+  Injectable, Logger, UnauthorizedException, NotFoundException, ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, In } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import * as crypto from 'crypto';
 import { InstituteLoginSessionEntity, InstituteSessionLoginMethod } from '../entities/institute-login-session.entity';
 import { InstituteUserEntity } from '../../modules/institute_mudules/institue_user/entities/institue_user.entity';
@@ -12,10 +12,15 @@ export interface SessionCheckResult {
   allowed: boolean;
   /** How many active sessions exist right now */
   activeCount: number;
-  /** Configured device limit (null = unlimited) */
-  maxDevices: number | null;
+  /** Configured device limit (always a positive number when allowed=false) */
+  maxDevices: number;
   /** Active sessions list (id, deviceLabel, ipAddress, createdAt, lastActiveAt, scopeHost) */
   activeSessions: ActiveSessionDto[];
+  /**
+   * When true: over-limit login must be BLOCKED (strict enforcement).
+   * When false (default): over-limit login should auto-kick the oldest session (relaxed).
+   */
+  isStrict: boolean;
 }
 
 export interface ActiveSessionDto {
@@ -86,16 +91,18 @@ export class InstituteSessionService {
 
     // Fetch institute settings
     const institute = await this.sessionRepo.manager.query(
-      `SELECT custom_login_enabled, is_session_limit_enabled, default_sessions_per_user_count FROM institutes WHERE id = ?`,
+      `SELECT custom_login_enabled, is_session_limit_enabled, default_sessions_per_user_count, is_strict_session_limit FROM institutes WHERE id = ?`,
       [instituteId]
     ).then(res => res[0]);
 
-    if (!institute) return { allowed: true, activeCount: 0, maxDevices: null, activeSessions: [] };
+    if (!institute) return { allowed: true, activeCount: 0, maxDevices: 0, activeSessions: [], isStrict: false };
 
     // Performance optimization: skip limit checks if feature disabled
     if (!institute.custom_login_enabled || !institute.is_session_limit_enabled) {
-      return { allowed: true, activeCount: 0, maxDevices: null, activeSessions: [] };
+      return { allowed: true, activeCount: 0, maxDevices: 0, activeSessions: [], isStrict: false };
     }
+
+    const isStrict: boolean = !!institute.is_strict_session_limit;
 
     // Fetch institute user specific limit
     const iu = await this.instituteUserRepo.findOne({
@@ -104,21 +111,26 @@ export class InstituteSessionService {
     } as any);
 
     // If user has a custom limit, use it. Otherwise, use the institute's default limit.
-    const maxDevices: number = (iu as any)?.maxDevicesPerUser ?? institute.default_sessions_per_user_count ?? 1;
+    // maxDevicesPerUser = null means "use institute default"; 0 is not a valid value.
+    const perUserLimit: number | null = (iu as any)?.maxDevicesPerUser ?? null;
+    const maxDevices: number = perUserLimit !== null && perUserLimit > 0
+      ? perUserLimit
+      : Math.max(1, institute.default_sessions_per_user_count ?? 1);
 
-    // Fetch active sessions
+    // Fetch active sessions (newest first so activeSessions[0] is the most recently used)
     const activeSessions = await this.sessionRepo.find({
       where: { instituteId, userId, isActive: true },
       order: { lastActiveAt: 'DESC' },
     });
 
     const activeCount = activeSessions.length;
-    const allowed = maxDevices === null || activeCount < maxDevices;
+    const allowed = activeCount < maxDevices;
 
     return {
       allowed,
       activeCount,
       maxDevices,
+      isStrict,
       activeSessions: activeSessions.map(s => ({
         id: s.id,
         deviceLabel: s.deviceLabel,
@@ -212,10 +224,13 @@ export class InstituteSessionService {
 
     if (oldest.length === 0) return 0;
 
-    await this.sessionRepo.update(
-      oldest.map(s => s.id),
-      { isActive: false, deactivatedReason: 'REPLACED_BY_NEW_SESSION' },
-    );
+    const ids = oldest.map(s => s.id);
+    await this.sessionRepo
+      .createQueryBuilder()
+      .update(InstituteLoginSessionEntity)
+      .set({ isActive: false, deactivatedReason: 'REPLACED_BY_NEW_SESSION' })
+      .where('id IN (:...ids)', { ids })
+      .execute();
 
     this.logger.log(`🔄 Deactivated ${oldest.length} old session(s) for user=${userId}, institute=${instituteId}`);
     return oldest.length;
@@ -233,7 +248,7 @@ export class InstituteSessionService {
       .createQueryBuilder()
       .update(InstituteLoginSessionEntity)
       .set({ isActive: false, deactivatedReason: reason })
-      .where('institute_id = :instituteId AND user_id = :userId AND is_active = 1', { instituteId, userId })
+      .where('instituteId = :instituteId AND userId = :userId AND isActive = :isActive', { instituteId, userId, isActive: true })
       .execute();
 
     const count = result.affected ?? 0;
@@ -278,14 +293,14 @@ export class InstituteSessionService {
     const skip  = (page - 1) * limit;
 
     const qb = this.sessionRepo.createQueryBuilder('s')
-      .where('s.institute_id = :instituteId', { instituteId })
-      .andWhere('s.is_active = 1');
+      .where('s.instituteId = :instituteId', { instituteId })
+      .andWhere('s.isActive = :isActive', { isActive: true });
 
     if (opts.userId) {
-      qb.andWhere('s.user_id = :userId', { userId: opts.userId });
+      qb.andWhere('s.userId = :userId', { userId: opts.userId });
     }
 
-    qb.orderBy('s.last_active_at', 'DESC').skip(skip).take(limit);
+    qb.orderBy('s.lastActiveAt', 'DESC').skip(skip).take(limit);
 
     const [sessions, total] = await qb.getManyAndCount();
 
@@ -336,10 +351,10 @@ export class InstituteSessionService {
     const qb = this.sessionRepo.createQueryBuilder()
       .update(InstituteLoginSessionEntity)
       .set({ isActive: false, deactivatedReason: 'EXPIRED' })
-      .where('expires_at < NOW() AND is_active = 1');
+      .where('expiresAt < NOW() AND isActive = :isActive', { isActive: true });
 
-    if (instituteId) qb.andWhere('institute_id = :instituteId', { instituteId });
-    if (userId)      qb.andWhere('user_id = :userId',      { userId });
+    if (instituteId) qb.andWhere('instituteId = :instituteId', { instituteId });
+    if (userId)      qb.andWhere('userId = :userId',      { userId });
 
     await qb.execute();
   }

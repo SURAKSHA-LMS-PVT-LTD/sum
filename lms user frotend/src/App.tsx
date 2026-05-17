@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { NotificationToast } from "@/components/notifications/NotificationToast";
 import GoogleTranslateInit from "@/components/LanguageSwitcher";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { createTheme, ThemeProvider as MuiThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { App as CapacitorApp } from '@capacitor/app';
@@ -195,6 +195,7 @@ const AppContent = () => {
   return (
     <Routes>
       <Route path="/" element={<Index />} />
+      <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/live-lecture/:urlId" element={<LiveLecturePage />} />
       <Route path="/view-recording/:urlId" element={<ViewRecordingPage />} />
       <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />

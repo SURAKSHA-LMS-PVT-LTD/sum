@@ -16,6 +16,7 @@ import { TeacherAutocomplete } from '@/components/ui/teacher-autocomplete';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useToast } from '@/hooks/use-toast';
 import { getBaseUrl, getApiHeadersAsync } from '@/contexts/utils/auth.api';
@@ -81,6 +82,7 @@ const AssignSubjectToClassForm: React.FC<AssignSubjectToClassFormProps> = ({
 }) => {
   const { currentInstituteId, user } = useAuth();
   const userRole = useInstituteRole();
+  const { subjectsLabel } = useInstituteLabels();
   const { toast } = useToast();
 
   const [selectedClassId, setSelectedClassId] = useState(preselectedClassId || '');
@@ -371,7 +373,7 @@ const AssignSubjectToClassForm: React.FC<AssignSubjectToClassFormProps> = ({
                     </div>
                   ))}
                   {filteredSubjects.length === 0 && searchQuery && (
-                    <p className="text-center text-muted-foreground py-6 text-sm">No subjects match "{searchQuery}"</p>
+                    <p className="text-center text-muted-foreground py-6 text-sm">No {subjectsLabel.toLowerCase()} match "{searchQuery}"</p>
                   )}
                 </div>
               </ScrollArea>
