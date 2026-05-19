@@ -585,6 +585,13 @@ class EnhancedCachedApiClient {
       this._globalForceRefreshTimeout = null;
     }
   }
+
+  invalidate(_prefix?: string): void {
+    // Clear all cache so mutated resources are re-fetched on next request.
+    // secureCache's prefix-clearing is internal; a full clear is safe here
+    // because this is only called after explicit create/update/delete mutations.
+    secureCache.clearAllCache().catch(() => {});
+  }
 }
 
 export const enhancedCachedClient = new EnhancedCachedApiClient();

@@ -357,13 +357,12 @@ const SubjectDashboard = () => {
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{item.title}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {item.scheduleDate ? new Date(item.scheduleDate).toLocaleDateString() : 'No date'}
-                  {' • '}
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                  <span>{item.scheduleDate ? new Date(item.scheduleDate).toLocaleDateString() : 'No date'}</span>
+                  <span>•</span>
                   <Badge variant={item.examType === 'online' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">{item.examType}</Badge>
-                  {' '}
                   <Badge variant={item.status === 'scheduled' ? 'default' : item.status === 'completed' ? 'outline' : 'destructive'} className="text-[10px] px-1.5 py-0">{item.status}</Badge>
-                </p>
+                </div>
               </div>
               <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </CardContent>

@@ -29,6 +29,69 @@ type RecordingTab = 'login' | 'welcome' | 'playing';
 const FLUSH_INTERVAL_MS = 30_000;
 const FLUSH_THRESHOLD = 20;
 
+function getViewportSize() {
+  return { tabWidth: window.innerWidth, tabHeight: window.innerHeight };
+}
+
+function getScreenSize() {
+  return { screenWidth: screen.width, screenHeight: screen.height };
+}
+
+/**
+ * Compress a raw activity list into optimized WATCH_RANGE entries.
+ * Consecutive PLAY → HEARTBEAT(s) → PAUSE sequences are folded into a single
+ * WATCH_RANGE with rangeFrom/rangeTo/watchedSeconds.
+ * Non-play events (SEEK, SPEED_CHANGE, TAB_HIDDEN, TAB_VISIBLE) are kept as-is.
+ */
+function compressActivities(raw: HeartbeatActivity[]): HeartbeatActivity[] {
+  const out: HeartbeatActivity[] = [];
+  let i = 0;
+  while (i < raw.length) {
+    const act = raw[i];
+    if (act.type === 'PLAY') {
+      const rangeFrom = act.videoTimestamp;
+      const startWall = act.wallTime ?? Date.now();
+      let rangeTo = rangeFrom;
+      let endWall = startWall;
+      let j = i + 1;
+      while (j < raw.length && (raw[j].type === 'HEARTBEAT' || raw[j].type === 'PLAY')) {
+        rangeTo = raw[j].videoTimestamp;
+        endWall = raw[j].wallTime ?? endWall;
+        j++;
+      }
+      if (j < raw.length && raw[j].type === 'PAUSE') {
+        rangeTo = raw[j].videoTimestamp;
+        endWall = raw[j].wallTime ?? endWall;
+        j++;
+      }
+      if (rangeTo > rangeFrom) {
+        out.push({
+          type: 'WATCH_RANGE',
+          videoTimestamp: rangeFrom,
+          rangeFrom,
+          rangeTo,
+          watchedSeconds: Math.round((endWall - startWall) / 1000),
+          wallTime: startWall,
+          speed: act.speed,
+          screenWidth: act.screenWidth,
+          screenHeight: act.screenHeight,
+          tabWidth: act.tabWidth,
+          tabHeight: act.tabHeight,
+          tabVisible: act.tabVisible,
+        });
+      } else {
+        // Very short or zero-length play — keep raw entries
+        for (let k = i; k < j; k++) out.push(raw[k]);
+      }
+      i = j;
+    } else {
+      out.push(act);
+      i++;
+    }
+  }
+  return out;
+}
+
 function extractYouTubeId(url: string): string | null {
   try {
     const u = new URL(url);
@@ -78,6 +141,8 @@ export default function ViewRecordingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  const isSubjectRecording = searchParams.get('src') === 'subject';
+
   const [phase, setPhase] = useState<Phase>('loading');
   const [info, setInfo] = useState<RecordingAccessInfo | null>(null);
   const [error, setError] = useState('');
@@ -109,7 +174,10 @@ export default function ViewRecordingPage() {
   const activitiesRef = useRef<HeartbeatActivity[]>([]);
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const positionRef = useRef(0);
-  const [localActivities, setLocalActivities] = useState<HeartbeatActivity[]>([]);
+  const tabVisibleRef = useRef(!document.hidden);
+  const speedRef = useRef(1);
+  const [watchRanges, setWatchRanges] = useState<Array<{ from: number; to: number; speed: number }>>([]);
+  const playStartRef = useRef<{ pos: number; wall: number } | null>(null);
 
   // Player refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -184,7 +252,10 @@ export default function ViewRecordingPage() {
 
   useEffect(() => {
     if (!urlId) { setPhase('error'); setError('Invalid recording URL.'); return; }
-    lectureTrackingApi.validateRecordingAccess(urlId)
+    const validateFn = isSubjectRecording
+      ? lectureTrackingApi.validateSubjectRecordingAccess.bind(lectureTrackingApi)
+      : lectureTrackingApi.validateRecordingAccess.bind(lectureTrackingApi);
+    validateFn(urlId)
       .then(data => {
         setInfo(data);
         if (!data.hasAccess) {
@@ -214,32 +285,85 @@ export default function ViewRecordingPage() {
         else { setPhase('error'); setError(msg); }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlId, user?.id]);
+  }, [urlId, user?.id, isSubjectRecording]);
 
   // ── Activity helpers ─────────────────────────────────────────────────────
 
   const flushActivities = useCallback(async () => {
     const sid = sessionIdRef.current;
     if (!sid || activitiesRef.current.length === 0) return;
-    const batch = activitiesRef.current.splice(0);
+    const raw = activitiesRef.current.splice(0);
+    const batch = compressActivities(raw);
     try {
-      await lectureTrackingApi.sendHeartbeats(sid, batch);
+      if (isSubjectRecording) {
+        await lectureTrackingApi.sendSubjectRecordingHeartbeats(sid, batch);
+      } else {
+        await lectureTrackingApi.sendHeartbeats(sid, batch);
+      }
     } catch {
-      activitiesRef.current.unshift(...batch);
+      activitiesRef.current.unshift(...raw);
     }
-  }, []);
+  }, [isSubjectRecording]);
 
   const queueActivity = useCallback((type: HeartbeatActivity['type'], videoTimestamp: number) => {
     positionRef.current = videoTimestamp;
-    const act = { type, videoTimestamp, wallTime: Date.now() };
+    const { tabWidth, tabHeight } = getViewportSize();
+    const { screenWidth, screenHeight } = getScreenSize();
+    const act: HeartbeatActivity = {
+      type,
+      videoTimestamp,
+      wallTime: Date.now(),
+      speed: speedRef.current,
+      tabVisible: tabVisibleRef.current,
+      tabWidth,
+      tabHeight,
+      screenWidth,
+      screenHeight,
+    };
     activitiesRef.current.push(act);
-    setLocalActivities(prev => {
-      const next = [...prev, act];
-      if (next.length > 50) return next.slice(next.length - 50);
-      return next;
-    });
+
+    // Track watch ranges for the student-visible sidebar
+    if (type === 'PLAY') {
+      playStartRef.current = { pos: videoTimestamp, wall: Date.now() };
+    } else if ((type === 'PAUSE' || type === 'SEEK') && playStartRef.current) {
+      const { pos: from } = playStartRef.current;
+      const to = videoTimestamp;
+      playStartRef.current = null;
+      if (to > from) {
+        setWatchRanges(prev => [...prev.slice(-19), { from, to, speed: speedRef.current }]);
+      }
+    }
+
     if (activitiesRef.current.length >= FLUSH_THRESHOLD) flushActivities();
   }, [flushActivities]);
+
+  // ── Tab visibility tracking ──────────────────────────────────────────────
+
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const handleVisibility = () => {
+      tabVisibleRef.current = !document.hidden;
+      const vid = videoRef.current;
+      const pos = vid ? Math.floor(vid.currentTime) : positionRef.current;
+      queueActivity(document.hidden ? 'TAB_HIDDEN' : 'TAB_VISIBLE', pos);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [phase, queueActivity]);
+
+  // ── Playback speed tracking (SYSTEM video only) ──────────────────────────
+
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const vid = videoRef.current;
+    if (!vid) return;
+    const handleRateChange = () => {
+      speedRef.current = vid.playbackRate;
+      queueActivity('SPEED_CHANGE', Math.floor(vid.currentTime));
+    };
+    vid.addEventListener('ratechange', handleRateChange);
+    return () => vid.removeEventListener('ratechange', handleRateChange);
+  }, [phase, queueActivity]);
 
   // ── Cleanup / session end ────────────────────────────────────────────────
 
@@ -249,9 +373,12 @@ export default function ViewRecordingPage() {
     const sid = sessionIdRef.current;
     if (sid) {
       sessionIdRef.current = null;
-      lectureTrackingApi.endRecordingSession(sid, positionRef.current).catch(() => { });
+      const endFn = isSubjectRecording
+        ? lectureTrackingApi.endSubjectRecordingSession.bind(lectureTrackingApi)
+        : lectureTrackingApi.endRecordingSession.bind(lectureTrackingApi);
+      endFn(sid, positionRef.current).catch(() => { });
     }
-  }, [flushActivities]);
+  }, [flushActivities, isSubjectRecording]);
 
   useEffect(() => () => { endSession(); }, [endSession]);
 
@@ -358,15 +485,22 @@ export default function ViewRecordingPage() {
     if (!info) return;
     setStarting(true);
     try {
-      const result = await lectureTrackingApi.startRecordingSession({
-        lectureId: info.lectureId,
-        ...(asGuest ? {
-          guestName: guestName || 'Guest',
-          guestEmail: guestEmail || undefined,
-          guestPhone: guestPhone || undefined,
-          guestSchool: guestSchool || undefined
-        } : {}),
-      });
+      const guestPayload = asGuest ? {
+        guestName: guestName || 'Guest',
+        guestEmail: guestEmail || undefined,
+        guestPhone: guestPhone || undefined,
+        guestSchool: guestSchool || undefined,
+      } : {};
+
+      const result = isSubjectRecording
+        ? await lectureTrackingApi.startSubjectRecordingSession({
+            recordingId: info.recordingId!,
+            ...guestPayload,
+          })
+        : await lectureTrackingApi.startRecordingSession({
+            lectureId: info.lectureId,
+            ...guestPayload,
+          });
       sessionIdRef.current = result.sessionId;
       syncTab('playing');
 
@@ -528,30 +662,35 @@ export default function ViewRecordingPage() {
             </div>
           )}
 
-          {/* Session Activities */}
+          {/* Watch history */}
           <div className="p-3 border-b border-border sticky top-0 bg-card z-10">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
-              Your Session Activity
+              Watch History
             </h4>
           </div>
           <div className="p-2 space-y-1.5">
-            {localActivities.length === 0 ? (
+            {watchRanges.length === 0 ? (
               <div className="p-4 text-center text-xs text-muted-foreground">
-                No activity recorded yet.
+                No segments watched yet.
               </div>
             ) : (
-              [...localActivities].reverse().slice(0, 15).map((act, i) => (
+              [...watchRanges].reverse().map((r, i) => (
                 <div key={i} className="flex items-center justify-between p-2 rounded-md border border-border/50 bg-muted/20">
                   <div className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full ${act.type === 'PLAY' ? 'bg-emerald-500' : act.type === 'PAUSE' ? 'bg-amber-500' : 'bg-blue-500'}`} />
-                    <span className="text-xs font-medium text-foreground">{act.type}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-xs font-mono text-foreground">
+                      {formatDuration(r.from)} – {formatDuration(r.to)}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono text-muted-foreground">{formatDuration(act.videoTimestamp)}</span>
+                  {r.speed !== 1 && (
+                    <span className="text-[10px] text-muted-foreground">{r.speed}×</span>
+                  )}
                 </div>
               ))
             )}
           </div>
+
         </div>
 
         {/* Footer */}

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /b \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\src\\\\modules\")",
+      "Bash(ls \"d:\\\\User\\\\Desktop\")",
+      "Read(//d/User/Desktop/**)"
+    ]
+  }
+}

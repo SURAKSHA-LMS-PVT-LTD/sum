@@ -9,7 +9,6 @@ import { createTheme, ThemeProvider as MuiThemeProvider } from "@mui/material/st
 import CssBaseline from "@mui/material/CssBaseline";
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { useActivityLogger } from '@/hooks/useActivityLogger';
 // StatusBar imported dynamically to avoid browser module resolution errors
 
 // Native plugin for Android system navigation bar — registered in MainActivity.java
@@ -191,7 +190,6 @@ function DynamicMuiTheme({ children }: { children: React.ReactNode }) {
 }
 
 const AppContent = () => {
-  useActivityLogger();
   return (
     <Routes>
       <Route path="/" element={<Index />} />

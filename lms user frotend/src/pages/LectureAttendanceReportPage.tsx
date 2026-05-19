@@ -399,8 +399,9 @@ export default function LectureAttendanceReportPage() {
                                           </TooltipTrigger>
                                           {cell?.attended && (
                                             <TooltipContent className="text-xs">
-                                              {cell.joinTime && <div>Joined: {new Date(cell.joinTime).toLocaleTimeString()}</div>}
-                                              {cell.durationMinutes != null && <div>Duration: {cell.durationMinutes}m</div>}
+                                              {(cell.loginCount ?? 1) > 1 && <div className="font-semibold text-amber-600">{cell.loginCount} logins</div>}
+                                              {cell.joinTime && <div>First join: {new Date(cell.joinTime).toLocaleTimeString()}</div>}
+                                              {cell.durationMinutes != null && <div>Total: {cell.durationMinutes}m</div>}
                                             </TooltipContent>
                                           )}
                                         </Tooltip>
@@ -461,33 +462,64 @@ export default function LectureAttendanceReportPage() {
                                 <TableRow className="bg-muted/50">
                                   <TableHead className="text-xs">Name</TableHead>
                                   <TableHead className="text-xs">Type</TableHead>
-                                  <TableHead className="text-xs">Join Time</TableHead>
-                                  <TableHead className="text-xs">Leave Time</TableHead>
-                                  <TableHead className="text-xs text-right">Duration</TableHead>
+                                  <TableHead className="text-xs text-center">Logins</TableHead>
+                                  <TableHead className="text-xs">First Join</TableHead>
+                                  <TableHead className="text-xs">Last Leave</TableHead>
+                                  <TableHead className="text-xs text-right">Total Duration</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {liveReport[lec.id].map(row => (
-                                  <TableRow key={row.id}>
-                                    <TableCell className="text-xs font-medium">
-                                      {row.name}
-                                      {row.guestEmail && <span className="block text-[10px] text-muted-foreground">{row.guestEmail}</span>}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge variant={row.isGuest ? 'outline' : 'secondary'} className="text-[10px] h-4">
-                                        {row.isGuest ? 'Guest' : 'LMS'}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">
-                                      {row.joinTime ? new Date(row.joinTime).toLocaleTimeString() : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">
-                                      {row.leaveTime ? new Date(row.leaveTime).toLocaleTimeString() : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-xs text-right">
-                                      {row.durationMinutes != null ? `${row.durationMinutes}m` : '—'}
-                                    </TableCell>
-                                  </TableRow>
+                                  <React.Fragment key={row.id}>
+                                    <TableRow>
+                                      <TableCell className="text-xs font-medium">
+                                        {row.name}
+                                        {row.guestEmail && <span className="block text-[10px] text-muted-foreground">{row.guestEmail}</span>}
+                                        {row.guestPhone && <span className="block text-[10px] text-muted-foreground">{row.guestPhone}</span>}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge variant={row.isGuest ? 'outline' : 'secondary'} className="text-[10px] h-4">
+                                          {row.isGuest ? 'Guest' : 'LMS'}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        {(row.loginCount ?? 1) > 1 ? (
+                                          <Badge variant="destructive" className="text-[10px] h-4">
+                                            {row.loginCount}×
+                                          </Badge>
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">1</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">
+                                        {row.joinTime ? new Date(row.joinTime).toLocaleTimeString() : '—'}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">
+                                        {row.leaveTime ? new Date(row.leaveTime).toLocaleTimeString() : '—'}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-right">
+                                        {row.durationMinutes != null ? `${row.durationMinutes}m` : '—'}
+                                      </TableCell>
+                                    </TableRow>
+                                    {/* Expand individual visits if multiple logins */}
+                                    {(row.loginCount ?? 1) > 1 && row.visits && row.visits.map((v, vi) => (
+                                      <TableRow key={`${row.id}-v${vi}`} className="bg-muted/20">
+                                        <TableCell className="text-[10px] text-muted-foreground pl-6" colSpan={2}>
+                                          Visit {vi + 1}
+                                        </TableCell>
+                                        <TableCell />
+                                        <TableCell className="text-[10px] text-muted-foreground">
+                                          {v.joinTime ? new Date(v.joinTime).toLocaleTimeString() : '—'}
+                                        </TableCell>
+                                        <TableCell className="text-[10px] text-muted-foreground">
+                                          {v.leaveTime ? new Date(v.leaveTime).toLocaleTimeString() : '—'}
+                                        </TableCell>
+                                        <TableCell className="text-[10px] text-muted-foreground text-right">
+                                          {v.durationMinutes != null ? `${v.durationMinutes}m` : '—'}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </React.Fragment>
                                 ))}
                               </TableBody>
                             </Table>

@@ -41,6 +41,7 @@ export interface LiveAccessInfo {
 
 export interface RecordingAccessInfo {
   lectureId: string;
+  recordingId?: string; // subject recordings use recordingId instead of lectureId
   title: string;
   description?: string;
   instituteId: string;
@@ -84,9 +85,24 @@ export interface RecordingSessionResult {
 }
 
 export interface HeartbeatActivity {
-  type: 'PLAY' | 'PAUSE' | 'SEEK' | 'HEARTBEAT';
+  type: 'PLAY' | 'PAUSE' | 'SEEK' | 'HEARTBEAT' | 'WATCH_RANGE' | 'TAB_HIDDEN' | 'TAB_VISIBLE' | 'SPEED_CHANGE';
   videoTimestamp: number;
   wallTime?: number;
+  /** For WATCH_RANGE: start and end video positions in seconds */
+  rangeFrom?: number;
+  rangeTo?: number;
+  /** For WATCH_RANGE: actual wall-clock seconds the range lasted */
+  watchedSeconds?: number;
+  /** Current playback speed when the activity was recorded */
+  speed?: number;
+  /** Screen dimensions at time of activity */
+  screenWidth?: number;
+  screenHeight?: number;
+  /** Browser tab/window dimensions at time of activity */
+  tabWidth?: number;
+  tabHeight?: number;
+  /** Whether the browser tab was visible when this was recorded */
+  tabVisible?: boolean;
 }
 
 export interface AttendanceVisit {
@@ -201,6 +217,10 @@ class LectureTrackingApi {
     return request<RecordingAccessInfo>(`/lecture-tracking/recording/access/${urlId}`);
   }
 
+  validateSubjectRecordingAccess(urlId: string): Promise<RecordingAccessInfo> {
+    return request<RecordingAccessInfo>(`/subject-recording-tracking/recording/access/${urlId}`);
+  }
+
   // ── Live session lifecycle ──────────────────────────────────────────────
 
   joinLive(payload: {
@@ -236,6 +256,19 @@ class LectureTrackingApi {
     });
   }
 
+  startSubjectRecordingSession(payload: {
+    recordingId: string;
+    guestName?: string;
+    guestEmail?: string;
+    guestPhone?: string;
+    guestSchool?: string;
+  }): Promise<RecordingSessionResult> {
+    return request<RecordingSessionResult>('/subject-recording-tracking/session/start', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   endRecordingSession(sessionId: string, lastPositionSeconds?: number): Promise<{ success: boolean }> {
     return request<{ success: boolean }>('/lecture-tracking/recording/session/end', {
       method: 'POST',
@@ -243,8 +276,22 @@ class LectureTrackingApi {
     });
   }
 
+  endSubjectRecordingSession(sessionId: string, lastPositionSeconds?: number): Promise<{ success: boolean }> {
+    return request<{ success: boolean }>('/subject-recording-tracking/session/end', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, lastPositionSeconds }),
+    });
+  }
+
   sendHeartbeats(sessionId: string, activities: HeartbeatActivity[]): Promise<{ success: boolean }> {
     return request<{ success: boolean }>('/lecture-tracking/recording/heartbeat', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, activities }),
+    });
+  }
+
+  sendSubjectRecordingHeartbeats(sessionId: string, activities: HeartbeatActivity[]): Promise<{ success: boolean }> {
+    return request<{ success: boolean }>('/subject-recording-tracking/heartbeat', {
       method: 'POST',
       body: JSON.stringify({ sessionId, activities }),
     });
