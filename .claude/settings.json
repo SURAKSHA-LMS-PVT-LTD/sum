@@ -3,7 +3,16 @@
     "allow": [
       "Bash(dir /b \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\src\\\\modules\")",
       "Bash(ls \"d:\\\\User\\\\Desktop\")",
-      "Read(//d/User/Desktop/**)"
+      "Read(//d/User/Desktop/**)",
+      "Bash(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms-api-suraksha-lk\\\\src\\\\modules\\\\institute_mudules\" -Directory)",
+      "Bash(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms-api-suraksha-lk\\\\src\\\\modules\\\\institute_mudules\\\\institute_house\" -Directory)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms-api-suraksha-lk\\\\src\\\\modules\\\\institute_mudules\" | Where-Object { $_.PSIsContainer } | Select-Object -ExpandProperty Name)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms-api-suraksha-lk\\\\src\\\\modules\\\\institute_class_modules\" | Where-Object { $_.PSIsContainer } | Select-Object -ExpandProperty Name)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms-api-suraksha-lk\\\\src\\\\modules\\\\institute_class_subject_modules\" | Where-Object { $_.PSIsContainer } | Select-Object -ExpandProperty Name)",
+      "PowerShell(dir \"d:\\\\User\\\\Desktop\\\\surakshalms\" | Where-Object { $_.PSIsContainer })",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\src\" -Recurse -File -Include \"*[Ii]nstitute*\")",
+      "PowerShell(head -80)"
     ]
   }
 }

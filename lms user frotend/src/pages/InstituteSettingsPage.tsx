@@ -36,12 +36,13 @@ import {
   Palette, Save, Loader2, Eye, Image, Settings, RefreshCw,
   CheckCircle, AlertCircle, ChevronRight, Server, Link2, Sparkles,
   MessageSquare, Shield, Crown, Zap, Lock, ArrowLeft, Layers,
-  ShieldCheck, Search, Users, Printer, Camera,
+  ShieldCheck, Search, Users, Printer, Camera, Key,
 } from 'lucide-react';
 import { instituteSettingsApi, type PrinterSettings } from '@/api/instituteSettings.api';
 import InstituteDriveSettings from '@/components/institute-settings/InstituteDriveSettings';
 import { UserExtraColumnsManager } from '@/components/users/UserExtraColumnsManager';
 import { useInstituteUserColumns } from '@/hooks/useInstituteUserColumns';
+import { ApiKeysManager } from '@/components/institute-settings/ApiKeysManager';
 
 interface InstituteSettings {
   id: string;
@@ -105,7 +106,7 @@ interface InstituteSettings {
   printerSettings?: PrinterSettings | null;
 }
 
-const VALID_TABS = ['basic', 'branding', 'printer', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features', 'user-types'];
+const VALID_TABS = ['basic', 'branding', 'printer', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features', 'user-types', 'api-keys'];
 
 const SECTION_ITEMS: Array<{
   id: string;
@@ -127,6 +128,7 @@ const SECTION_ITEMS: Array<{
   { id: 'session-limits', label: 'Session Limits', description: 'Device limits per user, session controls', icon: ShieldCheck, color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' },
   { id: 'features', label: 'Feature Management', description: 'Enable or disable institute features', icon: Zap, color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
   { id: 'user-types', label: 'User Types & Permissions', description: 'Manage roles, permissions per feature', icon: Shield, color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' },
+  { id: 'api-keys', label: 'API Keys', description: 'External system access for attendance marking', icon: Key, color: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300' },
 ];
 
 
@@ -1987,6 +1989,16 @@ const InstituteSettingsPage = () => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        {/* API Keys */}
+        <TabsContent value="api-keys">
+          {currentInstituteId ? (
+            <ApiKeysManager
+              instituteId={currentInstituteId}
+              isAdmin={isInstituteAdmin}
+            />
+          ) : null}
         </TabsContent>
 
         {/* Features */}
