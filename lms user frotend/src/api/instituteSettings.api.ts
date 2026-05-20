@@ -6,7 +6,9 @@ import { CACHE_TTL } from '@/config/cacheTTL';
 export interface ExtraDataColumn {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'date' | 'email' | 'phone';
+  type: 'text' | 'number' | 'date' | 'email' | 'phone' | 'boolean' | 'select';
+  /** Dropdown options — required when type is 'select' */
+  options?: string[];
   /** Empty / undefined = applies to all user types */
   applicableTo?: string[];
 }

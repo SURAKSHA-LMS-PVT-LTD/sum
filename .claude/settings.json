@@ -12,7 +12,9 @@
       "PowerShell(dir \"d:\\\\User\\\\Desktop\\\\surakshalms\" | Where-Object { $_.PSIsContainer })",
       "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
       "Bash(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\src\" -Recurse -File -Include \"*[Ii]nstitute*\")",
-      "PowerShell(head -80)"
+      "PowerShell(head -80)",
+      "Bash(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\" -Force)",
+      "Bash(Select-Object Name, Mode)"
     ]
   }
 }
