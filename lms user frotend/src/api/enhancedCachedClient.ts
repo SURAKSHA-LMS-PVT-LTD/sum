@@ -138,6 +138,14 @@ class EnhancedCachedApiClient {
   }
 
   private setCooldown(requestKey: string): void {
+    // Cap map size: if it somehow balloons (e.g. rapid unique-endpoint traffic),
+    // clear all expired entries rather than letting it grow unbounded.
+    if (this.requestCooldown.size > 2000) {
+      const cutoff = Date.now() - this.COOLDOWN_PERIOD - 1000;
+      for (const [k, t] of this.requestCooldown.entries()) {
+        if (t < cutoff) this.requestCooldown.delete(k);
+      }
+    }
     this.requestCooldown.set(requestKey, Date.now());
     setTimeout(() => this.requestCooldown.delete(requestKey), this.COOLDOWN_PERIOD + 1000);
   }

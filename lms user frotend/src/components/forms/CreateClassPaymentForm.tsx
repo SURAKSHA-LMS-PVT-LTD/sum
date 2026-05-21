@@ -9,7 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { classPaymentsApi } from '@/api/classPayments.api';
 import { DollarSign } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiError';
-import { SRI_LANKAN_BANKS } from '@/config/sriLankanBanks';
+import { BankAccountSelector } from './BankAccountSelector';
+import type { InstituteBankAccount } from '@/api/instituteBankAccounts.api';
 
 interface CreateClassPaymentFormProps {
   open: boolean;
@@ -29,9 +30,6 @@ interface FormData {
   documentUrl?: string;
   lastDate: string;
   notes?: string;
-  bankName: string;
-  accountHolderName: string;
-  accountHolderNumber: string;
 }
 
 const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
@@ -40,13 +38,12 @@ const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [selectedBankId, setSelectedBankId] = useState<string>('');
-  const [showCustomBank, setShowCustomBank] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [selectedAccount, setSelectedAccount] = useState<InstituteBankAccount | null>(null);
   const [formData, setFormData] = useState<FormData>({
     title: '', description: '',
     targetType: 'STUDENTS', priority: 'MANDATORY',
     amount: 0, teacherCommissionPct: 0, documentUrl: '', lastDate: '', notes: '',
-    bankName: '', accountHolderName: '', accountHolderNumber: '',
   });
 
   const handleInputChange = (field: keyof FormData, value: any) => {
@@ -61,12 +58,7 @@ const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
     if (!formData.description) errors.description = 'Description is required';
     if (!formData.amount || formData.amount <= 0) errors.amount = 'Amount must be greater than 0';
     if (!formData.lastDate) errors.lastDate = 'Last date is required';
-    if (!formData.bankName?.trim()) errors.bankName = 'Bank name is required';
-    if (formData.bankName && formData.bankName.length > 100) errors.bankName = 'Bank name must not exceed 100 characters';
-    if (!formData.accountHolderName?.trim()) errors.accountHolderName = 'Account holder name is required';
-    if (formData.accountHolderName && formData.accountHolderName.length > 150) errors.accountHolderName = 'Account holder name must not exceed 150 characters';
-    if (!formData.accountHolderNumber?.trim()) errors.accountHolderNumber = 'Account number is required';
-    if (formData.accountHolderNumber && formData.accountHolderNumber.length > 50) errors.accountHolderNumber = 'Account number must not exceed 50 characters';
+    if (!selectedAccount) errors.bankAccount = 'Select a bank account';
 
     if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
 
@@ -82,15 +74,15 @@ const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
         documentUrl: formData.documentUrl?.trim() || undefined,
         lastDate: new Date(formData.lastDate).toISOString(),
         notes: formData.notes || undefined,
-        bankName: formData.bankName.trim(),
-        accountHolderName: formData.accountHolderName.trim(),
-        accountHolderNumber: formData.accountHolderNumber.trim(),
+        bankName: selectedAccount!.bankName,
+        accountHolderName: selectedAccount!.accountHolderName,
+        accountHolderNumber: selectedAccount!.accountNumber,
       });
       toast({ title: 'Success', description: 'Class payment created successfully.' });
       setFieldErrors({});
-      setFormData({ title: '', description: '', targetType: 'STUDENTS', priority: 'MANDATORY', amount: 0, teacherCommissionPct: 0, documentUrl: '', lastDate: '', notes: '', bankName: '', accountHolderName: '', accountHolderNumber: '' });
-      setSelectedBankId('');
-      setShowCustomBank(false);
+      setFormData({ title: '', description: '', targetType: 'STUDENTS', priority: 'MANDATORY', amount: 0, teacherCommissionPct: 0, documentUrl: '', lastDate: '', notes: '' });
+      setSelectedAccountId('');
+      setSelectedAccount(null);
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -100,8 +92,18 @@ const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
     }
   };
 
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setFormData({ title: '', description: '', targetType: 'STUDENTS', priority: 'MANDATORY', amount: 0, teacherCommissionPct: 0, documentUrl: '', lastDate: '', notes: '' });
+      setSelectedAccountId('');
+      setSelectedAccount(null);
+      setFieldErrors({});
+    }
+    onOpenChange(isOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto mx-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
@@ -187,79 +189,23 @@ const CreateClassPaymentForm: React.FC<CreateClassPaymentFormProps> = ({
             <Textarea id="notes" value={formData.notes} onChange={e => handleInputChange('notes', e.target.value)} placeholder="Additional notes or instructions" />
           </div>
 
-          {/* Bank Details */}
-          <div className="border-t pt-4 space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">Bank Details *</h3>
-
-            <div className="space-y-2">
-              <Label>Select Bank *</Label>
-              <Select
-                value={showCustomBank ? 'OTHER' : selectedBankId}
-                onValueChange={value => {
-                  if (value === 'OTHER') {
-                    setShowCustomBank(true);
-                    setSelectedBankId('');
-                    handleInputChange('bankName', '');
-                  } else {
-                    setShowCustomBank(false);
-                    setSelectedBankId(value);
-                    const bank = SRI_LANKAN_BANKS.find(b => b.id === value);
-                    if (bank) handleInputChange('bankName', bank.name);
-                  }
-                }}
-              >
-                <SelectTrigger className="h-auto p-2"><SelectValue placeholder="Choose a bank..." /></SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {SRI_LANKAN_BANKS.map(bank => (
-                    <SelectItem key={bank.id} value={bank.id} className="py-2">
-                      <div className="flex items-center gap-2">
-                        <img src={bank.logoUrl} alt={bank.name} className="h-6 w-6 object-contain rounded" onError={e => { e.currentTarget.style.display = 'none'; }} />
-                        <div>
-                          <div className="font-medium text-sm">{bank.abbreviation}</div>
-                          <div className="text-xs text-muted-foreground">{bank.name}</div>
-                        </div>
-                      </div>
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="OTHER" className="py-2 border-t mt-2 pt-2">
-                    <div className="font-medium">Other (Custom)</div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {showCustomBank && (
-              <div className="space-y-2">
-                <Label>Bank Name (Custom) *</Label>
-                <Input value={formData.bankName} onChange={e => handleInputChange('bankName', e.target.value.slice(0, 100))} placeholder="Enter your bank name" maxLength={100} className={fieldErrors.bankName ? 'border-red-500' : ''} />
-                <div className="flex justify-between">
-                  {fieldErrors.bankName && <p className="text-xs text-red-500">{fieldErrors.bankName}</p>}
-                  <p className="text-xs text-muted-foreground ml-auto">{formData.bankName.length}/100</p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>Account Holder Name *</Label>
-              <Input value={formData.accountHolderName} onChange={e => handleInputChange('accountHolderName', e.target.value.slice(0, 150))} placeholder="e.g., Sri Lanka Institute" maxLength={150} className={fieldErrors.accountHolderName ? 'border-red-500' : ''} />
-              <div className="flex justify-between">
-                {fieldErrors.accountHolderName && <p className="text-xs text-red-500">{fieldErrors.accountHolderName}</p>}
-                <p className="text-xs text-muted-foreground ml-auto">{formData.accountHolderName.length}/150</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Account Number / Reference *</Label>
-              <Input value={formData.accountHolderNumber} onChange={e => handleInputChange('accountHolderNumber', e.target.value.slice(0, 50))} placeholder="e.g., 1234567890123456" maxLength={50} className={fieldErrors.accountHolderNumber ? 'border-red-500' : ''} />
-              <div className="flex justify-between">
-                {fieldErrors.accountHolderNumber && <p className="text-xs text-red-500">{fieldErrors.accountHolderNumber}</p>}
-                <p className="text-xs text-muted-foreground ml-auto">{formData.accountHolderNumber.length}/50</p>
-              </div>
-            </div>
+          {/* Bank Account */}
+          <div className="border-t pt-4">
+            <BankAccountSelector
+              instituteId={instituteId}
+              value={selectedAccountId}
+              onChange={(id, acc) => {
+                setSelectedAccountId(id);
+                setSelectedAccount(acc);
+                setFieldErrors(p => ({ ...p, bankAccount: '' }));
+              }}
+              error={fieldErrors.bankAccount}
+              required
+            />
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>Cancel</Button>
             <Button type="submit" disabled={loading}>{loading ? 'Creating...' : 'Create Payment'}</Button>
           </div>
         </form>

@@ -23,6 +23,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { installGlobalErrorHandlers, GlobalErrorOverlay } from './components/GlobalErrorOverlay';
 
 // ─── Stale-bundle / chunk-load recovery ──────────────────────────────────────
 // On Capacitor Android, the WebView can cache an old index.html that references
@@ -120,6 +121,9 @@ if (window.visualViewport) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Install global error handlers before mounting so no errors are missed
+installGlobalErrorHandlers();
+
 const container = document.getElementById("root");
 if (!container) {
   throw new Error("Root element not found");
@@ -129,5 +133,6 @@ const root = createRoot(container);
 root.render(
   <React.StrictMode>
     <App />
+    <GlobalErrorOverlay />
   </React.StrictMode>
 );

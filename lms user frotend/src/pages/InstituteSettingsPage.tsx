@@ -36,13 +36,14 @@ import {
   Palette, Save, Loader2, Eye, Image, Settings, RefreshCw,
   CheckCircle, AlertCircle, ChevronRight, Server, Link2, Sparkles,
   MessageSquare, Shield, Crown, Zap, Lock, ArrowLeft, Layers,
-  ShieldCheck, Search, Users, Printer, Camera, Key,
+  ShieldCheck, Search, Users, Printer, Camera, Key, CreditCard,
 } from 'lucide-react';
 import { instituteSettingsApi, type PrinterSettings } from '@/api/instituteSettings.api';
 import InstituteDriveSettings from '@/components/institute-settings/InstituteDriveSettings';
 import { UserExtraColumnsManager } from '@/components/users/UserExtraColumnsManager';
 import { useInstituteUserColumns } from '@/hooks/useInstituteUserColumns';
 import { ApiKeysManager } from '@/components/institute-settings/ApiKeysManager';
+import { InstituteBankAccountsManager } from '@/components/institute-settings/InstituteBankAccountsManager';
 
 interface InstituteSettings {
   id: string;
@@ -106,7 +107,7 @@ interface InstituteSettings {
   printerSettings?: PrinterSettings | null;
 }
 
-const VALID_TABS = ['basic', 'branding', 'printer', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features', 'user-types', 'api-keys'];
+const VALID_TABS = ['basic', 'branding', 'printer', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features', 'user-types', 'api-keys', 'bank-accounts'];
 
 const SECTION_ITEMS: Array<{
   id: string;
@@ -129,6 +130,7 @@ const SECTION_ITEMS: Array<{
   { id: 'features', label: 'Feature Management', description: 'Enable or disable institute features', icon: Zap, color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
   { id: 'user-types', label: 'User Types & Permissions', description: 'Manage roles, permissions per feature', icon: Shield, color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' },
   { id: 'api-keys', label: 'API Keys', description: 'External system access for attendance marking', icon: Key, color: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300' },
+  { id: 'bank-accounts', label: 'Bank Accounts', description: 'Institute bank accounts for payment collection', icon: CreditCard, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
 ];
 
 
@@ -746,6 +748,8 @@ const InstituteSettingsPage = () => {
               {mobileSection === 'session-limits' && 'Session Limits'}
               {mobileSection === 'features' && 'Feature Management'}
               {mobileSection === 'user-types' && 'User Types & Permissions'}
+              {mobileSection === 'api-keys' && 'API Keys'}
+              {mobileSection === 'bank-accounts' && 'Bank Accounts'}
             </h2>
           )}
           {!isMobile && desktopSection && (
@@ -1995,6 +1999,16 @@ const InstituteSettingsPage = () => {
         <TabsContent value="api-keys">
           {currentInstituteId ? (
             <ApiKeysManager
+              instituteId={currentInstituteId}
+              isAdmin={isInstituteAdmin}
+            />
+          ) : null}
+        </TabsContent>
+
+        {/* Bank Accounts */}
+        <TabsContent value="bank-accounts">
+          {currentInstituteId ? (
+            <InstituteBankAccountsManager
               instituteId={currentInstituteId}
               isAdmin={isInstituteAdmin}
             />
