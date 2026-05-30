@@ -82,6 +82,7 @@ const AllNotificationsPage: React.FC = () => {
   };
 
   return (
+    <>
     <div className="space-y-5 sm:space-y-6">
       {/* Page Header */}
       <div>
@@ -195,6 +196,7 @@ const AllNotificationsPage: React.FC = () => {
       open={!!selectedNotification}
       onClose={() => setSelectedNotification(null)}
     />
+    </>
   );
 };
 

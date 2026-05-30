@@ -30,6 +30,7 @@ import { getImageUrl } from '@/utils/imageUrlHelper';
 import { cn } from '@/lib/utils';
 import { useViewMode } from '@/hooks/useViewMode';
 import { type ColumnDef } from '@/hooks/useColumnConfig';
+import { useRoutedDialog } from '@/hooks/useRoutedDialog';
 
 /**
  * Convert a full name to initials + last-name format.
@@ -125,15 +126,19 @@ const Parents = () => {
     url: '',
     title: ''
   });
+  // Routed "view children" dialog — URL: <currentPath>/view-details-form?id=<parentId>
+  const childrenRoute = useRoutedDialog('view-details-form');
   const [childrenDialog, setChildrenDialog] = useState<{
-    isOpen: boolean;
     parent: any;
     children: any[];
   }>({
-    isOpen: false,
     parent: null,
     children: []
   });
+  const openChildrenDialog = (parent: any, children: any[]) => {
+    setChildrenDialog({ parent, children });
+    childrenRoute.open({ id: parent?.id ?? parent?.userId ?? '' });
+  };
 
   const [expandedParentId, setExpandedParentId] = useState<string | null>(null);
   const [selectedOccupation, setSelectedOccupation] = useState<string>('');
@@ -322,7 +327,7 @@ const Parents = () => {
               {children.length} {children.length === 1 ? 'Child' : 'Children'}
             </Badge>
           </div>
-          {children.length > 0 && <Button variant="outline" size="sm" onClick={() => setChildrenDialog({ isOpen: true, parent: row, children })} className="h-8 px-3 bg-gradient-to-r from-blue-500/5 to-purple-500/5 hover:from-blue-500/10 hover:to-purple-500/10 border-primary/20 hover:border-primary/40 transition-all duration-200 shadow-sm hover:shadow">
+          {children.length > 0 && <Button variant="outline" size="sm" onClick={() => openChildrenDialog(row, children)} className="h-8 px-3 bg-gradient-to-r from-blue-500/5 to-purple-500/5 hover:from-blue-500/10 hover:to-purple-500/10 border-primary/20 hover:border-primary/40 transition-all duration-200 shadow-sm hover:shadow">
             <Eye className="h-4 w-4 mr-1.5 text-primary" />
             <span className="font-medium">View</span>
           </Button>}
@@ -592,7 +597,7 @@ const Parents = () => {
                         size="sm"
                         variant="outline"
                         title="View Children"
-                        onClick={() => setChildrenDialog({ isOpen: true, parent, children: parent.students || parent.children || [] })}
+                        onClick={() => openChildrenDialog(parent, parent.students || parent.children || [])}
                       >
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
@@ -656,11 +661,7 @@ const Parents = () => {
     })} imageUrl={imagePreview.url} title={imagePreview.title} />
 
       {/* Children Details Dialog */}
-      <Dialog open={childrenDialog.isOpen} onOpenChange={open => !open && setChildrenDialog({
-      isOpen: false,
-      parent: null,
-      children: []
-    })}>
+      <Dialog open={childrenRoute.isOpen} onOpenChange={open => { if (!open) childrenRoute.close(); }} routeName="view-children-popup">
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

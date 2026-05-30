@@ -303,7 +303,7 @@ const GenerateCalendarWizard: React.FC = () => {
       )}
 
       {/* Confirm Dialog */}
-      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm} routeName="generate-calendar-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Generate Calendar?</AlertDialogTitle>

@@ -7,6 +7,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { useFeatures } from '@/contexts/FeaturesContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useContextUrlSync, extractPageFromUrl } from '@/utils/pageNavigation';
+import { stripPopupRouteFromPath } from '@/utils/popupRoutes';
 import { useRouteContext } from '@/hooks/useRouteContext';
 import { useMobilePermissions } from '@/hooks/useMobilePermissions';
 import { apiClient } from '@/api/client';
@@ -245,7 +246,7 @@ const AppContent = ({ initialPage }: AppContentProps) => {
   
   // Check for nested route patterns that need direct component rendering
   const nestedRouteComponent = React.useMemo(() => {
-    const path = location.pathname;
+    const path = stripPopupRouteFromPath(location.pathname);
     
     // student/:id/profile
     if (/\/student\/[^\/]+\/profile$/.test(path)) {

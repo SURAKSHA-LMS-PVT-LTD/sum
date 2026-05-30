@@ -552,7 +552,7 @@ const HomeworkAccordion: React.FC<HomeworkAccordionProps> = ({ apiLevel = 'subje
       )}
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-homework-accordion-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Homework</DialogTitle>
@@ -562,7 +562,7 @@ const HomeworkAccordion: React.FC<HomeworkAccordionProps> = ({ apiLevel = 'subje
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} routeName="edit-homework-accordion-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Update Homework</DialogTitle>
@@ -578,7 +578,7 @@ const HomeworkAccordion: React.FC<HomeworkAccordionProps> = ({ apiLevel = 'subje
       </Dialog>
 
       {/* Submit Dialog */}
-      <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
+      <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen} routeName="submit-homework-accordion-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Submit Homework</DialogTitle>

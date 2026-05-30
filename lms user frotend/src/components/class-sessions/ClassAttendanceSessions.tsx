@@ -1136,7 +1136,7 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
       )}
 
       {/* ─── Create Session Dialog ─────────────────────────────── */}
-      <Dialog open={createSessionOpen} onOpenChange={setCreateSessionOpen}>
+      <Dialog open={createSessionOpen} onOpenChange={setCreateSessionOpen} routeName="create-attendance-session-popup">
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Create Attendance Session</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -1263,7 +1263,7 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
       </Dialog>
 
       {/* ─── Edit Session Dialog ───────────────────────────────── */}
-      <Dialog open={editSessionOpen} onOpenChange={v => { if (!v) setEditTarget(null); setEditSessionOpen(v); }}>
+      <Dialog open={editSessionOpen} onOpenChange={v => { if (!v) setEditTarget(null); setEditSessionOpen(v); }} routeName="edit-attendance-session-popup">
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Edit Session</DialogTitle></DialogHeader>
           {editTarget && (
@@ -1381,7 +1381,7 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
       </Dialog>
 
       {/* ─── Create Group Dialog ───────────────────────────────── */}
-      <Dialog open={createGroupOpen} onOpenChange={setCreateGroupOpen}>
+      <Dialog open={createGroupOpen} onOpenChange={setCreateGroupOpen} routeName="create-session-group-popup">
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Create Session Group</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -1420,7 +1420,7 @@ export default function ClassAttendanceSessions({ instituteId, classId, classNam
       </Dialog>
 
       {/* ─── Edit Group Dialog ─────────────────────────────────── */}
-      <Dialog open={editGroupOpen} onOpenChange={v => { if (!v) setEditGroupTarget(null); setEditGroupOpen(v); }}>
+      <Dialog open={editGroupOpen} onOpenChange={v => { if (!v) setEditGroupTarget(null); setEditGroupOpen(v); }} routeName="edit-session-group-popup">
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Edit Group</DialogTitle></DialogHeader>
           {editGroupTarget && (

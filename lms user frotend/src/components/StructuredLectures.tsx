@@ -574,7 +574,7 @@ const StructuredLectures = () => {
             <Search className="h-4 w-4" />
             <span className="hidden sm:inline ml-1">Search</span>
           </Button>
-          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName="structured-lectures-filter-sheet">
             <SheetTrigger asChild>
               <Button
                 variant="outline"
@@ -818,7 +818,7 @@ const StructuredLectures = () => {
       )}
 
       {/* ── Dialogs ── */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={setShowCreate} routeName="create-structured-lecture-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogTitle className="sr-only">Create Lecture</DialogTitle>
           <DialogDescription className="sr-only">Form to create a new structured lecture</DialogDescription>
@@ -829,7 +829,7 @@ const StructuredLectures = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editLecture} onOpenChange={(open) => !open && setEditLecture(null)}>
+      <Dialog open={!!editLecture} onOpenChange={(open) => !open && setEditLecture(null)} routeName="edit-structured-lecture-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogTitle className="sr-only">Update Lecture</DialogTitle>
           <DialogDescription className="sr-only">Form to update an existing structured lecture</DialogDescription>

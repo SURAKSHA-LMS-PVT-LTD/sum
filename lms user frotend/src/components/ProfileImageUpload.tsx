@@ -299,7 +299,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         className="hidden"
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen} routeName="profile-image-upload-popup">
         <DialogContent className="max-w-md overflow-visible">
           <DialogHeader>
             <DialogTitle>Crop Profile Image (35mm × 45mm)</DialogTitle>

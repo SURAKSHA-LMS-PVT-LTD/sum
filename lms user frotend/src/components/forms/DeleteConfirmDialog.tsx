@@ -19,6 +19,7 @@ interface DeleteConfirmDialogProps {
   bullets?: string[];
   onConfirm: () => void;
   isDeleting?: boolean;
+  routeName?: string;
 }
 
 const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
@@ -29,6 +30,7 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
   bullets,
   onConfirm,
   isDeleting = false,
+  routeName = 'delete-confirm-popup',
 }) => {
   const [confirmText, setConfirmText] = useState('');
   const isDeleteEnabled = confirmText.toLowerCase() === 'delete';
@@ -48,7 +50,7 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
   ];
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={onOpenChange} routeName={routeName}>
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <div className="flex items-center gap-3 mb-2">

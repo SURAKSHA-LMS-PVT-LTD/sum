@@ -448,7 +448,7 @@ const MyCards: React.FC = () => {
       {viewMode === 'card' ? renderCardView() : renderTableView()}
 
       {/* Action Confirmation Dialog */}
-      <AlertDialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
+      <AlertDialog open={actionDialogOpen} onOpenChange={setActionDialogOpen} routeName="card-action-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>

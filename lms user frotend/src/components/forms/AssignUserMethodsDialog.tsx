@@ -506,7 +506,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
   }, []);
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleClose} routeName="assign-user-methods-dialog-popup">
       <DialogContent className="max-w-md mx-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -925,7 +925,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
           </div>
         )}
         
-        <Dialog open={showUserPreview} onOpenChange={setShowUserPreview}>
+        <Dialog open={showUserPreview} onOpenChange={setShowUserPreview} routeName="assign-user-preview-popup">
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle>User Preview</DialogTitle>
@@ -950,7 +950,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
           </DialogContent>
         </Dialog>
 
-        <Dialog open={showCamera} onOpenChange={stopCamera}>
+        <Dialog open={showCamera} onOpenChange={stopCamera} routeName="camera-access-popup">
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Capture Photo</DialogTitle>

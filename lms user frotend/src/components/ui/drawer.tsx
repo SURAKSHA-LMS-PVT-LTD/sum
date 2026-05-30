@@ -2,16 +2,34 @@ import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 import { cn } from "@/lib/utils"
+import { PopupRouteContext, usePopupRouteContent, usePopupRouteRoot } from "@/hooks/usePopupRoute"
 
 const Drawer = ({
   shouldScaleBackground = true,
+  children,
+  open,
+  defaultOpen,
+  onOpenChange,
+  routeName,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
-  <DrawerPrimitive.Root
-    shouldScaleBackground={shouldScaleBackground}
-    {...props}
-  />
-)
+}: React.ComponentProps<typeof DrawerPrimitive.Root> & { routeName?: string }) => {
+  const routed = usePopupRouteRoot({ open, defaultOpen, onOpenChange, routeName })
+  const rootProps = open === undefined
+    ? { defaultOpen, onOpenChange: routed.onOpenChange }
+    : { open: routed.open, onOpenChange: routed.onOpenChange }
+
+  return (
+    <PopupRouteContext.Provider value={routed.contextValue}>
+      <DrawerPrimitive.Root
+        shouldScaleBackground={shouldScaleBackground}
+        {...rootProps}
+        {...props}
+      >
+        {children}
+      </DrawerPrimitive.Root>
+    </PopupRouteContext.Provider>
+  )
+}
 Drawer.displayName = "Drawer"
 
 const DrawerTrigger = DrawerPrimitive.Trigger
@@ -34,12 +52,26 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName
 
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & { routeName?: string }
 >(({ className, children, ...props }, ref) => (
-  <DrawerPortal>
+  <DrawerContentInner className={className} forwardedRef={ref} {...props}>
+    {children}
+  </DrawerContentInner>
+))
+DrawerContent.displayName = "DrawerContent"
+
+const DrawerContentInner = ({ className, children, forwardedRef, routeName, ...props }: React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & { routeName?: string; forwardedRef: React.ForwardedRef<React.ElementRef<typeof DrawerPrimitive.Content>> }) => {
+  const contentRef = React.useRef<React.ElementRef<typeof DrawerPrimitive.Content>>(null)
+  usePopupRouteContent(contentRef, routeName || 'details', 'popup')
+
+  return <DrawerPortal>
     <DrawerOverlay />
     <DrawerPrimitive.Content
-      ref={ref}
+      ref={(node) => {
+        contentRef.current = node
+        if (typeof forwardedRef === 'function') forwardedRef(node)
+        else if (forwardedRef) (forwardedRef as React.MutableRefObject<typeof node>).current = node
+      }}
       style={{ maxHeight: 'calc(var(--visual-vh, 100dvh) - 32px)' }}
       className={cn(
         "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
@@ -53,8 +85,7 @@ const DrawerContent = React.forwardRef<
       </div>
     </DrawerPrimitive.Content>
   </DrawerPortal>
-))
-DrawerContent.displayName = "DrawerContent"
+}
 
 const DrawerHeader = ({
   className,
@@ -83,6 +114,7 @@ const DrawerTitle = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Title>
 >(({ className, ...props }, ref) => (
   <DrawerPrimitive.Title
+    data-popup-route-title="true"
     ref={ref}
     className={cn(
       "text-lg font-semibold leading-none tracking-tight",

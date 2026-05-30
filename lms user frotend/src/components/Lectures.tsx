@@ -809,7 +809,7 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-lecture-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{endpoint === '/institute-class-lectures' ? 'Create Class Lecture' : 'Create New Lecture'}</DialogTitle>
@@ -829,7 +829,7 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
       </Dialog>
 
       {/* Update Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} routeName="update-lecture-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{endpoint === '/institute-class-lectures' ? 'Update Class Lecture' : 'Update Lecture'}</DialogTitle>

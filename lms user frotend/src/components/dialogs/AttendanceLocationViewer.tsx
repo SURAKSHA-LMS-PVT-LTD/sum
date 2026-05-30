@@ -72,7 +72,7 @@ export const AttendanceLocationViewer: React.FC<AttendanceLocationViewerProps> =
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="attendance-location-viewer-popup">
       <DialogContent className="w-[95vw] max-w-4xl max-h-[93vh] overflow-y-auto">
         <DialogHeader className="pb-3">
           <DialogTitle className="flex items-center gap-5 pr-12">

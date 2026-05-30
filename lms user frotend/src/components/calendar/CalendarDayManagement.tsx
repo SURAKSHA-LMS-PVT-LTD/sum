@@ -241,7 +241,7 @@ const CalendarDayManagement: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={!!editDay} onOpenChange={(open) => !open && setEditDay(null)}>
+      <Dialog open={!!editDay} onOpenChange={(open) => !open && setEditDay(null)} routeName="edit-calendar-day-popup">
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base flex items-center gap-2">

@@ -96,7 +96,7 @@ function SettleDialog({ accounts, open, onClose, onDone }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()} routeName="settle-funds-popup">
       <DialogContent className="max-w-sm">
         <DialogHeader><DialogTitle>Settle Funds</DialogTitle></DialogHeader>
         <div className="space-y-3">
@@ -156,7 +156,7 @@ function AddAccountDialog({ open, onClose, onDone }: { open: boolean; onClose: (
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()} routeName="add-finance-account-popup">
       <DialogContent className="max-w-sm">
         <DialogHeader><DialogTitle>New Finance Account</DialogTitle></DialogHeader>
         <div className="space-y-3">
@@ -234,7 +234,7 @@ function ManualRecordDialog({ accounts, categories, open, onClose, onDone }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()} routeName="add-manual-record-popup">
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Add Manual Record</DialogTitle></DialogHeader>
         <form onSubmit={handle} className="space-y-4">
@@ -408,7 +408,7 @@ function TeacherAdvanceDialog({ teacherId, accounts, open, onClose, onDone }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()} routeName="teacher-advance-popup">
       <DialogContent className="max-w-sm">
         <DialogHeader><DialogTitle>Give Teacher Advance</DialogTitle></DialogHeader>
         <form onSubmit={handle} className="space-y-4">
@@ -472,7 +472,7 @@ function TeacherDeductDialog({ teacherId, accounts, categories, open, onClose, o
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()} routeName="teacher-deduction-popup">
       <DialogContent className="max-w-sm">
         <DialogHeader><DialogTitle>Apply Deduction</DialogTitle></DialogHeader>
         <form onSubmit={handle} className="space-y-4">
@@ -539,7 +539,7 @@ function TeacherPayoutDialog({ teacherId, accounts, open, onClose, onDone }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()} routeName="teacher-payout-popup">
       <DialogContent className="max-w-sm">
         <DialogHeader><DialogTitle>Pay Out to Teacher</DialogTitle></DialogHeader>
         <form onSubmit={handle} className="space-y-4">
@@ -594,7 +594,7 @@ function TeacherTopupDialog({ teacherId, accounts, open, onClose, onDone }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()} routeName="teacher-wallet-topup-popup">
       <DialogContent className="max-w-sm">
         <DialogHeader><DialogTitle>Add Money to Teacher Wallet</DialogTitle></DialogHeader>
         <form onSubmit={handle} className="space-y-4">

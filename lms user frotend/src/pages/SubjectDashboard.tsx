@@ -634,7 +634,7 @@ const SubjectDashboard = () => {
       </div>
 
       {/* Create Lecture Dialog */}
-      <Dialog open={isCreateLectureOpen} onOpenChange={setIsCreateLectureOpen}>
+      <Dialog open={isCreateLectureOpen} onOpenChange={setIsCreateLectureOpen} routeName="create-subject-lecture-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Lecture</DialogTitle>
@@ -647,7 +647,7 @@ const SubjectDashboard = () => {
       </Dialog>
 
       {/* Edit Lecture Dialog */}
-      <Dialog open={isEditLectureOpen} onOpenChange={setIsEditLectureOpen}>
+      <Dialog open={isEditLectureOpen} onOpenChange={setIsEditLectureOpen} routeName="edit-subject-lecture-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Lecture</DialogTitle>
@@ -663,7 +663,7 @@ const SubjectDashboard = () => {
       </Dialog>
 
       {/* Create Exam Dialog */}
-      <Dialog open={isCreateExamOpen} onOpenChange={setIsCreateExamOpen}>
+      <Dialog open={isCreateExamOpen} onOpenChange={setIsCreateExamOpen} routeName="create-subject-exam-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Exam</DialogTitle>
@@ -676,7 +676,7 @@ const SubjectDashboard = () => {
       </Dialog>
 
       {/* Edit Exam Dialog */}
-      <Dialog open={isEditExamOpen} onOpenChange={setIsEditExamOpen}>
+      <Dialog open={isEditExamOpen} onOpenChange={setIsEditExamOpen} routeName="edit-subject-exam-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Exam</DialogTitle>

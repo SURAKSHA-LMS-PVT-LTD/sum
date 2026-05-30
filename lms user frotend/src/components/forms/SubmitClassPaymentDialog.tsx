@@ -133,7 +133,7 @@ const SubmitClassPaymentDialog: React.FC<SubmitClassPaymentDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="submit-class-payment-dialog-popup">
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">

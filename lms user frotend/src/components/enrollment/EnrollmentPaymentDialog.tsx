@@ -181,7 +181,7 @@ const EnrollmentPaymentDialog: React.FC<EnrollmentPaymentDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="enrollment-payment-dialog-popup">
       <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">

@@ -467,7 +467,7 @@ const ClassPaymentSubmissionsPhysicalPage: React.FC = () => {
 
         {/* Submit Payment Dialog */}
         {submitDialog && (
-          <Dialog open={!!submitDialog} onOpenChange={() => setSubmitDialog(null)}>
+          <Dialog open={!!submitDialog} onOpenChange={() => setSubmitDialog(null)} routeName="submit-physical-payment-popup">
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
@@ -589,7 +589,7 @@ const ClassPaymentSubmissionsPhysicalPage: React.FC = () => {
 
         {/* Verify Payment Dialog */}
         {verifyDialog && (
-          <Dialog open={!!verifyDialog} onOpenChange={() => setVerifyDialog(null)}>
+          <Dialog open={!!verifyDialog} onOpenChange={() => setVerifyDialog(null)} routeName="verify-physical-payment-popup">
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">

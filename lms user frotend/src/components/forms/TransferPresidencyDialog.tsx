@@ -83,7 +83,7 @@ const TransferPresidencyDialog = ({
   const selectedMember = eligibleMembers.find(m => m.userId === selectedUserId);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="transfer-presidency-dialog-popup">
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

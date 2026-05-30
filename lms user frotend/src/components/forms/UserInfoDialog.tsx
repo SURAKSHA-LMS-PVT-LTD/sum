@@ -25,7 +25,7 @@ const UserInfoDialog: React.FC<UserInfoDialogProps> = ({ open, onClose, user }) 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose} routeName="user-info-dialog-popup">
       <DialogContent className="max-w-3xl">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-xl font-bold">User Information</DialogTitle>

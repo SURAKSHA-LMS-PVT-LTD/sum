@@ -105,6 +105,7 @@ interface InstituteSettings {
   isStrictSessionLimit?: boolean;
   // Printer settings
   printerSettings?: PrinterSettings | null;
+  allowUserPhotoUpload?: boolean;
 }
 
 const VALID_TABS = ['basic', 'branding', 'printer', 'tenant', 'location', 'about', 'online', 'sms', 'integrations', 'user-columns', 'session-limits', 'features', 'user-types', 'api-keys', 'bank-accounts'];
@@ -1930,7 +1931,7 @@ const InstituteSettingsPage = () => {
           </div>
 
           {/* Custom users dialog */}
-          <Dialog open={customUsersDialogOpen} onOpenChange={setCustomUsersDialogOpen}>
+          <Dialog open={customUsersDialogOpen} onOpenChange={setCustomUsersDialogOpen} routeName="custom-user-types-popup">
             <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>Choose Users to Update</DialogTitle>

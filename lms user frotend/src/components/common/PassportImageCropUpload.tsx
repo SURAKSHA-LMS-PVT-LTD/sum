@@ -483,7 +483,7 @@ const PassportImageCropUpload: React.FC<PassportImageCropUploadProps> = ({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={open} onOpenChange={handleCloseDialog}>
+      <Dialog open={open} onOpenChange={handleCloseDialog} routeName="crop-passport-image-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Crop {label} (35mm × 45mm)</DialogTitle>

@@ -152,7 +152,7 @@ const UpgradeUserTypeDialog: React.FC<UpgradeUserTypeDialogProps> = ({ userType,
                     ? 'Add parent/guardian details to unlock parent capabilities and become a full user.'
                     : 'Add student details to unlock student capabilities and become a full user.'}
                 </p>
-                <Dialog open={open} onOpenChange={setOpen}>
+                <Dialog open={open} onOpenChange={setOpen} routeName="upgrade-user-type-popup">
                   <DialogTrigger asChild>
                     <Button size="sm">
                       <ArrowUpCircle className="h-4 w-4 mr-1.5" />

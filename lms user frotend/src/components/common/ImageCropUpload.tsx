@@ -312,7 +312,7 @@ const ImageCropUpload: React.FC<ImageCropUploadProps> = ({
         />
       </div>
 
-      <Dialog open={open} onOpenChange={handleCloseDialog}>
+      <Dialog open={open} onOpenChange={handleCloseDialog} routeName="crop-image-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Crop {label}</DialogTitle>

@@ -357,7 +357,7 @@ const CreateComprehensiveUserForm = ({
   };
 
   return (
-    <Dialog open={true} onOpenChange={() => onCancel()}>
+    <Dialog open={true} onOpenChange={() => onCancel()} routeName="create-comprehensive-user-form-popup">
       <DialogContent className="w-full sm:w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-hidden flex flex-col p-3 sm:p-6">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-lg sm:text-xl text-center">Create New User</DialogTitle>

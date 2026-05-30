@@ -45,7 +45,7 @@ function ClassPaymentBankDetailsDialog({ open, onOpenChange, payment }: { open: 
   if (!payment) return null;
   const bank = SRI_LANKAN_BANKS.find(b => b.name === payment.bankName || b.abbreviation === payment.bankName);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="create-class-payment-popup">
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Bank Details</DialogTitle>
@@ -520,7 +520,7 @@ const ClassPayments = () => {
         <SubmitClassPaymentDialog open={submitPaymentDialogOpen} onOpenChange={setSubmitPaymentDialogOpen} payment={selectedPaymentForSubmission} onSuccess={() => { setSubmitPaymentDialogOpen(false); setSelectedPaymentForSubmission(null); loadPayments(0, rowsPerPage, true); }} />
       )}
 
-      <AlertDialog open={!!deleteConfirmPayment} onOpenChange={open => { if (!open) setDeleteConfirmPayment(null); }}>
+      <AlertDialog open={!!deleteConfirmPayment} onOpenChange={open => { if (!open) setDeleteConfirmPayment(null); }} routeName="delete-class-payment-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Payment</AlertDialogTitle>

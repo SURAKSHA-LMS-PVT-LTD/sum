@@ -609,7 +609,7 @@ const Exams = ({
         </>}
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-exam-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Exam</DialogTitle>
@@ -619,7 +619,7 @@ const Exams = ({
       </Dialog>
 
       {/* Update Dialog */}
-      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
+      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen} routeName="edit-exam-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Update Exam</DialogTitle>
@@ -629,7 +629,7 @@ const Exams = ({
       </Dialog>
 
       {/* Create Results Dialog */}
-      <Dialog open={isCreateResultsDialogOpen} onOpenChange={setIsCreateResultsDialogOpen}>
+      <Dialog open={isCreateResultsDialogOpen} onOpenChange={setIsCreateResultsDialogOpen} routeName="create-exam-results-popup">
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Results</DialogTitle>

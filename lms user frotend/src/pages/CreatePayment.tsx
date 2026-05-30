@@ -453,7 +453,7 @@ const CreatePayment = () => {
       </AppLayout>
 
       {/* Success Dialog */}
-      <AlertDialog open={showSuccess} onOpenChange={setShowSuccess}>
+      <AlertDialog open={showSuccess} onOpenChange={setShowSuccess} routeName="payment-success-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

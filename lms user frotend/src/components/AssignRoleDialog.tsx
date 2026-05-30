@@ -101,7 +101,7 @@ const AssignRoleDialog = ({ open, onOpenChange, member, organizationId, onSucces
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="assign-role-popup">
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Assign Role</DialogTitle>

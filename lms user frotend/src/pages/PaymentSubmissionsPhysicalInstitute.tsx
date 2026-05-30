@@ -475,7 +475,7 @@ const PaymentSubmissionsPhysicalInstitute: React.FC = () => {
       </div>
 
       {/* Record Payment Dialog */}
-      <Dialog open={!!recordDialog} onOpenChange={open => { if (!open) setRecordDialog(null); }}>
+      <Dialog open={!!recordDialog} onOpenChange={open => { if (!open) setRecordDialog(null); }} routeName="record-physical-payment-popup">
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-lg">

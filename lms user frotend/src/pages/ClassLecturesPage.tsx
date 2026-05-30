@@ -221,7 +221,7 @@ const ClassLecturesPage = () => {
             </Button>
           )}
           {canManage && (
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog} routeName="create-class-lecture-popup">
               <DialogTrigger asChild>
                 <Button size="sm" className="h-8 text-xs px-2.5">
                   <Plus className="h-3.5 w-3.5 mr-1" />
@@ -584,7 +584,7 @@ const ClassLecturesPage = () => {
 
       {/* Update dialog */}
       {showUpdateDialog && selectedLecture && (
-        <Dialog open={showUpdateDialog} onOpenChange={(open) => { if (!open) { setShowUpdateDialog(false); setSelectedLecture(null); } }}>
+        <Dialog open={showUpdateDialog} onOpenChange={(open) => { if (!open) { setShowUpdateDialog(false); setSelectedLecture(null); } }} routeName="edit-class-lecture-popup">
           <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
             <DialogTitle className="sr-only">Edit Class Lecture</DialogTitle>
             <DialogDescription className="sr-only">Form to update this class lecture</DialogDescription>

@@ -405,7 +405,7 @@ const TeacherLectures = () => {
       />
 
       {/* Create Lecture Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-lecture-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Lecture</DialogTitle>
@@ -418,7 +418,7 @@ const TeacherLectures = () => {
       </Dialog>
 
       {/* Update Lecture Dialog */}
-      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
+      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen} routeName="update-lecture-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Update Lecture</DialogTitle>

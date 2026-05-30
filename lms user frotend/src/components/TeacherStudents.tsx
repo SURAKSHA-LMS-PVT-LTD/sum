@@ -743,7 +743,7 @@ const TeacherStudents = () => {
             <UserPlus className="h-4 w-4" />
             Assign Students
           </Button>
-          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName="teacher-students-filter-sheet">
             <SheetTrigger asChild>
               <Button
                 variant="outline"
@@ -955,7 +955,7 @@ const TeacherStudents = () => {
 
       {/* Give Free Card / Update Type Dialog (class level) */}
       {canManageType && (
-        <Dialog open={showTypeDialog} onOpenChange={setShowTypeDialog}>
+        <Dialog open={showTypeDialog} onOpenChange={setShowTypeDialog} routeName="teacher-give-free-card-popup">
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -1066,7 +1066,7 @@ const TeacherStudents = () => {
       )}
 
       {/* Edit Extra Data Dialog */}
-      <Dialog open={editExtraDataDialog.open} onOpenChange={(open) => !open && setEditExtraDataDialog({ open: false, student: null })}>
+      <Dialog open={editExtraDataDialog.open} onOpenChange={(open) => !open && setEditExtraDataDialog({ open: false, student: null })} routeName="teacher-edit-extra-data-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

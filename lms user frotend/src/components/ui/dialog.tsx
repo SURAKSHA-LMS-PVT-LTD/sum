@@ -4,8 +4,24 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { PopupRouteContext, usePopupRouteContent, usePopupRouteRoot } from "@/hooks/usePopupRoute";
 
-const Dialog = DialogPrimitive.Root;
+type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root> & { routeName?: string };
+
+const Dialog = ({ children, open, defaultOpen, onOpenChange, routeName, ...props }: DialogProps) => {
+  const routed = usePopupRouteRoot({ open, defaultOpen, onOpenChange, routeName });
+  const rootProps = open === undefined
+    ? { defaultOpen, onOpenChange: routed.onOpenChange }
+    : { open: routed.open, onOpenChange: routed.onOpenChange };
+
+  return (
+    <PopupRouteContext.Provider value={routed.contextValue}>
+      <DialogPrimitive.Root {...rootProps} {...props}>
+        {children}
+      </DialogPrimitive.Root>
+    </PopupRouteContext.Provider>
+  );
+};
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
@@ -30,14 +46,22 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     /** Set to true to allow closing by clicking outside (default: false — prevents accidental data loss) */
     allowOutsideClose?: boolean;
+    routeName?: string;
   }>(
-  ({ className, children, allowOutsideClose = false, ...props }, ref) => {
+  ({ className, children, allowOutsideClose = false, routeName, ...props }, ref) => {
     const isMobile = useIsMobile();
+    const contentRef = React.useRef<React.ElementRef<typeof DialogPrimitive.Content>>(null);
+    usePopupRouteContent(contentRef, routeName || 'details', 'popup');
+
     return (
       <DialogPortal>
         <DialogOverlay />
         <DialogPrimitive.Content
-          ref={ref}
+          ref={(node) => {
+            contentRef.current = node;
+            if (typeof ref === 'function') ref(node);
+            else if (ref) (ref as React.MutableRefObject<typeof node>).current = node;
+          }}
           onInteractOutside={(e) => {
             if (!allowOutsideClose) {
               e.preventDefault();
@@ -129,6 +153,7 @@ const DialogTitle = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>>(
   ({ className, ...props }, ref) => (
     <DialogPrimitive.Title
+      data-popup-route-title="true"
       ref={ref}
       className={cn(
         "text-xl font-semibold leading-tight tracking-tight text-foreground",

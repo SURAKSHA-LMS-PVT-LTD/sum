@@ -364,14 +364,14 @@ const FreeLectures = () => {
         url={videoPreview.url}
         title={videoPreview.title}
       />
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog} routeName="create-free-lecture-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogTitle className="sr-only">Create Lecture</DialogTitle>
           <DialogDescription className="sr-only">Form to create a new structured lecture</DialogDescription>
           <CreateStructuredLectureForm onClose={() => setShowCreateDialog(false)} onSuccess={handleCreateSuccess} />
         </DialogContent>
       </Dialog>
-      <Dialog open={!!editingLecture} onOpenChange={(open) => !open && setEditingLecture(null)}>
+      <Dialog open={!!editingLecture} onOpenChange={(open) => !open && setEditingLecture(null)} routeName="edit-free-lecture-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogTitle className="sr-only">Edit Lecture</DialogTitle>
           <DialogDescription className="sr-only">Form to update an existing structured lecture</DialogDescription>

@@ -407,7 +407,7 @@ const VerifyImage = () => {
       )}
 
       {/* View Details Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen} routeName="verify-image-student-view-popup">
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto mx-auto">
           <DialogHeader className="pb-2">
             <DialogTitle className="flex items-center gap-3">
@@ -485,7 +485,7 @@ const VerifyImage = () => {
       </Dialog>
 
       {/* Reject Dialog */}
-      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen} routeName="verify-image-reject-popup">
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject Image</DialogTitle>

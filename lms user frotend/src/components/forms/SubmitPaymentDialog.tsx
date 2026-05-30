@@ -132,7 +132,7 @@ const SubmitPaymentDialog = ({ open, onOpenChange, payment, instituteId, onSucce
   if (!payment) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="submit-payment-dialog-popup">
       <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Submit Payment</DialogTitle>

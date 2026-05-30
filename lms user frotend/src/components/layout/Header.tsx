@@ -254,6 +254,7 @@ const Header = ({ onMenuClick }: HeaderProps) => {
                 setClassDrawerOpen(open); 
                 if (open) loadClasses(); 
               }}
+              routeName="switch-class-drawer"
             >
               <DrawerTrigger asChild>
                 <button 

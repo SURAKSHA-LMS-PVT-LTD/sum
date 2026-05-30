@@ -853,7 +853,7 @@ const InstitutePayments = () => {
           </>}
 
         {/* Extend Due Date Dialog */}
-        <Dialog open={!!extendDatePayment} onOpenChange={open => { if (!open) setExtendDatePayment(null); }}>
+        <Dialog open={!!extendDatePayment} onOpenChange={open => { if (!open) setExtendDatePayment(null); }} routeName="extend-payment-deadline-popup">
           <DialogContent className="w-[calc(100vw-2rem)] max-w-sm mx-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -899,7 +899,7 @@ const InstitutePayments = () => {
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog open={!!deleteConfirmPayment} onOpenChange={(open) => { if (!open) setDeleteConfirmPayment(null); }}>
+        <AlertDialog open={!!deleteConfirmPayment} onOpenChange={(open) => { if (!open) setDeleteConfirmPayment(null); }} routeName="delete-institute-payment-confirmation-popup">
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Payment</AlertDialogTitle>

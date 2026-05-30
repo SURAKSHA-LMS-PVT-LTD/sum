@@ -67,7 +67,7 @@ const AssignInstituteDialog = ({ open, onOpenChange, organizationId }: AssignIns
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="assign-institute-popup">
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Assign to Institute</DialogTitle>

@@ -19,7 +19,7 @@ import { getErrorMessage } from '@/api/apiError';
 
 interface ReportBannerUploaderProps {
   instituteId: string;
-  settingsField: 'reportHeaderUrl' | 'reportFooterUrl';
+  settingsField: 'reportHeaderUrl' | 'reportFooterUrl' | 'receiptHeaderUrl' | 'receiptFooterUrl';
   currentDisplayUrl: string | null;
   label: string;
   aspectRatio: number;
@@ -196,7 +196,7 @@ export const ReportBannerUploader: React.FC<ReportBannerUploaderProps> = ({
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onSelectFile} />
       </div>
 
-      <Dialog open={cropOpen} onOpenChange={closeCropDialog}>
+      <Dialog open={cropOpen} onOpenChange={closeCropDialog} routeName="crop-report-banner-popup">
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Crop {label}</DialogTitle>

@@ -469,7 +469,7 @@ export const NotificationManagement: React.FC<NotificationManagementProps> = ({
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} routeName="delete-notification-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Notification</AlertDialogTitle>
@@ -491,12 +491,12 @@ export const NotificationManagement: React.FC<NotificationManagementProps> = ({
       </AlertDialog>
 
       {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen} routeName="cancel-notification-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Scheduled Notification</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel the scheduled notification "{selectedNotification?.title}"? 
+              Are you sure you want to cancel the scheduled notification "{selectedNotification?.title}"?
               This notification will not be sent.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -513,7 +513,7 @@ export const NotificationManagement: React.FC<NotificationManagementProps> = ({
       </AlertDialog>
 
       {/* Details Dialog */}
-      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen} routeName="notification-details-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Notification Details</DialogTitle>

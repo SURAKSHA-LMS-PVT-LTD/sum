@@ -299,7 +299,7 @@ const SubjectImageUpload: React.FC<SubjectImageUploadProps> = ({ value, onChange
         </div>
       )}
 
-      <Dialog open={showCropDialog} onOpenChange={handleCloseDialog}>
+      <Dialog open={showCropDialog} onOpenChange={handleCloseDialog} routeName="subject-image-upload-popup">
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Crop Subject Image (4:3)</DialogTitle>

@@ -68,7 +68,7 @@ const PaymentSubmissionsFilters: React.FC<PaymentSubmissionsFiltersProps> = ({
   return (
     <>
       {/* Mobile Filter Sheet */}
-      <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+      <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName="payment-filters-sheet">
         <SheetTrigger asChild>
           <Button variant="outline" size="sm" className="md:hidden mb-6 w-full gap-2">
             <Filter className="h-4 w-4" />

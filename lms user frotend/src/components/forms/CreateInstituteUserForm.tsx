@@ -1614,7 +1614,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
   }
 
   return (
-    <Dialog open onOpenChange={() => { if (onCancel) onCancel(); }}>
+    <Dialog open onOpenChange={() => { if (onCancel) onCancel(); }} routeName="create-institute-user-form-popup">
       {/* A4-width consistent container: max-w-[794px] on all screen sizes */}
       <DialogContent className="w-full max-w-[794px] max-h-[95dvh] overflow-hidden flex flex-col p-3 sm:p-5">
         <DialogHeader className="pb-2 shrink-0">

@@ -846,7 +846,7 @@ export default function ClassAttendanceSessionView({ instituteId, classId, sessi
       </div>
 
       {/* ── CLOSE SESSION DIALOG ─────────────────────────────────────────────── */}
-      <Dialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
+      <Dialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen} routeName="close-attendance-session-popup">
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Close Session</DialogTitle></DialogHeader>
           <div className="space-y-3">

@@ -24,7 +24,7 @@ const HomeworkDetailsDialog = ({ isOpen, onClose, homework }: HomeworkDetailsDia
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} routeName="homework-details-dialog-popup">
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-4 pt-4 pb-3 border-b border-border/60 shrink-0">
           <DialogTitle className="flex items-center gap-3">

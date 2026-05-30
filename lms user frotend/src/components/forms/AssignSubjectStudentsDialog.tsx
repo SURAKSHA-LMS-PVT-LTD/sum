@@ -246,7 +246,7 @@ const AssignSubjectStudentsDialog: React.FC<AssignSubjectStudentsDialogProps> = 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="assign-subject-students-dialog-popup">
       <DialogContent className="max-w-2xl max-h-[95vh] sm:max-h-[80vh] p-0 sm:p-6 gap-0 w-[calc(100%-1rem)] mx-auto sm:w-full rounded-2xl sm:rounded-lg">
         <DialogHeader className="px-4 pt-5 pb-3 sm:px-0 sm:pt-0 sm:pb-0">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">

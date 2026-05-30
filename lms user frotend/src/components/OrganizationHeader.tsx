@@ -339,7 +339,7 @@ const OrganizationHeader = ({ title }: OrganizationHeaderProps) => {
       <div className="h-8 sm:h-10 lg:h-12" />
 
       {/* Cover Photo Edit Dialog - Responsive */}
-      <Dialog open={showCoverDialog} onOpenChange={setShowCoverDialog}>
+      <Dialog open={showCoverDialog} onOpenChange={setShowCoverDialog} routeName="edit-organization-cover-popup">
         <DialogContent className="max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[95vh] overflow-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
@@ -398,7 +398,7 @@ const OrganizationHeader = ({ title }: OrganizationHeaderProps) => {
       </Dialog>
 
       {/* Profile Photo Edit Dialog - Responsive */}
-      <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+      <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog} routeName="edit-organization-profile-popup">
         <DialogContent className="max-w-xs sm:max-w-lg lg:max-w-2xl max-h-[95vh] overflow-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">

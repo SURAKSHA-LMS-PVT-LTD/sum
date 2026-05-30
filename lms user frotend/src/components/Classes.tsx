@@ -518,7 +518,7 @@ const Classes = () => {
             <button onClick={() => setPageViewMode('table')} className={`p-1.5 transition-colors ${pageViewMode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`} title="Table view"><Table2 className="h-4 w-4" /></button>
           </div>
           
-          {canCreate && <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          {canCreate && <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-class-popup">
               <DialogTrigger asChild>
                 <Button size="sm">
                   <Plus className="h-4 w-4 sm:mr-2" />
@@ -535,7 +535,7 @@ const Classes = () => {
             </Dialog>}
 
           {/* Update Class Dialog */}
-          <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
+          <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen} routeName="update-class-popup">
             <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Update Class</DialogTitle>
@@ -551,7 +551,7 @@ const Classes = () => {
         }} onSelect={handleTeacherSelect} title="Assign Class Teacher" description="Select a teacher to assign as the class teacher" />
 
           {/* View Enrollment Code Dialog */}
-          <Dialog open={isViewCodeDialogOpen} onOpenChange={setIsViewCodeDialogOpen}>
+          <Dialog open={isViewCodeDialogOpen} onOpenChange={setIsViewCodeDialogOpen} routeName="enrollment-code-popup">
             <DialogContent className="p-4 sm:p-6 sm:max-w-sm">
               <DialogHeader>
                 <DialogTitle className="text-xl font-bold">Enrollment Code</DialogTitle>
@@ -810,7 +810,7 @@ const Classes = () => {
       )}
 
       {/* Image Preview Dialog */}
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)} routeName="image-preview-popup">
         <DialogContent className="max-w-2xl p-0">
           <DialogHeader className="p-4 pb-0">
             <DialogTitle>{previewImage?.title}</DialogTitle>
@@ -828,7 +828,7 @@ const Classes = () => {
       </Dialog>
 
       {/* Confirm Remove Teacher Dialog */}
-      <Dialog open={confirmRemoveDialog.open} onOpenChange={(open) => setConfirmRemoveDialog(prev => ({ ...prev, open }))}>
+      <Dialog open={confirmRemoveDialog.open} onOpenChange={(open) => setConfirmRemoveDialog(prev => ({ ...prev, open }))} routeName="confirm-remove-teacher-popup">
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Remove Teacher</DialogTitle>
@@ -860,6 +860,7 @@ const Classes = () => {
         itemType="class"
         onConfirm={confirmDeleteClass}
         isDeleting={isDeleting}
+        routeName="delete-class-confirm-popup"
       />
     </div>;
 };

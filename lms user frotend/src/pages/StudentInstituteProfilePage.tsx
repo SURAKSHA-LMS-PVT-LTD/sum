@@ -1001,7 +1001,7 @@ const StudentInstituteProfilePage: React.FC = () => {
       </div>
 
       {/* Upload Image Dialog */}
-      <Dialog open={!!uploadTarget} onOpenChange={() => { setUploadTarget(null); setCropImgSrc(''); setCrop(undefined); setCompletedCrop(undefined); }}>
+      <Dialog open={!!uploadTarget} onOpenChange={() => { setUploadTarget(null); setCropImgSrc(''); setCrop(undefined); setCompletedCrop(undefined); }} routeName="crop-student-image-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{uploadTarget === 'GLOBAL' ? 'Upload Global Image' : 'Upload Institute Image'} (35mm × 45mm)</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -1025,7 +1025,7 @@ const StudentInstituteProfilePage: React.FC = () => {
       </Dialog>
 
       {/* Set Password Dialog */}
-      <Dialog open={isSetPasswordDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+      <Dialog open={isSetPasswordDialogOpen} onOpenChange={(open) => !open && closeDialog()} routeName="set-institute-password-popup">
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Set Institute Password</DialogTitle>
@@ -1054,7 +1054,7 @@ const StudentInstituteProfilePage: React.FC = () => {
       </Dialog>
 
       {/* Deactivate Confirmation Dialog */}
-      <Dialog open={isDeactivateDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+      <Dialog open={isDeactivateDialogOpen} onOpenChange={(open) => !open && closeDialog()} routeName="deactivate-student-popup">
         <DialogContent className="max-w-md border-destructive/20">
           <DialogHeader>
             <DialogTitle className="text-destructive flex items-center gap-2">
@@ -1080,7 +1080,7 @@ const StudentInstituteProfilePage: React.FC = () => {
       </Dialog>
 
       {/* Change Role Dialog */}
-      <Dialog open={isChangeRoleDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+      <Dialog open={isChangeRoleDialogOpen} onOpenChange={(open) => !open && closeDialog()} routeName="change-student-role-popup">
         <DialogContent>
           <DialogHeader><DialogTitle>Change User Role</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
@@ -1105,7 +1105,7 @@ const StudentInstituteProfilePage: React.FC = () => {
       </Dialog>
 
       {/* Assign Parent Dialog */}
-      <Dialog open={assignParentDialog} onOpenChange={setAssignParentDialog}>
+      <Dialog open={assignParentDialog} onOpenChange={setAssignParentDialog} routeName="assign-parent-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Assign Parent to Student</DialogTitle></DialogHeader>
           {student && <div className="mb-3 p-3 bg-muted rounded-lg"><p className="text-sm text-muted-foreground">Assigning parent to:</p><p className="font-medium">{student.name}</p></div>}
@@ -1118,7 +1118,7 @@ const StudentInstituteProfilePage: React.FC = () => {
       </Dialog>
 
       {/* Edit Extra Data Dialog */}
-      <Dialog open={isEditExtraDataDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+      <Dialog open={isEditExtraDataDialogOpen} onOpenChange={(open) => !open && closeDialog()} routeName="edit-student-extra-data-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Edit Extra Data — {student?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">

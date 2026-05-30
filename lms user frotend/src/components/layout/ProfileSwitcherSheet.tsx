@@ -175,7 +175,7 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
   );
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <Drawer open={open} onOpenChange={onOpenChange} routeName="profile-switcher-drawer">
       <DrawerContent className="max-h-[95vh] rounded-t-3xl">
         <DrawerHeader className="pb-0 pt-5 px-5">
           <DrawerTitle className="text-base font-bold text-foreground">Switch Profile</DrawerTitle>

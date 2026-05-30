@@ -4,8 +4,24 @@ import { X } from "lucide-react"
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { PopupRouteContext, usePopupRouteContent, usePopupRouteRoot } from "@/hooks/usePopupRoute"
 
-const Sheet = SheetPrimitive.Root
+type SheetProps = React.ComponentProps<typeof SheetPrimitive.Root> & { routeName?: string }
+
+const Sheet = ({ children, open, defaultOpen, onOpenChange, routeName, ...props }: SheetProps) => {
+  const routed = usePopupRouteRoot({ open, defaultOpen, onOpenChange, routeName })
+  const rootProps = open === undefined
+    ? { defaultOpen, onOpenChange: routed.onOpenChange }
+    : { open: routed.open, onOpenChange: routed.onOpenChange }
+
+  return (
+    <PopupRouteContext.Provider value={routed.contextValue}>
+      <SheetPrimitive.Root {...rootProps} {...props}>
+        {children}
+      </SheetPrimitive.Root>
+    </PopupRouteContext.Provider>
+  )
+}
 
 const SheetTrigger = SheetPrimitive.Trigger
 
@@ -49,19 +65,34 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-  VariantProps<typeof sheetVariants> { }
+  VariantProps<typeof sheetVariants> { routeName?: string }
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
 >(({ side = "right", className, children, ...props }, ref) => (
-  <SheetPortal>
+  <SheetContentInner side={side} className={className} forwardedRef={ref} {...props}>
+    {children}
+  </SheetContentInner>
+))
+SheetContent.displayName = SheetPrimitive.Content.displayName
+
+const SheetContentInner = ({ side = "right", className, children, forwardedRef, ...props }: SheetContentProps & { forwardedRef: React.ForwardedRef<React.ElementRef<typeof SheetPrimitive.Content>> }) => {
+  const contentRef = React.useRef<React.ElementRef<typeof SheetPrimitive.Content>>(null)
+  const { routeName, ...contentProps } = props
+  usePopupRouteContent(contentRef, routeName || 'details', 'popup')
+
+  return <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
-      ref={ref}
+      ref={(node) => {
+        contentRef.current = node
+        if (typeof forwardedRef === 'function') forwardedRef(node)
+        else if (forwardedRef) (forwardedRef as React.MutableRefObject<typeof node>).current = node
+      }}
       style={side === 'bottom' ? { maxHeight: 'calc(var(--visual-vh, 100dvh) - 32px)' } : undefined}
       className={cn(sheetVariants({ side }), "p-6 flex flex-col", className)}
-      {...props}
+      {...contentProps}
     >
       <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
         {children}
@@ -72,8 +103,7 @@ const SheetContent = React.forwardRef<
       </SheetPrimitive.Close>
     </SheetPrimitive.Content>
   </SheetPortal>
-))
-SheetContent.displayName = SheetPrimitive.Content.displayName
+}
 
 const SheetHeader = ({
   className,
@@ -108,6 +138,7 @@ const SheetTitle = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
+    data-popup-route-title="true"
     ref={ref}
     className={cn("text-lg font-semibold leading-tight tracking-tight text-foreground", className)}
     {...props}

@@ -112,7 +112,7 @@ const CreateSubjectPaymentForm: React.FC<CreateSubjectPaymentFormProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange} routeName="create-subject-payment-form-popup">
       <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto mx-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">

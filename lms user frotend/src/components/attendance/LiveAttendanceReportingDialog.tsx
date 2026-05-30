@@ -321,7 +321,7 @@ export default function LiveAttendanceReportingDialog({ open, onOpenChange, grid
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="live-attendance-reporting-popup">
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Generate Live Attendance Report</DialogTitle>

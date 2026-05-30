@@ -99,7 +99,7 @@ export default function ClassMultiSelectDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen} routeName="select-classes-popup">
       <DialogTrigger asChild>
         <Button type="button" variant="outline">{triggerLabel}</Button>
       </DialogTrigger>

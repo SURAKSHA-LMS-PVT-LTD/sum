@@ -273,7 +273,7 @@ const CreateInstituteUserPage: React.FC = () => {
       </div>
 
       {/* â”€â”€ Print customization dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} routeName="print-credentials-popup">
         <DialogContent className="max-w-md max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

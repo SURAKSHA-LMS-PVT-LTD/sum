@@ -292,7 +292,7 @@ export const CreateNotificationForm: React.FC<Props> = ({ open, onOpenChange, on
   const availableScopes = getAvailableScopes();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="create-notification-popup">
       <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

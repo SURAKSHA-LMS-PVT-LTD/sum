@@ -313,7 +313,7 @@ const CreateInstituteStudentForm: React.FC<CreateInstituteStudentFormProps> = ({
       setLoading(false);
     }
   };
-  return <Dialog open={isOpen} onOpenChange={onClose}>
+  return <Dialog open={isOpen} onOpenChange={onClose} routeName="create-institute-student-form-popup">
       <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Student</DialogTitle>

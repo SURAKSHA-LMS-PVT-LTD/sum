@@ -48,7 +48,7 @@ const PaymentSlipPreviewDialog: React.FC<PaymentSlipPreviewDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="payment-slip-preview-popup">
       <DialogContent className="max-w-4xl max-h-[95vh] p-0 flex flex-col">
         <DialogHeader className="p-4 pb-2">
           <div className="flex items-center justify-between gap-2">

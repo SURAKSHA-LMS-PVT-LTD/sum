@@ -549,7 +549,7 @@ const PaymentSubmissionsPhysical: React.FC = () => {
       </div>
 
       {/* Record Payment Dialog */}
-      <Dialog open={!!recordDialog} onOpenChange={open => { if (!open) setRecordDialog(null); }}>
+      <Dialog open={!!recordDialog} onOpenChange={open => { if (!open) setRecordDialog(null); }} routeName="record-payment-popup">
         <DialogContent className="max-w-lg w-[calc(100%-2rem)] mx-auto">
           <DialogHeader className="bg-gradient-to-r from-green-50/80 to-emerald-50/80 -mx-6 -mt-6 px-6 py-4 border-b border-green-200/40 rounded-t-lg">
             <DialogTitle className="flex items-center gap-3 text-lg font-bold text-green-900">
@@ -646,7 +646,7 @@ const PaymentSubmissionsPhysical: React.FC = () => {
       </Dialog>
 
       {/* Verify / Reject Dialog */}
-      <Dialog open={!!verifyDialog} onOpenChange={open => { if (!open) setVerifyDialog(null); }}>
+      <Dialog open={!!verifyDialog} onOpenChange={open => { if (!open) setVerifyDialog(null); }} routeName="verify-payment-popup">
         <DialogContent className="max-w-lg w-[calc(100%-2rem)] mx-auto">
           <DialogHeader className={`-mx-6 -mt-6 px-6 py-4 border-b rounded-t-lg ${
             verifyDialog?.targetStatus === 'REJECTED' ? 'bg-gradient-to-r from-red-50/80 to-rose-50/80 border-red-200/40' :

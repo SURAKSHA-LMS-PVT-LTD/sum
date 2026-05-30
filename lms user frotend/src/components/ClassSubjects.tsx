@@ -965,7 +965,7 @@ const ClassSubjects = () => {
       />
 
       {/* Unassign Teacher Confirmation Dialog */}
-      <AlertDialog open={showUnassignConfirm} onOpenChange={(open) => !isUnassigningTeacher && setShowUnassignConfirm(open)}>
+      <AlertDialog open={showUnassignConfirm} onOpenChange={(open) => !isUnassigningTeacher && setShowUnassignConfirm(open)} routeName="unassign-teacher-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Teacher Assignment</AlertDialogTitle>
@@ -989,7 +989,7 @@ const ClassSubjects = () => {
       </AlertDialog>
 
       {/* Image Preview Dialog */}
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)} routeName="subject-image-preview-popup">
         <DialogContent className="max-w-2xl p-0">
           <DialogHeader className="p-4 pb-0">
             <DialogTitle>{previewImage?.title}</DialogTitle>
@@ -1007,7 +1007,7 @@ const ClassSubjects = () => {
       </Dialog>
 
       {/* Unified Enrollment Settings Dialog — independent key + payment toggles */}
-      <Dialog open={enrollSettingsDialog.open} onOpenChange={(open) => !open && setEnrollSettingsDialog(prev => ({ ...prev, open: false }))}>
+      <Dialog open={enrollSettingsDialog.open} onOpenChange={(open) => !open && setEnrollSettingsDialog(prev => ({ ...prev, open: false }))} routeName="enrollment-settings-popup">
         <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
@@ -1164,7 +1164,7 @@ const ClassSubjects = () => {
       </Dialog>
 
       {/* Assign Subject to Class Dialog */}
-      <Dialog open={isAssignSubjectDialogOpen} onOpenChange={setIsAssignSubjectDialogOpen}>
+      <Dialog open={isAssignSubjectDialogOpen} onOpenChange={setIsAssignSubjectDialogOpen} routeName="assign-subject-to-class-popup">
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

@@ -408,7 +408,7 @@ const OrganizationCourses = ({ organizationId, onSelectCourse, organization }: O
       )}
 
       {/* Video Modal */}
-      <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
+      <Dialog open={showVideoModal} onOpenChange={setShowVideoModal} routeName="organization-course-video-modal-popup">
         <DialogContent className="max-w-4xl w-full p-0">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle>Introduction Video</DialogTitle>

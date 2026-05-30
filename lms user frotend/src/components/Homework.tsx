@@ -833,7 +833,7 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
       )}
 
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) { setIsEditDialogOpen(false); setEditHomeworkData(null); } }}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) { setIsEditDialogOpen(false); setEditHomeworkData(null); } }} routeName="edit-homework-popup">
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Homework</DialogTitle>
@@ -849,7 +849,7 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
       </Dialog>
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-homework-popup">
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create New Homework</DialogTitle>
@@ -862,7 +862,7 @@ const Homework = ({ apiLevel = 'institute' }: HomeworkProps) => {
       </Dialog>
 
       {/* Submit Dialog */}
-      <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
+      <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen} routeName="submit-homework-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Submit Homework</DialogTitle>

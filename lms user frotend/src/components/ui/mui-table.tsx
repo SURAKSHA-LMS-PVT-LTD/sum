@@ -54,7 +54,7 @@ interface MUITableProps {
   onRowsPerPageChange: (newRowsPerPage: number) => void;
   rowsPerPageOptions?: number[];
   // Section type for different behaviors
-  sectionType?: 'lectures' | 'homework' | 'exams' | 'students' | 'classes' | 'subjects' | 'class-subjects';
+  sectionType?: 'lectures' | 'homework' | 'exams' | 'students' | 'classes' | 'subjects' | 'class-subjects' | 'recordings';
   allowAdd?: boolean;
   allowEdit?: boolean;
   allowDelete?: boolean;

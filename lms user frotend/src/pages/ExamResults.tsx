@@ -19,10 +19,10 @@ import { cn } from '@/lib/utils';
 
 // Parse URL params manually since we use catch-all routes
 const parseUrlParams = (pathname: string) => {
-  const instituteMatch = pathname.match(/\/institute\/(\d+)/);
-  const classMatch = pathname.match(/\/class\/(\d+)/);
-  const subjectMatch = pathname.match(/\/subject\/(\d+)/);
-  const examMatch = pathname.match(/\/exam\/(\d+)/);
+  const instituteMatch = pathname.match(/\/institute\/([^\/]+)/);
+  const classMatch = pathname.match(/\/class\/([^\/]+)/);
+  const subjectMatch = pathname.match(/\/subject\/([^\/]+)/);
+  const examMatch = pathname.match(/\/exam\/([^\/]+)/);
   return {
     instituteId: instituteMatch?.[1] || null,
     classId: classMatch?.[1] || null,
@@ -521,7 +521,7 @@ const ExamResults = () => {
           )}
 
           {/* Performance Analytics Dialog */}
-          <Dialog open={showPerformanceDialog} onOpenChange={setShowPerformanceDialog}>
+          <Dialog open={showPerformanceDialog} onOpenChange={setShowPerformanceDialog} routeName="exam-performance-chart-popup">
             <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 gap-0 border-border/50">
               <div className="relative overflow-hidden bg-gradient-to-br from-purple-500/10 via-primary/5 to-background p-5 sm:p-6 border-b border-border/50">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />

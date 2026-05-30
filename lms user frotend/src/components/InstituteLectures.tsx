@@ -206,7 +206,7 @@ const InstituteLectures = () => {
             <button onClick={() => setPageViewMode('table')} className={`p-1.5 transition-colors ${pageViewMode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`} title="Table view"><Table2 className="h-4 w-4" /></button>
           </div>
           {isInstituteAdmin && (
-              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog} routeName="create-institute-lecture-popup">
                 <DialogTrigger asChild>
                   <Button size="sm" className="h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3">
                     <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
@@ -532,7 +532,7 @@ const InstituteLectures = () => {
 
       {/* Update Dialog */}
       {selectedLecture && (
-        <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+        <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog} routeName="update-institute-lecture-popup">
           <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
             <DialogTitle className="sr-only">Update Lecture</DialogTitle>
             <DialogDescription className="sr-only">Form to update an existing institute lecture</DialogDescription>

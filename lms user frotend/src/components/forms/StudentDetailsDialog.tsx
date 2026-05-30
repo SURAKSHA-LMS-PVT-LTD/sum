@@ -182,7 +182,7 @@ const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
   if (!student) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="student-details-dialog-popup">
       <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
         <DialogHeader className="pb-2">
           <DialogTitle className="w-full">

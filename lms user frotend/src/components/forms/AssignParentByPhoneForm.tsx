@@ -231,7 +231,7 @@ const AssignParentByPhoneForm: React.FC<AssignParentByPhoneFormProps> = ({
       </Form>
       
       {/* User Preview Dialog */}
-      <Dialog open={showUserPreview} onOpenChange={setShowUserPreview}>
+      <Dialog open={showUserPreview} onOpenChange={setShowUserPreview} routeName="user-preview-popup">
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>User Preview</DialogTitle>

@@ -519,7 +519,7 @@ const Institutes = () => {
       )}
 
       {/* Create Dialog - Mobile Responsive */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog} routeName="create-institute-popup">
         <DialogContent className="w-full max-w-4xl max-h-[95vh] overflow-y-auto mx-4 sm:mx-auto">
           <DialogHeader>
             <DialogTitle>Create New Institute</DialogTitle>
@@ -534,7 +534,7 @@ const Institutes = () => {
       </Dialog>
 
       {/* Edit Dialog - Mobile Responsive */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog} routeName="edit-institute-popup">
         <DialogContent className="w-full max-w-4xl max-h-[95vh] overflow-y-auto mx-4 sm:mx-auto">
           <DialogHeader>
             <DialogTitle>Edit Institute</DialogTitle>
@@ -553,7 +553,7 @@ const Institutes = () => {
       </Dialog>
 
       {/* View Dialog - Mobile Responsive */}
-      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog} routeName="view-institute-popup">
         <DialogContent className="w-[95vw] max-w-4xl max-h-[93vh] overflow-y-auto">
           <DialogHeader className="pb-2">
             <DialogTitle className="flex items-center gap-3">

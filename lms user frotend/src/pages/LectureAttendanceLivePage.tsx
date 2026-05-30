@@ -372,7 +372,7 @@ export default function LectureAttendanceLivePage() {
           />
 
           {/* Visit Detail Sheet */}
-          <Sheet open={!!visitPopup} onOpenChange={open => { if (!open) setVisitPopup(null); }}>
+          <Sheet open={!!visitPopup} onOpenChange={open => { if (!open) setVisitPopup(null); }} routeName="visit-details-sheet">
             <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
               <SheetHeader className="pb-4">
                 <SheetTitle className="text-base">{visitPopup?.studentName}</SheetTitle>

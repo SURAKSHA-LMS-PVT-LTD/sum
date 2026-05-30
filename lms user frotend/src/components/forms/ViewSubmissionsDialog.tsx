@@ -79,7 +79,7 @@ const ViewSubmissionsDialog = ({ open, onOpenChange, payment, instituteId }: Vie
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="view-submissions-dialog-popup">
       <DialogContent className="max-w-4xl max-h-[95vh]">
         <DialogHeader className="pb-3">
           <DialogTitle className="flex items-center gap-4">

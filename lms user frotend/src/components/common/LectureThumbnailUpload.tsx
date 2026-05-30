@@ -244,7 +244,7 @@ const LectureThumbnailUpload: React.FC<LectureThumbnailUploadProps> = ({
       </div>
 
       {/* Crop Dialog */}
-      <Dialog open={cropOpen} onOpenChange={(open) => { if (!open) handleCloseCrop(); }}>
+      <Dialog open={cropOpen} onOpenChange={(open) => { if (!open) handleCloseCrop(); }} routeName="crop-lecture-thumbnail-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Crop Thumbnail (16:9)</DialogTitle>

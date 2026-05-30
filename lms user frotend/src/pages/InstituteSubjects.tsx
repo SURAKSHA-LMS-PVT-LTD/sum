@@ -839,7 +839,7 @@ const InstituteSubjects = () => {
       </div>
 
       {/* Create Subject Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-subject-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Subject</DialogTitle>
@@ -991,7 +991,7 @@ const InstituteSubjects = () => {
       </Dialog>
 
       {/* Edit Subject Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} routeName="edit-subject-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Subject</DialogTitle>
@@ -1141,7 +1141,7 @@ const InstituteSubjects = () => {
       </Dialog>
 
       {/* View Subject Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen} routeName="subject-details-popup">
         <DialogContent className="w-[95vw] max-w-4xl max-h-[93vh] overflow-y-auto">
           <DialogHeader className="pb-2">
             <DialogTitle className="flex items-center gap-3">
@@ -1238,10 +1238,11 @@ const InstituteSubjects = () => {
         itemType="subject"
         onConfirm={confirmDeleteSubject}
         isDeleting={isDeleting}
+        routeName="delete-subject-confirmation-popup"
       />
 
       {/* Deactivate / Activate Confirmation */}
-      <AlertDialog open={showDeactivateConfirm} onOpenChange={(open) => !isDeactivating && setShowDeactivateConfirm(open)}>
+      <AlertDialog open={showDeactivateConfirm} onOpenChange={(open) => !isDeactivating && setShowDeactivateConfirm(open)} routeName="deactivate-subject-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -1280,7 +1281,7 @@ const InstituteSubjects = () => {
       </AlertDialog>
 
       {/* Image Preview Dialog */}
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)} routeName="preview-subject-image-popup">
         <DialogContent className="max-w-2xl p-0">
           <DialogHeader className="p-4 pb-0">
             <DialogTitle>{previewImage?.title}</DialogTitle>
@@ -1298,7 +1299,7 @@ const InstituteSubjects = () => {
       </Dialog>
 
       {/* Assign Subject to Class Dialog */}
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen} routeName="assign-subjects-to-class-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Assign Subjects to Class</DialogTitle>

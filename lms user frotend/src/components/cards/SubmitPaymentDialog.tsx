@@ -336,7 +336,7 @@ const SubmitPaymentDialog: React.FC<SubmitPaymentDialogProps> = ({
   if (!order) return null;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange} routeName="submit-payment-dialog-popup">
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

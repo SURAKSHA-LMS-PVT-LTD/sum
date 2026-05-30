@@ -848,7 +848,7 @@ const SubjectPayments = () => {
       }} />}
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog open={!!deleteConfirmPayment} onOpenChange={(open) => { if (!open) setDeleteConfirmPayment(null); }}>
+        <AlertDialog open={!!deleteConfirmPayment} onOpenChange={(open) => { if (!open) setDeleteConfirmPayment(null); }} routeName="delete-subject-payment-confirmation-popup">
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Payment</AlertDialogTitle>

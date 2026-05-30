@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { NotificationToast } from "@/components/notifications/NotificationToast";
 import GoogleTranslateInit from "@/components/LanguageSwitcher";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { createTheme, ThemeProvider as MuiThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { App as CapacitorApp } from '@capacitor/app';
@@ -73,6 +73,7 @@ import StudentSubjectProfilePage from "@/pages/StudentSubjectProfilePage";
 import InstituteAttendancePage from "./pages/InstituteAttendancePage";
 import SettingsPage from "./pages/SettingsPage";
 import DeployPage from "./pages/DeployPage";
+import { isPopupRouteSegment } from "@/utils/popupRoutes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -215,34 +216,34 @@ const AppContent = () => {
       <Route path="/organization/:organizationId/*" element={<Index />} />
       <Route path="/child/:childId/*" element={<Index />} />
       <Route path="/transport/:transportId/*" element={<Index />} />
-      <Route path="/dashboard" element={<Index />} />
-      <Route path="/profile" element={<Index />} />
-      <Route path="/settings" element={<Index />} />
-      <Route path="/appearance" element={<Index />} />
-      <Route path="/institutes" element={<Index />} />
-      <Route path="/organizations" element={<Index />} />
-      <Route path="/qr-attendance" element={<Index />} />
-      <Route path="/rfid-attendance" element={<Index />} />
-      <Route path="/close-attendance" element={<Index />} />
-      <Route path="/sms-history" element={<Index />} />
-      <Route path="/enrollment-management" element={<Index />} />
-      <Route path="/students" element={<Index />} />
-      <Route path="/teachers" element={<Index />} />
-      <Route path="/parents" element={<Index />} />
-      <Route path="/users" element={<Index />} />
-      <Route path="/select-institute" element={<Index />} />
-      <Route path="/select-class" element={<Index />} />
-      <Route path="/select-subject" element={<Index />} />
-      <Route path="/classes" element={<Index />} />
-      <Route path="/subjects" element={<Index />} />
-      <Route path="/attendance" element={<Index />} />
-      <Route path="/lectures" element={<Index />} />
-      <Route path="/free-lectures" element={<Index />} />
-      <Route path="/live-lectures" element={<Index />} />
-      <Route path="/institute-lectures" element={<Index />} />
-      <Route path="/lecture-live-attendance" element={<Index />} />
-      <Route path="/lecture-recording-attendance" element={<Index />} />
-      <Route path="/lecture-recording-student" element={<Index />} />
+      <Route path="/dashboard/*" element={<Index />} />
+      <Route path="/profile/*" element={<Index />} />
+      <Route path="/settings/*" element={<Index />} />
+      <Route path="/appearance/*" element={<Index />} />
+      <Route path="/institutes/*" element={<Index />} />
+      <Route path="/organizations/*" element={<Index />} />
+      <Route path="/qr-attendance/*" element={<Index />} />
+      <Route path="/rfid-attendance/*" element={<Index />} />
+      <Route path="/close-attendance/*" element={<Index />} />
+      <Route path="/sms-history/*" element={<Index />} />
+      <Route path="/enrollment-management/*" element={<Index />} />
+      <Route path="/students/*" element={<Index />} />
+      <Route path="/teachers/*" element={<Index />} />
+      <Route path="/parents/*" element={<Index />} />
+      <Route path="/users/*" element={<Index />} />
+      <Route path="/select-institute/*" element={<Index />} />
+      <Route path="/select-class/*" element={<Index />} />
+      <Route path="/select-subject/*" element={<Index />} />
+      <Route path="/classes/*" element={<Index />} />
+      <Route path="/subjects/*" element={<Index />} />
+      <Route path="/attendance/*" element={<Index />} />
+      <Route path="/lectures/*" element={<Index />} />
+      <Route path="/free-lectures/*" element={<Index />} />
+      <Route path="/live-lectures/*" element={<Index />} />
+      <Route path="/institute-lectures/*" element={<Index />} />
+      <Route path="/lecture-live-attendance/*" element={<Index />} />
+      <Route path="/lecture-recording-attendance/*" element={<Index />} />
+      <Route path="/lecture-recording-student/*" element={<Index />} />
       <Route path="/homework" element={<Index />} />
       <Route path="/homework-submissions" element={<Index />} />
       <Route path="/exams" element={<Index />} />
@@ -308,9 +309,17 @@ const AppContent = () => {
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/deploy" element={<ProtectedRoute><DeployPage /></ProtectedRoute>} />
 
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={<PopupRouteFallback />} />
     </Routes>
   );
+};
+
+const PopupRouteFallback = () => {
+  const location = useLocation();
+  const segments = location.pathname.split('/').filter(Boolean);
+  const lastSegment = segments[segments.length - 1];
+
+  return isPopupRouteSegment(lastSegment) ? <Index /> : <NotFound />;
 };
 
 const App = () => {

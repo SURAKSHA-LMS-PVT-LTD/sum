@@ -568,7 +568,7 @@ const InstituteProfile = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={showActivation} onOpenChange={setShowActivation}>
+      <Dialog open={showActivation} onOpenChange={setShowActivation} routeName="activate-institute-popup">
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Institute Profile Activation</DialogTitle>
@@ -758,7 +758,7 @@ const InstituteProfile = () => {
       />
 
       {/* Crop dialog */}
-      <Dialog open={showImageUpload} onOpenChange={open => { if (!open) setShowImageUpload(false); }}>
+      <Dialog open={showImageUpload} onOpenChange={open => { if (!open) setShowImageUpload(false); }} routeName="upload-institute-logo-popup">
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Crop Institute Photo (35mm × 45mm)</DialogTitle>

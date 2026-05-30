@@ -55,7 +55,7 @@ const OrderDetailsDialog: React.FC<OrderDetailsDialogProps> = ({
 
   if (loading) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={onOpenChange} routeName="order-details-dialog-popup">
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -103,7 +103,7 @@ const OrderDetailsDialog: React.FC<OrderDetailsDialogProps> = ({
   const expiringSoon = isExpiringSoon(order.cardExpiryDate);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="order-details-popup">
       <DialogContent className="sm:max-w-[680px] max-h-[93vh] overflow-y-auto">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-5">

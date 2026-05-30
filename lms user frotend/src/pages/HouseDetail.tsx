@@ -520,7 +520,7 @@ const HouseDetail = () => {
       )}
 
       {/* ── Assign Single Member Dialog ───────────────────────────────── */}
-      <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
+      <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen} routeName="assign-student-to-house-popup">
         <DialogContent className="max-w-sm" allowOutsideClose={false}>
           <DialogHeader>
             <DialogTitle>Assign Member</DialogTitle>
@@ -550,7 +550,7 @@ const HouseDetail = () => {
       </Dialog>
 
       {/* ── Bulk Assign Dialog ────────────────────────────────────────── */}
-      <Dialog open={isBulkOpen} onOpenChange={val => { if (!isBulkAssigning) { setIsBulkOpen(val); if (!val) { setBulkResults(null); setBulkIds([]); setBulkCurrentId(''); } } }}>
+      <Dialog open={isBulkOpen} onOpenChange={val => { if (!isBulkAssigning) { setIsBulkOpen(val); if (!val) { setBulkResults(null); setBulkIds([]); setBulkCurrentId(''); } } }} routeName="bulk-assign-students-house-popup">
         <DialogContent className="max-w-lg w-[calc(100%-1rem)] mx-auto rounded-2xl sm:rounded-xl p-0 gap-0 overflow-hidden" allowOutsideClose={false}>
           {/* Header */}
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
@@ -686,7 +686,7 @@ const HouseDetail = () => {
       </Dialog>
 
       {/* ── Remove Member Confirm ─────────────────────────────────────── */}
-      <AlertDialog open={!!memberToRemove} onOpenChange={open => { if (!open && !isRemoving) setMemberToRemove(null); }}>
+      <AlertDialog open={!!memberToRemove} onOpenChange={open => { if (!open && !isRemoving) setMemberToRemove(null); }} routeName="remove-student-house-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove member?</AlertDialogTitle>

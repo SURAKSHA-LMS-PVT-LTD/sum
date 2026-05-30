@@ -90,7 +90,7 @@ const CreatePaymentDialog = ({ open, onOpenChange, instituteId, onSuccess }: Cre
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange} routeName="create-payment-dialog-popup">
       <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Payment</DialogTitle>

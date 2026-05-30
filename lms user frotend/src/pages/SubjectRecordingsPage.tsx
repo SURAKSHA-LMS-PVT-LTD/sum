@@ -369,7 +369,7 @@ const RecordingFormDialog: React.FC<{
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()} routeName="view-recording-popup">
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={e => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit Recording' : 'Add Recording'}</DialogTitle>

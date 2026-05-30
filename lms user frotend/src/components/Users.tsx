@@ -315,7 +315,7 @@ const Users = () => {
             <UsersIcon className="h-4 w-4" />
             {totalUsers} Users
           </Badge>
-          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName="users-filter-sheet">
             <SheetTrigger asChild>
               <Button
                 variant="outline"

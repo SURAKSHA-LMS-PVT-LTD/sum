@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import React from 'react';
+import { stripPopupRouteFromPath } from '@/utils/popupRoutes';
 
 /**
  * 🔗 Page-Based Context Navigation Manager
@@ -126,7 +127,8 @@ export const useContextUrlSync = (currentPage: string) => {
  */
 export const extractPageFromUrl = (pathname: string): string => {
   // Remove leading slash
-  let path = pathname.startsWith('/') ? pathname.slice(1) : pathname;
+  const pagePathname = stripPopupRouteFromPath(pathname);
+  let path = pagePathname.startsWith('/') ? pagePathname.slice(1) : pagePathname;
   
   // Remove context segments
   path = path

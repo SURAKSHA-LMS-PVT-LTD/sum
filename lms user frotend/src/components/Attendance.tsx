@@ -835,7 +835,7 @@ const Attendance = () => {
           )}
           {/* Mobile Filter Button - Records tab only */}
           {activeTab === 'records' && (
-          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName="attendance-filters-sheet">
             <SheetTrigger asChild>
               <Button
                 variant="outline"

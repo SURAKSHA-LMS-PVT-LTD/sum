@@ -168,7 +168,7 @@ const StudentEnrollDrilldown: React.FC<StudentEnrollDrilldownProps> = ({
 
   return (
     <>
-      <Dialog open={open && !showAssignClass && !showAssignSubject} onOpenChange={onOpenChange}>
+      <Dialog open={open && !showAssignClass && !showAssignSubject} onOpenChange={onOpenChange} routeName="student-enroll-drilldown-popup">
         <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-5 py-4 border-b border-border/60 bg-muted/40">
             <div className="flex items-center gap-3">

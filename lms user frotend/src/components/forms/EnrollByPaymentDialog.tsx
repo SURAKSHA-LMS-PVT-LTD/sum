@@ -243,7 +243,7 @@ const EnrollByPaymentDialog: React.FC<Props> = ({
   const selectedPayment = payments.find(p => p.id === selectedPaymentId);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="enroll-by-payment-dialog-popup">
       <DialogContent className="w-[95vw] max-w-2xl max-h-[92vh] overflow-y-auto mx-auto p-0">
         <DialogHeader className="px-5 pt-5 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-base">

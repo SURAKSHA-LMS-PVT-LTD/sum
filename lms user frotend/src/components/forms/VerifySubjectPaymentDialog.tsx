@@ -54,7 +54,7 @@ const VerifySubjectPaymentDialog = ({ open, onOpenChange, submission, onVerify }
   if (!submission) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="verify-subject-payment-dialog-popup">
       <DialogContent className="w-[95vw] max-w-3xl max-h-[93vh] overflow-y-auto">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-3">

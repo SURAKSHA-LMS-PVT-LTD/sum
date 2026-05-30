@@ -85,7 +85,7 @@ const UpdateInstituteForm = ({ open, onOpenChange, instituteId, currentData, onS
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="update-institute-form-popup">
       <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Update Institute</DialogTitle>

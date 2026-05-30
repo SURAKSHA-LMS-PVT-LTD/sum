@@ -838,7 +838,7 @@ const SubjectSelector = () => {
         </div>}
 
       {/* Enrollment Dialog */}
-      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
+      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen} routeName="enroll-subject-detail-popup">
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Enroll in {enrollSubject?.name}</DialogTitle>

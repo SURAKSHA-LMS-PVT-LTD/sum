@@ -72,7 +72,7 @@ const AddOrganizationUserDialog: React.FC<AddOrganizationUserDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="add-organization-user-popup">
       <DialogContent className="max-w-md mx-auto">
         <DialogHeader>
           <DialogTitle>Add User to {organizationName}</DialogTitle>

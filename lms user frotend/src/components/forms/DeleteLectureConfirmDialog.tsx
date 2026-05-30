@@ -42,7 +42,7 @@ const DeleteLectureConfirmDialog: React.FC<DeleteLectureConfirmDialogProps> = ({
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={onOpenChange} routeName="delete-lecture-confirmation-popup">
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <div className="flex items-center gap-3 mb-2">

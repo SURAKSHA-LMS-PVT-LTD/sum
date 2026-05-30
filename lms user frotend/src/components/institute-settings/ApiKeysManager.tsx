@@ -245,7 +245,7 @@ Content-Type: application/json
       </Card>
 
       {/* Create dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen} routeName="create-api-key-popup">
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Generate API Key</DialogTitle>
@@ -300,7 +300,7 @@ Content-Type: application/json
       </Dialog>
 
       {/* Reveal dialog — shown once after key creation */}
-      <Dialog open={revealOpen} onOpenChange={open => { if (!open) { setRevealOpen(false); setRawKey(''); } }}>
+      <Dialog open={revealOpen} onOpenChange={open => { if (!open) { setRevealOpen(false); setRawKey(''); } }} routeName="reveal-api-key-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -331,7 +331,7 @@ Content-Type: application/json
       </Dialog>
 
       {/* Revoke confirm dialog */}
-      <Dialog open={!!revokeTarget} onOpenChange={open => { if (!open) setRevokeTarget(null); }}>
+      <Dialog open={!!revokeTarget} onOpenChange={open => { if (!open) setRevokeTarget(null); }} routeName="revoke-api-key-popup">
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Revoke API Key</DialogTitle>

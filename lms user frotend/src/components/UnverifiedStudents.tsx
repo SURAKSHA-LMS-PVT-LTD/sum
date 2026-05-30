@@ -788,7 +788,7 @@ const UnverifiedStudents = () => {
       )}
 
       {/* Avatar Image Preview Dialog */}
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)} routeName="student-avatar-preview-popup">
         <DialogContent className="max-w-lg p-0">
           <DialogHeader className="p-4 pb-0">
             <DialogTitle>{previewImage?.name}</DialogTitle>

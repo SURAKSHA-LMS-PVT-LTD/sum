@@ -309,7 +309,7 @@ const OrganizationMembers = ({ organizationId, userRole }: OrganizationMembersPr
       )}
 
       {/* Remove Member Confirmation Dialog */}
-      <AlertDialog open={showRemoveDialog} onOpenChange={(open) => !isRemoving && setShowRemoveDialog(open)}>
+      <AlertDialog open={showRemoveDialog} onOpenChange={(open) => !isRemoving && setShowRemoveDialog(open)} routeName="remove-organization-member-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Member</AlertDialogTitle>

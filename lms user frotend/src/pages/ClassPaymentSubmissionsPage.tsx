@@ -331,7 +331,7 @@ const ClassPaymentSubmissionsPage: React.FC = () => {
 
         {/* Verification Dialog */}
         {verifyDialog && (
-          <Dialog open={!!verifyDialog} onOpenChange={() => setVerifyDialog(null)}>
+          <Dialog open={!!verifyDialog} onOpenChange={() => setVerifyDialog(null)} routeName="verify-class-payment-popup">
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">

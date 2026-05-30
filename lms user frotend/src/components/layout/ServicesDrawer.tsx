@@ -270,7 +270,7 @@ const ServicesDrawer: React.FC<ServicesDrawerProps> = ({ open, onOpenChange }) =
   }, [allSections, searchQuery]);
 
   return (
-    <Drawer open={open} onOpenChange={handleOpenChange}>
+    <Drawer open={open} onOpenChange={handleOpenChange} routeName="services-drawer">
       <DrawerContent className="max-h-[calc(var(--visual-vh,100dvh)-10px)] rounded-t-3xl border-border/70 bg-background/95 backdrop-blur-xl">
         <DrawerHeader className="pb-2 sticky top-0 z-20 bg-background/90 backdrop-blur-xl border-b border-border/50">
           <DrawerTitle className="text-lg font-bold text-foreground">Services</DrawerTitle>

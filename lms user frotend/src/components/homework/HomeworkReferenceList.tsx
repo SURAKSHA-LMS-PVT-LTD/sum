@@ -276,7 +276,7 @@ const HomeworkReferenceList: React.FC<HomeworkReferenceListProps> = ({
       </div>
 
       {/* Preview Dialog */}
-      <Dialog open={!!previewItem} onOpenChange={() => setPreviewItem(null)}>
+      <Dialog open={!!previewItem} onOpenChange={() => setPreviewItem(null)} routeName="preview-homework-reference-popup">
         <DialogContent className="max-w-4xl max-h-[95vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

@@ -655,7 +655,7 @@ const Subjects = () => {
           </div>
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-subject-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto mx-auto">
           <DialogHeader>
             <DialogTitle>Create New Subject</DialogTitle>
@@ -665,7 +665,7 @@ const Subjects = () => {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} routeName="edit-subject-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto mx-auto">
           <DialogHeader>
             <DialogTitle>Edit Subject</DialogTitle>
@@ -678,7 +678,7 @@ const Subjects = () => {
       </Dialog>
 
       {/* Assign Subject Dialog */}
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen} routeName="assign-subjects-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto mx-auto">
           <DialogHeader>
             <DialogTitle>Assign Subjects to Class</DialogTitle>
@@ -704,7 +704,7 @@ const Subjects = () => {
       />
 
       {/* Unassign Teacher Confirmation Dialog */}
-      <AlertDialog open={showUnassignConfirm} onOpenChange={(open) => !isUnassigningTeacher && setShowUnassignConfirm(open)}>
+      <AlertDialog open={showUnassignConfirm} onOpenChange={(open) => !isUnassigningTeacher && setShowUnassignConfirm(open)} routeName="unassign-teacher-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Teacher Assignment</AlertDialogTitle>
@@ -728,7 +728,7 @@ const Subjects = () => {
       </AlertDialog>
 
       {/* Image Preview Dialog */}
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)} routeName="subject-image-preview-popup">
         <DialogContent className="max-w-2xl p-0">
           <DialogHeader className="p-4 pb-0">
             <DialogTitle>{previewImage?.title}</DialogTitle>

@@ -200,10 +200,10 @@ const NAMING_TOKENS = ['{userId}', '{firstName}', '{lastName}', '{fullName}', '{
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 interface CardTemplateBulkGenerateProps {
-  templates: CardTemplate[];
-  activeTemplateId: string | null;
-  onTemplateSelect: (id: string) => void;
-  onBack: () => void;
+  templates?: CardTemplate[];
+  activeTemplateId?: string | null;
+  onTemplateSelect?: (id: string) => void;
+  onBack?: () => void;
 }
 
 const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
@@ -703,7 +703,7 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                       </div>
                       {result && (result.status === 'ok'
                         ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                        : <XCircle className="h-4 w-4 text-destructive shrink-0" title={result.error} />
+                        : <span title={result.error}><XCircle className="h-4 w-4 text-destructive shrink-0" /></span>
                       )}
                     </div>
                   );

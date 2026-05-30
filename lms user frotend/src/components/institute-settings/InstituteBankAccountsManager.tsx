@@ -254,7 +254,7 @@ export const InstituteBankAccountsManager: React.FC<Props> = ({ instituteId, isA
       </Card>
 
       {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen} routeName="add-bank-account-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editTarget ? 'Edit Bank Account' : 'Add Bank Account'}</DialogTitle>

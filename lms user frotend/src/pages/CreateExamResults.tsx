@@ -262,7 +262,7 @@ const CreateExamResults = () => {
               </p>
             )}
           </div>
-          <Dialog open={gradeConfigOpen} onOpenChange={setGradeConfigOpen}>
+          <Dialog open={gradeConfigOpen} onOpenChange={setGradeConfigOpen} routeName="grade-configuration-popup">
             <DialogTrigger asChild>
               <Button variant="outline" size="icon">
                 <img src={donutChartIcon} alt="Grade Configuration" className="h-5 w-5" />

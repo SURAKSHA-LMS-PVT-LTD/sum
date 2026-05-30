@@ -401,7 +401,7 @@ const AddReferenceDialog: React.FC<AddReferenceDialogProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose} routeName="add-homework-reference-popup">
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Reference Material</DialogTitle>

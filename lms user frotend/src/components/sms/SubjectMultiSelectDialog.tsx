@@ -145,7 +145,7 @@ export default function SubjectMultiSelectDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen} routeName="select-subjects-popup">
       <DialogTrigger asChild>
         <Button type="button" variant="outline">{resolvedTriggerLabel}</Button>
       </DialogTrigger>

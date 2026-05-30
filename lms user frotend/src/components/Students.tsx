@@ -1259,7 +1259,7 @@ const Students = () => {
               <span className="sm:hidden">Free Card</span>
             </Button>
           )}
-          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName="students-filter-sheet">
             <SheetTrigger asChild>
               <Button
                 variant="outline"
@@ -1657,7 +1657,7 @@ const Students = () => {
       />
 
       {/* Parent Details Dialog */}
-      <Dialog open={parentDetailsDialog.open} onOpenChange={(open) => !open && setParentDetailsDialog({ open: false, parent: null })}>
+      <Dialog open={parentDetailsDialog.open} onOpenChange={(open) => !open && setParentDetailsDialog({ open: false, parent: null })} routeName="parent-details-popup">
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1758,7 +1758,7 @@ const Students = () => {
       </Dialog>
 
       {/* Give Free Card Dialog */}
-      <Dialog open={showTypeDialog} onOpenChange={setShowTypeDialog}>
+      <Dialog open={showTypeDialog} onOpenChange={setShowTypeDialog} routeName="give-free-card-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1847,7 +1847,7 @@ const Students = () => {
       </Dialog>
 
       {/* Edit Extra Data Dialog */}
-      <Dialog open={editExtraDataDialog.open} onOpenChange={(open) => !open && setEditExtraDataDialog({ open: false, student: null })}>
+      <Dialog open={editExtraDataDialog.open} onOpenChange={(open) => !open && setEditExtraDataDialog({ open: false, student: null })} routeName="edit-extra-data-popup">
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

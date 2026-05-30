@@ -3,8 +3,24 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { PopupRouteContext, usePopupRouteContent, usePopupRouteRoot } from "@/hooks/usePopupRoute"
 
-const AlertDialog = AlertDialogPrimitive.Root
+type AlertDialogProps = React.ComponentProps<typeof AlertDialogPrimitive.Root> & { routeName?: string }
+
+const AlertDialog = ({ children, open, defaultOpen, onOpenChange, routeName, ...props }: AlertDialogProps) => {
+  const routed = usePopupRouteRoot({ open, defaultOpen, onOpenChange, routeName })
+  const rootProps = open === undefined
+    ? { defaultOpen, onOpenChange: routed.onOpenChange }
+    : { open: routed.open, onOpenChange: routed.onOpenChange }
+
+  return (
+    <PopupRouteContext.Provider value={routed.contextValue}>
+      <AlertDialogPrimitive.Root {...rootProps} {...props}>
+        {children}
+      </AlertDialogPrimitive.Root>
+    </PopupRouteContext.Provider>
+  )
+}
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger
 
@@ -27,12 +43,26 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
 
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> & { routeName?: string }
 >(({ className, children, ...props }, ref) => (
-  <AlertDialogPortal>
+  <AlertDialogContentInner className={className} forwardedRef={ref} {...props}>
+    {children}
+  </AlertDialogContentInner>
+))
+AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
+
+const AlertDialogContentInner = ({ className, children, forwardedRef, routeName, ...props }: React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> & { routeName?: string; forwardedRef: React.ForwardedRef<React.ElementRef<typeof AlertDialogPrimitive.Content>> }) => {
+  const contentRef = React.useRef<React.ElementRef<typeof AlertDialogPrimitive.Content>>(null)
+  usePopupRouteContent(contentRef, routeName || 'confirm-action', 'popup')
+
+  return <AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
-      ref={ref}
+      ref={(node) => {
+        contentRef.current = node
+        if (typeof forwardedRef === 'function') forwardedRef(node)
+        else if (forwardedRef) (forwardedRef as React.MutableRefObject<typeof node>).current = node
+      }}
       className={cn(
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg max-h-[78vh] translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/40 bg-background p-0 shadow-[0_24px_80px_-16px_rgba(0,0,0,0.14),0_8px_24px_-8px_rgba(0,0,0,0.08)] duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.97] data-[state=open]:zoom-in-[0.97] data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-2xl overflow-y-auto",
         className
@@ -45,8 +75,7 @@ const AlertDialogContent = React.forwardRef<
       </div>
     </AlertDialogPrimitive.Content>
   </AlertDialogPortal>
-))
-AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
+}
 
 const AlertDialogHeader = ({
   className,
@@ -81,6 +110,7 @@ const AlertDialogTitle = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Title
+    data-popup-route-title="true"
     ref={ref}
     className={cn("text-lg font-semibold leading-tight tracking-tight text-foreground", className)}
     {...props}

@@ -76,7 +76,7 @@ const ImagePreviewModal = ({
     }
   }, [isOpen]);
 
-  return <Dialog open={isOpen} onOpenChange={onClose}>
+  return <Dialog open={isOpen} onOpenChange={onClose} routeName="image-preview-modal-popup">
       <DialogContent className="max-w-4xl max-h-[95vh] p-0 border-0">
         <DialogHeader className="p-4 pb-0 sr-only">
           <DialogTitle>{title}</DialogTitle>

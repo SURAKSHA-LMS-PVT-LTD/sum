@@ -242,11 +242,12 @@ function doPrint(html: string, widthMm = 80) {
   document.body.appendChild(iframe);
 
   // Use srcdoc when available (avoids document.write deprecation warning)
-  if ('srcdoc' in iframe) {
+  if ('srcdoc' in HTMLIFrameElement.prototype) {
     iframe.srcdoc = html;
   } else {
-    const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
-    if (!doc) { iframe.remove(); return; }
+    const fallback = iframe as HTMLIFrameElement;
+    const doc = fallback.contentDocument ?? fallback.contentWindow?.document;
+    if (!doc) { fallback.remove(); return; }
     doc.open(); doc.write(html); doc.close();
   }
 
@@ -941,7 +942,7 @@ const CollectPhysicalPayment: React.FC = () => {
   const dialogs = (
     <>
       {/* ── Post-collect dialog ── */}
-      <Dialog open={postOpen} onOpenChange={v => { if (!v && !postActionLoading) { setPostOpen(false); clearStudent(); } }}>
+      <Dialog open={postOpen} onOpenChange={v => { if (!v && !postActionLoading) { setPostOpen(false); clearStudent(); } }} routeName="post-payment-action-popup">
         <DialogContent className="w-[calc(100vw-2rem)] max-w-md mx-auto p-0 gap-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -1002,7 +1003,7 @@ const CollectPhysicalPayment: React.FC = () => {
       </Dialog>
 
       {/* ── SMS dialog ── */}
-      <Dialog open={smsOpen} onOpenChange={v => { if (!v && !sendingSms) { setSmsOpen(false); } }}>
+      <Dialog open={smsOpen} onOpenChange={v => { if (!v && !sendingSms) { setSmsOpen(false); } }} routeName="send-sms-popup">
         <DialogContent className="w-[calc(100vw-2rem)] max-w-lg mx-auto p-0 gap-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -1075,7 +1076,7 @@ const CollectPhysicalPayment: React.FC = () => {
       </Dialog>
 
       {/* ── Printer settings ── */}
-      <Dialog open={printerOpen} onOpenChange={setPrinterOpen}>
+      <Dialog open={printerOpen} onOpenChange={setPrinterOpen} routeName="printer-settings-popup">
         <DialogContent className="w-[calc(100vw-2rem)] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">

@@ -209,7 +209,7 @@ const AssignUsersDialog: React.FC<AssignUsersDialogProps> = ({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="assign-users-dialog-popup">
       <DialogContent className="max-w-lg w-[calc(100%-1rem)] mx-auto rounded-2xl sm:rounded-xl p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-base">

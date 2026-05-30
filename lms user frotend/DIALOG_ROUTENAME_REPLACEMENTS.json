@@ -1,0 +1,362 @@
+[
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\ClassSubjects.tsx",
+    "componentName": "ClassSubjects",
+    "routeName": "unassign-teacher-confirmation-popup",
+    "purpose": "Confirm removal of teacher from subject",
+    "oldString": "      {/* Unassign Teacher Confirmation Dialog */}\n      <AlertDialog open={showUnassignConfirm} onOpenChange={(open) => !isUnassigningTeacher && setShowUnassignConfirm(open)}>\n        <AlertDialogContent>",
+    "newString": "      {/* Unassign Teacher Confirmation Dialog */}\n      <AlertDialog open={showUnassignConfirm} onOpenChange={(open) => !isUnassigningTeacher && setShowUnassignConfirm(open)} routeName=\"unassign-teacher-confirmation-popup\">\n        <AlertDialogContent>"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\ClassSubjects.tsx",
+    "componentName": "ClassSubjects",
+    "routeName": "subject-image-preview-popup",
+    "purpose": "Preview subject image in full size",
+    "oldString": "      {/* Image Preview Dialog */}\n      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>\n        <DialogContent className=\"max-w-2xl p-0\">",
+    "newString": "      {/* Image Preview Dialog */}\n      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)} routeName=\"subject-image-preview-popup\">\n        <DialogContent className=\"max-w-2xl p-0\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\ClassSubjects.tsx",
+    "componentName": "ClassSubjects",
+    "routeName": "enrollment-settings-popup",
+    "purpose": "Configure enrollment and payment settings for subject",
+    "oldString": "      {/* Unified Enrollment Settings Dialog — independent key + payment toggles */}\n      <Dialog open={enrollSettingsDialog.open} onOpenChange={(open) => !open && setEnrollSettingsDialog(prev => ({ ...prev, open: false }))}>",
+    "newString": "      {/* Unified Enrollment Settings Dialog — independent key + payment toggles */}\n      <Dialog open={enrollSettingsDialog.open} onOpenChange={(open) => !open && setEnrollSettingsDialog(prev => ({ ...prev, open: false }))} routeName=\"enrollment-settings-popup\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\ClassSubjects.tsx",
+    "componentName": "ClassSubjects",
+    "routeName": "assign-subject-to-class-popup",
+    "purpose": "Assign subject to class",
+    "oldString": "      {/* Assign Subject to Class Dialog */}\n      <Dialog open={isAssignSubjectDialogOpen} onOpenChange={setIsAssignSubjectDialogOpen}>\n        <DialogContent className=\"w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto\">",
+    "newString": "      {/* Assign Subject to Class Dialog */}\n      <Dialog open={isAssignSubjectDialogOpen} onOpenChange={setIsAssignSubjectDialogOpen} routeName=\"assign-subject-to-class-popup\">\n        <DialogContent className=\"w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Students.tsx",
+    "componentName": "Students",
+    "routeName": "students-filter-sheet",
+    "purpose": "Mobile filter sheet for students",
+    "oldString": "          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>\n            <SheetTrigger asChild>\n              <Button",
+    "newString": "          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName=\"students-filter-sheet\">\n            <SheetTrigger asChild>\n              <Button"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Students.tsx",
+    "componentName": "Students",
+    "routeName": "parent-details-popup",
+    "purpose": "View parent details and information",
+    "oldString": "      {/* Parent Details Dialog */}\n      <Dialog open={parentDetailsDialog.open} onOpenChange={(open) => !open && setParentDetailsDialog({ open: false, parent: null })}>\n        <DialogContent className=\"max-w-2xl max-h-[80vh] overflow-y-auto\">",
+    "newString": "      {/* Parent Details Dialog */}\n      <Dialog open={parentDetailsDialog.open} onOpenChange={(open) => !open && setParentDetailsDialog({ open: false, parent: null })} routeName=\"parent-details-popup\">\n        <DialogContent className=\"max-w-2xl max-h-[80vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Students.tsx",
+    "componentName": "Students",
+    "routeName": "give-free-card-popup",
+    "purpose": "Give free card or set student type",
+    "oldString": "      {/* Give Free Card Dialog */}\n      <Dialog open={showTypeDialog} onOpenChange={setShowTypeDialog}>\n        <DialogContent className=\"max-w-lg\">",
+    "newString": "      {/* Give Free Card Dialog */}\n      <Dialog open={showTypeDialog} onOpenChange={setShowTypeDialog} routeName=\"give-free-card-popup\">\n        <DialogContent className=\"max-w-lg\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Students.tsx",
+    "componentName": "Students",
+    "routeName": "edit-extra-data-popup",
+    "purpose": "Edit custom extra data for student",
+    "oldString": "      {/* Edit Extra Data Dialog */}\n      <Dialog open={editExtraDataDialog.open} onOpenChange={(open) => !open && setEditExtraDataDialog({ open: false, student: null })}>\n        <DialogContent className=\"max-w-lg\">",
+    "newString": "      {/* Edit Extra Data Dialog */}\n      <Dialog open={editExtraDataDialog.open} onOpenChange={(open) => !open && setEditExtraDataDialog({ open: false, student: null })} routeName=\"edit-extra-data-popup\">\n        <DialogContent className=\"max-w-lg\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Users.tsx",
+    "componentName": "Users",
+    "routeName": "users-filter-sheet",
+    "purpose": "Mobile filter sheet for users",
+    "oldString": "          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>\n            <SheetTrigger asChild>\n              <Button\n                variant=\"outline\"\n                className=\"md:hidden flex items-center gap-2\"\n              >\n                <Filter className=\"h-4 w-4\" />\n                Filters",
+    "newString": "          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName=\"users-filter-sheet\">\n            <SheetTrigger asChild>\n              <Button\n                variant=\"outline\"\n                className=\"md:hidden flex items-center gap-2\"\n              >\n                <Filter className=\"h-4 w-4\" />\n                Filters"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Institutes.tsx",
+    "componentName": "Institutes",
+    "routeName": "create-institute-popup",
+    "purpose": "Create new institute",
+    "oldString": "      {/* Create Dialog - Mobile Responsive */}\n      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>\n        <DialogContent className=\"w-full max-w-4xl max-h-[95vh] overflow-y-auto mx-4 sm:mx-auto\">",
+    "newString": "      {/* Create Dialog - Mobile Responsive */}\n      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog} routeName=\"create-institute-popup\">\n        <DialogContent className=\"w-full max-w-4xl max-h-[95vh] overflow-y-auto mx-4 sm:mx-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Institutes.tsx",
+    "componentName": "Institutes",
+    "routeName": "edit-institute-popup",
+    "purpose": "Edit institute details",
+    "oldString": "      {/* Edit Dialog - Mobile Responsive */}\n      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>\n        <DialogContent className=\"w-full max-w-4xl max-h-[95vh] overflow-y-auto mx-4 sm:mx-auto\">",
+    "newString": "      {/* Edit Dialog - Mobile Responsive */}\n      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog} routeName=\"edit-institute-popup\">\n        <DialogContent className=\"w-full max-w-4xl max-h-[95vh] overflow-y-auto mx-4 sm:mx-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Institutes.tsx",
+    "componentName": "Institutes",
+    "routeName": "view-institute-popup",
+    "purpose": "View institute details",
+    "oldString": "      {/* View Dialog - Mobile Responsive */}\n      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>\n        <DialogContent className=\"w-[95vw] max-w-4xl max-h-[93vh] overflow-y-auto\">",
+    "newString": "      {/* View Dialog - Mobile Responsive */}\n      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog} routeName=\"view-institute-popup\">\n        <DialogContent className=\"w-[95vw] max-w-4xl max-h-[93vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\admin-attendance\\CloseAttendance.tsx",
+    "componentName": "CloseAttendance",
+    "routeName": "close-attendance-confirmation-popup",
+    "purpose": "Confirm closing attendance session and marking absent",
+    "oldString": "      {/* Confirmation Dialog */}\n      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>\n        <AlertDialogContent>",
+    "newString": "      {/* Confirmation Dialog */}\n      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen} routeName=\"close-attendance-confirmation-popup\">\n        <AlertDialogContent>"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Organizations.tsx",
+    "componentName": "Organizations",
+    "routeName": "create-organization-popup",
+    "purpose": "Create new organization",
+    "oldString": "          {canCreateOrganizations() && (\n            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>\n              <DialogTrigger asChild>",
+    "newString": "          {canCreateOrganizations() && (\n            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName=\"create-organization-popup\">\n              <DialogTrigger asChild>"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Organizations.tsx",
+    "componentName": "Organizations",
+    "routeName": "delete-organization-confirmation-popup",
+    "purpose": "Confirm deletion of organization",
+    "oldString": "      {/* Delete Confirmation Dialog */}\n      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>\n        <AlertDialogContent>",
+    "newString": "      {/* Delete Confirmation Dialog */}\n      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog} routeName=\"delete-organization-confirmation-popup\">\n        <AlertDialogContent>"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherLectures.tsx",
+    "componentName": "TeacherLectures",
+    "routeName": "create-lecture-popup",
+    "purpose": "Create new lecture",
+    "oldString": "      {/* Create Lecture Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Create Lecture Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName=\"create-lecture-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherLectures.tsx",
+    "componentName": "TeacherLectures",
+    "routeName": "update-lecture-popup",
+    "purpose": "Update existing lecture",
+    "oldString": "      {/* Update Lecture Dialog */}\n      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Update Lecture Dialog */}\n      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen} routeName=\"update-lecture-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherHomework.tsx",
+    "componentName": "TeacherHomework",
+    "routeName": "create-homework-popup",
+    "purpose": "Create new homework assignment",
+    "oldString": "      {/* Create Homework Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Create Homework Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName=\"create-homework-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherHomework.tsx",
+    "componentName": "TeacherHomework",
+    "routeName": "update-homework-popup",
+    "purpose": "Update existing homework assignment",
+    "oldString": "      {/* Update Homework Dialog */}\n      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Update Homework Dialog */}\n      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen} routeName=\"update-homework-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherExams.tsx",
+    "componentName": "TeacherExams",
+    "routeName": "create-exam-popup",
+    "purpose": "Create new exam",
+    "oldString": "      {/* Create Exam Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Create Exam Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName=\"create-exam-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherExams.tsx",
+    "componentName": "TeacherExams",
+    "routeName": "create-exam-results-popup",
+    "purpose": "Create exam results",
+    "oldString": "      {/* Create Results Dialog */}\n      <Dialog open={isCreateResultsDialogOpen} onOpenChange={setIsCreateResultsDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Create Results Dialog */}\n      <Dialog open={isCreateResultsDialogOpen} onOpenChange={setIsCreateResultsDialogOpen} routeName=\"create-exam-results-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherExams.tsx",
+    "componentName": "TeacherExams",
+    "routeName": "update-exam-popup",
+    "purpose": "Update existing exam",
+    "oldString": "      {/* Update Exam Dialog */}\n      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Update Exam Dialog */}\n      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen} routeName=\"update-exam-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Lectures.tsx",
+    "componentName": "Lectures",
+    "routeName": "create-lecture-popup",
+    "purpose": "Create new lecture",
+    "oldString": "      {/* Create Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Create Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName=\"create-lecture-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Lectures.tsx",
+    "componentName": "Lectures",
+    "routeName": "update-lecture-popup",
+    "purpose": "Update existing lecture",
+    "oldString": "      {/* Update Dialog */}\n      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Update Dialog */}\n      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} routeName=\"update-lecture-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Results.tsx",
+    "componentName": "Results",
+    "routeName": "create-result-popup",
+    "purpose": "Create new exam result",
+    "oldString": "      {/* Create Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Create Dialog */}\n      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName=\"create-result-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Results.tsx",
+    "componentName": "Results",
+    "routeName": "edit-result-popup",
+    "purpose": "Edit existing exam result",
+    "oldString": "      {/* Edit Dialog */}\n      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Edit Dialog */}\n      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} routeName=\"edit-result-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\CalendarMonthView.tsx",
+    "componentName": "CalendarMonthView",
+    "routeName": "calendar-legend-popup",
+    "purpose": "Display calendar legend and color meanings",
+    "oldString": "      {/* Legend Dialog */}\n      <Dialog open={showLegend} onOpenChange={setShowLegend}>\n        <DialogContent className=\"max-w-lg max-h-[92vh] overflow-y-auto\">",
+    "newString": "      {/* Legend Dialog */}\n      <Dialog open={showLegend} onOpenChange={setShowLegend} routeName=\"calendar-legend-popup\">\n        <DialogContent className=\"max-w-lg max-h-[92vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\CalendarMonthView.tsx",
+    "componentName": "CalendarMonthView",
+    "routeName": "calendar-day-detail-popup",
+    "purpose": "View detailed calendar day information",
+    "oldString": "      {/* Day Detail Dialog */}\n      <Dialog open={showDayDetail} onOpenChange={setShowDayDetail}>\n        <DialogContent className=\"max-w-lg max-h-[95vh] overflow-y-auto\">",
+    "newString": "      {/* Day Detail Dialog */}\n      <Dialog open={showDayDetail} onOpenChange={setShowDayDetail} routeName=\"calendar-day-detail-popup\">\n        <DialogContent className=\"max-w-lg max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\calendar\\CalendarDayManagement.tsx",
+    "componentName": "CalendarDayManagement",
+    "routeName": "edit-calendar-day-popup",
+    "purpose": "Edit calendar day configuration",
+    "oldString": "      <Dialog open={!!editDay} onOpenChange={(open) => !open && setEditDay(null)}>\n        <DialogContent className=\"max-w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-hidden\">",
+    "newString": "      <Dialog open={!!editDay} onOpenChange={(open) => !open && setEditDay(null)} routeName=\"edit-calendar-day-popup\">\n        <DialogContent className=\"max-w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-hidden\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\calendar\\EventManagement.tsx",
+    "componentName": "EventManagement",
+    "routeName": "create-event-popup",
+    "purpose": "Create new calendar event",
+    "oldString": "      <Dialog open={showCreate} onOpenChange={setShowCreate}>\n        <DialogContent className=\"max-w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-hidden\">",
+    "newString": "      <Dialog open={showCreate} onOpenChange={setShowCreate} routeName=\"create-event-popup\">\n        <DialogContent className=\"max-w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-hidden\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\calendar\\EventManagement.tsx",
+    "componentName": "EventManagement",
+    "routeName": "edit-event-popup",
+    "purpose": "Edit existing calendar event",
+    "oldString": "      <Dialog open={!!editEvent} onOpenChange={(open) => !open && setEditEvent(null)}>\n        <DialogContent className=\"max-w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-hidden\">",
+    "newString": "      <Dialog open={!!editEvent} onOpenChange={(open) => !open && setEditEvent(null)} routeName=\"edit-event-popup\">\n        <DialogContent className=\"max-w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-hidden\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\calendar\\GenerateCalendarWizard.tsx",
+    "componentName": "GenerateCalendarWizard",
+    "routeName": "generate-calendar-confirmation-popup",
+    "purpose": "Confirm calendar generation",
+    "oldString": "      {/* Confirm Dialog */}\n      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>\n        <AlertDialogContent>",
+    "newString": "      {/* Confirm Dialog */}\n      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm} routeName=\"generate-calendar-confirmation-popup\">\n        <AlertDialogContent>"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\EnrollOrganizationDialog.tsx",
+    "componentName": "EnrollOrganizationDialog",
+    "routeName": "enroll-organization-popup",
+    "purpose": "Enroll in an organization",
+    "oldString": "    <Dialog open={open} onOpenChange={onOpenChange}>\n      <DialogContent className=\"sm:max-w-md\">",
+    "newString": "    <Dialog open={open} onOpenChange={onOpenChange} routeName=\"enroll-organization-popup\">\n      <DialogContent className=\"sm:max-w-md\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\FreeLectures.tsx",
+    "componentName": "FreeLectures",
+    "routeName": "create-free-lecture-popup",
+    "purpose": "Create new free lecture",
+    "oldString": "      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>\n        <DialogContent className=\"max-w-2xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog} routeName=\"create-free-lecture-popup\">\n        <DialogContent className=\"max-w-2xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\FreeLectures.tsx",
+    "componentName": "FreeLectures",
+    "routeName": "edit-free-lecture-popup",
+    "purpose": "Edit existing free lecture",
+    "oldString": "      <Dialog open={!!editingLecture} onOpenChange={(open) => !open && setEditingLecture(null)}>\n        <DialogContent className=\"max-w-2xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      <Dialog open={!!editingLecture} onOpenChange={(open) => !open && setEditingLecture(null)} routeName=\"edit-free-lecture-popup\">\n        <DialogContent className=\"max-w-2xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\ClassSelector.tsx",
+    "componentName": "ClassSelector",
+    "routeName": "enroll-class-popup",
+    "purpose": "Enroll in a class",
+    "oldString": "      {/* Enrollment Dialog */}\n      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>\n        <DialogContent className=\"sm:max-w-md\">",
+    "newString": "      {/* Enrollment Dialog */}\n      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen} routeName=\"enroll-class-popup\">\n        <DialogContent className=\"sm:max-w-md\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\InstituteLectures.tsx",
+    "componentName": "InstituteLectures",
+    "routeName": "create-institute-lecture-popup",
+    "purpose": "Create new institute lecture",
+    "oldString": "              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>\n                <DialogTrigger asChild>\n                  <Button size=\"sm\" className=\"h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3\">",
+    "newString": "              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog} routeName=\"create-institute-lecture-popup\">\n                <DialogTrigger asChild>\n                  <Button size=\"sm\" className=\"h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\InstituteLectures.tsx",
+    "componentName": "InstituteLectures",
+    "routeName": "update-institute-lecture-popup",
+    "purpose": "Update existing institute lecture",
+    "oldString": "        <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>\n          <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "        <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog} routeName=\"update-institute-lecture-popup\">\n          <DialogContent className=\"max-w-4xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\Parents.tsx",
+    "componentName": "Parents",
+    "routeName": "view-children-popup",
+    "purpose": "View parent's children list",
+    "oldString": "      {/* Children Details Dialog */}\n      <Dialog open={childrenRoute.isOpen} onOpenChange={open => { if (!open) childrenRoute.close(); }}>\n        <DialogContent className=\"max-w-4xl max-h-[80vh] overflow-y-auto\">",
+    "newString": "      {/* Children Details Dialog */}\n      <Dialog open={childrenRoute.isOpen} onOpenChange={open => { if (!open) childrenRoute.close(); }} routeName=\"view-children-popup\">\n        <DialogContent className=\"max-w-4xl max-h-[80vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherStudents.tsx",
+    "componentName": "TeacherStudents",
+    "routeName": "teacher-students-filter-sheet",
+    "purpose": "Mobile filter sheet for teacher students",
+    "oldString": "          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>\n            <SheetTrigger asChild>\n              <Button\n                variant=\"outline\"\n                className=\"md:hidden flex items-center gap-2\"\n              >\n                <Filter className=\"h-4 w-4\" />\n                Filters\n              </Button>\n            </SheetTrigger>\n            <SheetContent side=\"bottom\" className=\"md:hidden flex flex-col max-h-[80vh] rounded-t-2xl\">",
+    "newString": "          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName=\"teacher-students-filter-sheet\">\n            <SheetTrigger asChild>\n              <Button\n                variant=\"outline\"\n                className=\"md:hidden flex items-center gap-2\"\n              >\n                <Filter className=\"h-4 w-4\" />\n                Filters\n              </Button>\n            </SheetTrigger>\n            <SheetContent side=\"bottom\" className=\"md:hidden flex flex-col max-h-[80vh] rounded-t-2xl\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherStudents.tsx",
+    "componentName": "TeacherStudents",
+    "routeName": "teacher-give-free-card-popup",
+    "purpose": "Give free card or update student type (teacher view)",
+    "oldString": "        <Dialog open={showTypeDialog} onOpenChange={setShowTypeDialog}>\n          <DialogContent className=\"max-w-md\">",
+    "newString": "        <Dialog open={showTypeDialog} onOpenChange={setShowTypeDialog} routeName=\"teacher-give-free-card-popup\">\n          <DialogContent className=\"max-w-md\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\TeacherStudents.tsx",
+    "componentName": "TeacherStudents",
+    "routeName": "teacher-edit-extra-data-popup",
+    "purpose": "Edit custom extra data for student (teacher view)",
+    "oldString": "      <Dialog open={editExtraDataDialog.open} onOpenChange={(open) => !open && setEditExtraDataDialog({ open: false, student: null })}>\n        <DialogContent className=\"max-w-lg\">",
+    "newString": "      <Dialog open={editExtraDataDialog.open} onOpenChange={(open) => !open && setEditExtraDataDialog({ open: false, student: null })} routeName=\"teacher-edit-extra-data-popup\">\n        <DialogContent className=\"max-w-lg\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\StructuredLectures.tsx",
+    "componentName": "StructuredLectures",
+    "routeName": "structured-lectures-filter-sheet",
+    "purpose": "Mobile filter sheet for structured lectures",
+    "oldString": "          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>\n            <SheetTrigger asChild>\n              <Button\n                variant=\"outline\"\n                size=\"sm\"\n                className=\"md:hidden rounded-xl gap-1.5\"\n              >\n                <Filter className=\"h-4 w-4\" />\n                Filters\n              </Button>\n            </SheetTrigger>\n            <SheetContent side=\"bottom\" className=\"md:hidden flex flex-col max-h-[80vh] rounded-t-2xl\">",
+    "newString": "          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName=\"structured-lectures-filter-sheet\">\n            <SheetTrigger asChild>\n              <Button\n                variant=\"outline\"\n                size=\"sm\"\n                className=\"md:hidden rounded-xl gap-1.5\"\n              >\n                <Filter className=\"h-4 w-4\" />\n                Filters\n              </Button>\n            </SheetTrigger>\n            <SheetContent side=\"bottom\" className=\"md:hidden flex flex-col max-h-[80vh] rounded-t-2xl\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\StructuredLectures.tsx",
+    "componentName": "StructuredLectures",
+    "routeName": "create-structured-lecture-popup",
+    "purpose": "Create new structured lecture",
+    "oldString": "      <Dialog open={showCreate} onOpenChange={setShowCreate}>\n        <DialogContent className=\"max-w-2xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      <Dialog open={showCreate} onOpenChange={setShowCreate} routeName=\"create-structured-lecture-popup\">\n        <DialogContent className=\"max-w-2xl max-h-[95vh] overflow-y-auto\">"
+  },
+  {
+    "filePath": "d:\\Users\\sanul\\OneDrive\\Desktop\\new\\humble-start-page\\src\\components\\StructuredLectures.tsx",
+    "componentName": "StructuredLectures",
+    "routeName": "edit-structured-lecture-popup",
+    "purpose": "Edit existing structured lecture",
+    "oldString": "      <Dialog open={!!editLecture} onOpenChange={(open) => !open && setEditLecture(null)}>\n        <DialogContent className=\"max-w-2xl max-h-[95vh] overflow-y-auto\">",
+    "newString": "      <Dialog open={!!editLecture} onOpenChange={(open) => !open && setEditLecture(null)} routeName=\"edit-structured-lecture-popup\">\n        <DialogContent className=\"max-w-2xl max-h-[95vh] overflow-y-auto\">"
+  }
+]

@@ -721,7 +721,7 @@ const CloseAttendance: React.FC = () => {
       </div>
 
       {/* Confirmation Dialog */}
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen} routeName="close-attendance-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

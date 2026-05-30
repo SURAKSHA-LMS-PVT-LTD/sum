@@ -374,7 +374,7 @@ const TeacherExams = () => {
       </>
 
       {/* Create Exam Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-exam-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Exam</DialogTitle>
@@ -387,7 +387,7 @@ const TeacherExams = () => {
       </Dialog>
 
       {/* Create Results Dialog */}
-      <Dialog open={isCreateResultsDialogOpen} onOpenChange={setIsCreateResultsDialogOpen}>
+      <Dialog open={isCreateResultsDialogOpen} onOpenChange={setIsCreateResultsDialogOpen} routeName="create-exam-results-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Exam Results</DialogTitle>
@@ -400,7 +400,7 @@ const TeacherExams = () => {
       </Dialog>
 
       {/* Update Exam Dialog */}
-      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
+      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen} routeName="update-exam-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Update Exam</DialogTitle>

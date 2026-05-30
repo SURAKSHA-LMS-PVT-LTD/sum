@@ -182,7 +182,7 @@ const DeleteAccountTab = () => {
       </Card>
 
       {/* Confirmation Dialog */}
-      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm} routeName="delete-account-confirmation-popup">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

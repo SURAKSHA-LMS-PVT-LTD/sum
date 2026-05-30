@@ -119,7 +119,7 @@ export const ExamResultsDialog = ({ isOpen, onClose, exam }: ExamResultsDialogPr
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} routeName="exam-results-dialog-popup">
       <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
         <DialogHeader className="pb-3">
           <DialogTitle className="flex items-center gap-4">

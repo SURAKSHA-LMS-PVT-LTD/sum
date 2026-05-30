@@ -70,7 +70,7 @@ export const NotificationDetailSheet: React.FC<NotificationDetailSheetProps> = (
   };
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }} routeName="notification-details-sheet">
       <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto p-0">
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1">

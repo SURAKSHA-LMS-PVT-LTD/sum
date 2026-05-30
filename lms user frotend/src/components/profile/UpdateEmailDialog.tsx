@@ -98,7 +98,7 @@ export default function UpdateEmailDialog({ currentEmail, onUpdate }: UpdateEmai
     <Dialog open={open} onOpenChange={(val) => {
       setOpen(val);
       if (!val) resetState();
-    }}>
+    }} routeName="update-email-address-popup">
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
           <Edit2 className="h-3 w-3" />

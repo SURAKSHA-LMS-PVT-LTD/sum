@@ -118,7 +118,7 @@ const CreateUserForm = ({ onSubmit, onCancel, loading = false, initialData }: Cr
   };
 
   return (
-    <Dialog open={true} onOpenChange={() => onCancel()}>
+    <Dialog open={true} onOpenChange={() => onCancel()} routeName="create-user-form-popup">
       <DialogContent className="max-w-6xl max-h-[98vh] overflow-y-auto p-6 sm:p-8">
         <DialogHeader className="pb-6 border-b">
           <DialogTitle className="text-3xl sm:text-4xl font-bold text-center bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">

@@ -83,7 +83,7 @@ const VideoPreviewDialog: React.FC<VideoPreviewDialogProps> = ({
     'bg-green-600';
 
   return (
-    <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={dialogOpen} onOpenChange={handleOpenChange} routeName="video-preview-popup">
       <DialogContent className="w-[95vw] max-w-4xl p-3 sm:p-4 gap-3">
         <DialogHeader>
           <div className="flex items-center gap-2 pr-6">

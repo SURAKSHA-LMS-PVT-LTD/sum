@@ -328,7 +328,7 @@ export default function SMSHistory() {
       </Paper>
 
       {/* View Details Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen} routeName="view-sms-details-popup">
         <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader className="pb-2">
             <DialogTitle className="flex items-center gap-3">
@@ -496,7 +496,7 @@ export default function SMSHistory() {
       </Dialog>
 
       {/* New Payment Dialog */}
-      <Dialog open={newPaymentOpen} onOpenChange={setNewPaymentOpen}>
+      <Dialog open={newPaymentOpen} onOpenChange={setNewPaymentOpen} routeName="create-payment-from-sms-popup">
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Submit Payment for SMS Credits</DialogTitle>

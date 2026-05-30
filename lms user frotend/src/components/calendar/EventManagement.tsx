@@ -415,7 +415,7 @@ const EventManagement: React.FC = () => {
         </div>
       )}
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={setShowCreate} routeName="create-event-popup">
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-hidden">
           <DialogHeader><DialogTitle className="text-base">Create New Event</DialogTitle></DialogHeader>
           {renderForm(false)}
@@ -426,7 +426,7 @@ const EventManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editEvent} onOpenChange={(open) => !open && setEditEvent(null)}>
+      <Dialog open={!!editEvent} onOpenChange={(open) => !open && setEditEvent(null)} routeName="edit-event-popup">
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[95vh] overflow-hidden">
           <DialogHeader><DialogTitle className="text-base">✏️ Edit Event</DialogTitle></DialogHeader>
           {renderForm(true)}

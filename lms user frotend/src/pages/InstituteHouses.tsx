@@ -356,7 +356,7 @@ const InstituteHouses = () => {
       )}
 
       {/* ── Create House Dialog ───────────────────────────────────────── */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen} routeName="create-house-popup">
         <DialogContent className="max-w-md" allowOutsideClose={false}>
           <DialogHeader>
             <DialogTitle>Create House</DialogTitle>
@@ -432,7 +432,7 @@ const InstituteHouses = () => {
       </Dialog>
 
       {/* ── Edit House Dialog ─────────────────────────────────────────── */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen} routeName="edit-house-popup">
         <DialogContent className="max-w-md" allowOutsideClose={false}>
           <DialogHeader>
             <DialogTitle>Edit House</DialogTitle>

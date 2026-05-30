@@ -485,7 +485,7 @@ const DeviceManagement = () => {
         </Tabs>
 
         {/* ══════ DETAIL DIALOG ══════ */}
-        <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <Dialog open={detailOpen} onOpenChange={setDetailOpen} routeName="device-detail-popup">
           <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
             {selectedDevice && (
               <>
@@ -820,7 +820,7 @@ function RegisterDeviceDialog({ open, onClose, onSuccess }: { open: boolean; onC
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose} routeName="register-device-popup">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Register New Device</DialogTitle>
@@ -910,7 +910,7 @@ function ConfigDialog({ open, onClose, config, deviceId, isSystemAdmin, institut
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose} routeName="device-config-popup">
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Device Configuration</DialogTitle>
@@ -1033,7 +1033,7 @@ function BindEventDialog({ open, onClose, deviceId, isSystemAdmin, instituteId, 
   const effectiveInstituteId = instituteId ?? '';
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose} routeName="bind-event-popup">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Bind Event to Device</DialogTitle>
@@ -1123,7 +1123,7 @@ function AssignDialog({ open, onClose, device, onSuccess }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose} routeName="assign-device-institute-popup">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{device?.instituteId ? 'Change / Unassign Institute' : 'Assign to Institute'}</DialogTitle>
@@ -1157,7 +1157,7 @@ function BlockDialog({ open, onClose, deviceId, onBlock }: {
 }) {
   const [reason, setReason] = useState('');
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose} routeName="block-device-popup">
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">

@@ -98,7 +98,7 @@ const UpdateOrganizationDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="update-organization-dialog-popup">
       <DialogContent className="sm:max-w-[600px] mx-auto">
         <DialogHeader>
           <DialogTitle>Update Organization</DialogTitle>

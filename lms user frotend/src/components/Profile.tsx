@@ -633,7 +633,7 @@ const Profile = () => {
       </Card>
     )}
 
-    <Dialog open={showActivation} onOpenChange={setShowActivation}>
+    <Dialog open={showActivation} onOpenChange={setShowActivation} routeName="activate-account-popup">
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Institute Profile Activation</DialogTitle>

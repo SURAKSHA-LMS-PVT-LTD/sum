@@ -601,7 +601,7 @@ export const UserTypesManager: React.FC = () => {
         </div>
 
         {/* ── Create / Edit dialog ── */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen} routeName="edit-user-type-popup">
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle>{editingType ? 'Edit User Type' : 'New User Type'}</DialogTitle>

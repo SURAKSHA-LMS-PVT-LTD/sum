@@ -147,7 +147,7 @@ const InstituteDriveManageDrawer: React.FC<InstituteDriveManageDrawerProps> = ({
     usagePercent !== null && usagePercent >= 90;
 
   return (
-    <Sheet open={open} onOpenChange={v => !v && onClose()}>
+    <Sheet open={open} onOpenChange={v => !v && onClose()} routeName="manage-drive-access-sheet">
       <SheetContent
         side="right"
         className="w-full sm:max-w-md overflow-y-auto"

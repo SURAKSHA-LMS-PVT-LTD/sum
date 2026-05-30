@@ -322,7 +322,7 @@ const Teachers = () => {
 
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+              <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} routeName="teachers-filter-sheet">
                 <SheetTrigger asChild>
                   <Button
                     variant="outline"
@@ -504,7 +504,7 @@ const Teachers = () => {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-teacher-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Teacher</DialogTitle>
@@ -517,7 +517,7 @@ const Teachers = () => {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} routeName="edit-teacher-popup">
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Teacher</DialogTitle>

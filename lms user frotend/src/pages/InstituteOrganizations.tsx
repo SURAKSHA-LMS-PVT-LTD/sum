@@ -423,7 +423,7 @@ const InstituteOrganizations = () => {
         </div>
       </div>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-organization-popup">
         <DialogContent className="max-w-3xl mx-4">
           <DialogHeader>
             <DialogTitle>Create New Organization</DialogTitle>
@@ -445,7 +445,7 @@ const InstituteOrganizations = () => {
         onSuccess={() => actions.loadData(true)}
       />
 
-      <Dialog open={viewMembersDialog.open} onOpenChange={(open) => setViewMembersDialog({ ...viewMembersDialog, open })}>
+      <Dialog open={viewMembersDialog.open} onOpenChange={(open) => setViewMembersDialog({ ...viewMembersDialog, open })} routeName="view-organization-members-popup">
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Members - {viewMembersDialog.orgName}</DialogTitle>
@@ -481,7 +481,7 @@ const InstituteOrganizations = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={enrollmentKeyDialog.open} onOpenChange={(open) => setEnrollmentKeyDialog({ ...enrollmentKeyDialog, open })}>
+      <Dialog open={enrollmentKeyDialog.open} onOpenChange={(open) => setEnrollmentKeyDialog({ ...enrollmentKeyDialog, open })} routeName="view-enrollment-key-popup">
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold">Enrollment Code</DialogTitle>
@@ -556,7 +556,7 @@ const InstituteOrganizations = () => {
       </Card>
 
       {/* Image Preview Dialog */}
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)} routeName="preview-organization-image-popup">
         <DialogContent className="max-w-2xl p-0">
           <DialogHeader className="p-4 pb-0">
             <DialogTitle>{previewImage?.title}</DialogTitle>

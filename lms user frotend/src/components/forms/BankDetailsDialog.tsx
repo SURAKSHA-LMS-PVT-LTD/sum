@@ -41,7 +41,7 @@ const BankDetailsDialog: React.FC<BankDetailsDialogProps> = ({ open, onOpenChang
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} routeName="bank-details-dialog-popup">
       <DialogContent className="max-w-2xl">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold">

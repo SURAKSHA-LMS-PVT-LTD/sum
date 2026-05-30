@@ -506,7 +506,7 @@ const CalendarMonthView = () => {
       </Card>
 
       {/* Legend Dialog */}
-      <Dialog open={showLegend} onOpenChange={setShowLegend}>
+      <Dialog open={showLegend} onOpenChange={setShowLegend} routeName="calendar-legend-popup">
         <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -546,7 +546,7 @@ const CalendarMonthView = () => {
       </Dialog>
 
       {/* Day Detail Dialog */}
-      <Dialog open={showDayDetail} onOpenChange={setShowDayDetail}>
+      <Dialog open={showDayDetail} onOpenChange={setShowDayDetail} routeName="calendar-day-detail-popup">
         <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

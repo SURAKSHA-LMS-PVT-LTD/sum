@@ -126,12 +126,12 @@ interface DragState {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 interface CardTemplateDesignerProps {
-  templates: CardTemplate[];
-  saving: boolean;
-  onSave: (templates: CardTemplate[]) => Promise<void>;
-  activeTemplateId: string | null;
-  onTemplateSelect: (id: string) => void;
-  onBack: () => void;
+  templates?: CardTemplate[];
+  saving?: boolean;
+  onSave?: (templates: CardTemplate[]) => Promise<void>;
+  activeTemplateId?: string | null;
+  onTemplateSelect?: (id: string) => void;
+  onBack?: () => void;
 }
 
 const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({

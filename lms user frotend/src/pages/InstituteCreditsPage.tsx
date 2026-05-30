@@ -538,7 +538,7 @@ export default function InstituteCreditsPage() {
       </div>
 
       {/* ═══ Top-Up Dialog ══════════════════════════════════════ */}
-      <Dialog open={topUpOpen} onOpenChange={(open) => { if (!submitting) { setTopUpOpen(open); if (!open) resetTopUpForm(); } }}>
+      <Dialog open={topUpOpen} onOpenChange={(open) => { if (!submitting) { setTopUpOpen(open); if (!open) resetTopUpForm(); } }} routeName="topup-credits-popup">
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

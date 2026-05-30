@@ -394,7 +394,7 @@ const HomeworkSubmissionDetails = () => {
 
         {/* View Details Dialog */}
         {viewSubmission && (
-          <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen} routeName="view-homework-submission-popup">
             <DialogContent className="w-[95vw] max-w-3xl max-h-[93vh] overflow-y-auto">
               <DialogHeader className="pb-2">
                 <DialogTitle className="flex items-center gap-3">
@@ -490,7 +490,7 @@ const HomeworkSubmissionDetails = () => {
         )}
 
         {/* Remark Dialog */}
-        <Dialog open={remarkDialogOpen} onOpenChange={setRemarkDialogOpen}>
+        <Dialog open={remarkDialogOpen} onOpenChange={setRemarkDialogOpen} routeName="add-homework-remark-popup">
           <DialogContent className="w-[92vw] max-w-2xl">
             <DialogHeader className="pb-2">
               <DialogTitle className="flex items-center gap-3">

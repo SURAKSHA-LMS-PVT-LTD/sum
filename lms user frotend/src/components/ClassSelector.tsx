@@ -991,7 +991,7 @@ const ClassSelector = () => {
         </div>}
 
       {/* Enrollment Dialog */}
-      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
+      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen} routeName="enroll-class-popup">
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Enroll in Class</DialogTitle>

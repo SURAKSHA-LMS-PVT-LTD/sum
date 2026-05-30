@@ -82,7 +82,7 @@ const PaymentSubmissionsDialog: React.FC<PaymentSubmissionsDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange} routeName="payment-submissions-dialog-popup">
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto w-full sm:w-[95vw]">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-3">
