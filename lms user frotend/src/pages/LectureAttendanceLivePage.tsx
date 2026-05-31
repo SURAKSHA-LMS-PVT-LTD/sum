@@ -266,14 +266,21 @@ export default function LectureAttendanceLivePage() {
       ? viewGrid.students
       : (sessionGrid?.students || []);
 
-    return fallbackStudents
-      .map(student => ({
-        id: student.id,
-        name: student.name,
-        instituteUserId: student.id,
-        imageUrl: student.imageUrl || '',
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    // Dedupe fallback students by id and ensure imageUrl is present
+    const dedupMap = new Map<string, any>();
+    for (const s of fallbackStudents) {
+      if (!s || !s.id) continue;
+      if (!dedupMap.has(String(s.id))) {
+        dedupMap.set(String(s.id), {
+          id: String(s.id),
+          name: s.name || String(s.id),
+          instituteUserId: s.id,
+          imageUrl: s.imageUrl ?? '',
+        });
+      }
+    }
+
+    return Array.from(dedupMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [studentDirectoryById, viewGrid, sessionGrid]);
 
   const gridLectureColumns = useMemo(
@@ -377,6 +384,8 @@ export default function LectureAttendanceLivePage() {
   }
 
   if (viewMode === 'grid') {
+    const sessionColumns = sessionGrid?.sessions ?? [];
+
     const attendanceRows = enrolledStudentsForView.map(student => {
       return {
         ...student,
@@ -392,13 +401,6 @@ export default function LectureAttendanceLivePage() {
             visits: cell?.visits,
           };
         }),
-      };
-    });
-
-    const sessionColumns = sessionGrid?.sessions ?? [];
-    const sessionRows = enrolledStudentsForView.map(student => {
-      return {
-        ...student,
         sessionCells: sessionColumns.map(session => {
           const cell = sessionGrid?.grid?.[student.id]?.[session.id];
           return {
@@ -449,6 +451,17 @@ export default function LectureAttendanceLivePage() {
                     <span className="text-xs">Export Report</span>
                   </>
                 )}
+              </Button>
+            )}
+            {activeSessionLecture && (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-9 gap-2 ml-2"
+                onClick={() => setCreateSessionOpen(true)}
+              >
+                <Link2 className="h-4 w-4" />
+                <span className="text-xs">Collect Live Attendance</span>
               </Button>
             )}
           </div>
@@ -605,6 +618,37 @@ export default function LectureAttendanceLivePage() {
                             )}
                           </TableHead>
                         ))}
+                        {sessionColumns.map((session, idx) => (
+                          <TableHead key={session.id} className="text-center min-w-[140px] text-xs font-semibold text-muted-foreground">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="text-[10px] font-semibold">Session {idx + 1}</div>
+                              <div className="flex items-center gap-1">
+                                <Badge variant={session.isExpired ? 'destructive' : 'secondary'} className="text-[9px]">
+                                  {session.isExpired ? 'Expired' : 'Active'}
+                                </Badge>
+                                {session.markedCount != null && (
+                                  <span className="text-[9px] text-muted-foreground/70">{session.markedCount} marked</span>
+                                )}
+                              </div>
+                              {session.createdAt && (
+                                <div className="text-[9px] text-muted-foreground/70">
+                                  {new Date(session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </div>
+                              )}
+                              {session.publicUrl && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => handleCopySessionUrl(session.publicUrl)}
+                                  aria-label={`Copy session ${idx + 1} link`}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableHead>
+                        ))}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -629,6 +673,8 @@ export default function LectureAttendanceLivePage() {
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground/70 font-mono">{row.instituteUserId}</TableCell>
                           <TableCell className="text-xs text-muted-foreground/70 font-mono">{row.id.slice(0, 12)}</TableCell>
+
+                          {/* Lecture attendance cells (per selected lecture columns) */}
                           {row.cells.map(cell => (
                             <TableCell key={cell.lectureId} className="text-center p-2">
                               <div
@@ -674,6 +720,30 @@ export default function LectureAttendanceLivePage() {
                               </div>
                             </TableCell>
                           ))}
+
+                          {/* Session mark columns */}
+                          {row.sessionCells.map(cell => (
+                            <TableCell key={cell.sessionId} className="text-center p-2">
+                              <div className={`inline-flex flex-col items-center justify-center gap-1 min-h-[46px] px-2 py-1 rounded-lg border ${
+                                cell.marked ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-50 border border-slate-200'
+                              }`}>
+                                {cell.marked ? (
+                                  <>
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                    <span className="text-[10px] font-semibold text-emerald-700">Present</span>
+                                    {cell.markedAt && (
+                                      <span className="text-[9px] text-emerald-600/70">{new Date(cell.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="h-4 w-4 text-slate-500" />
+                                    <span className="text-[10px] font-semibold text-slate-700">Not Marked</span>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          ))}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -713,149 +783,7 @@ export default function LectureAttendanceLivePage() {
             </DialogContent>
           </Dialog>
 
-          <Card className="overflow-hidden border-0 shadow-md">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b pb-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Link2 className="h-5 w-5 text-primary" />
-                    Live Attendance Links
-                  </CardTitle>
-                  <CardDescription className="text-xs mt-2">
-                    Create one-time links for {activeSessionLecture?.title ?? 'a lecture'}.
-                  </CardDescription>
-                </div>
-                <Button
-                  size="sm"
-                  className="h-8 text-xs gap-1"
-                  onClick={() => setCreateSessionOpen(true)}
-                  disabled={!activeSessionLecture}
-                >
-                  <Link2 className="h-3.5 w-3.5" />
-                  Collect Live Attendance
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4">
-              {!activeSessionLecture ? (
-                <div className="text-xs text-muted-foreground">
-                  Select a single lecture to manage attendance links.
-                </div>
-              ) : loadingSessionGrid ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
-                </div>
-              ) : sessionColumns.length === 0 ? (
-                <div className="text-xs text-muted-foreground">
-                  No live attendance links created yet.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid gap-2">
-                    {sessionColumns.map((session, idx) => (
-                      <div key={session.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold">Session {idx + 1}</span>
-                            <Badge variant={session.isExpired ? 'destructive' : 'secondary'} className="text-[10px]">
-                              {session.isExpired ? 'Expired' : 'Active'}
-                            </Badge>
-                            {session.markedCount != null && (
-                              <Badge variant="outline" className="text-[10px]">{session.markedCount} marked</Badge>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground mt-1">
-                            Created {new Date(session.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            {' · '}
-                            Expires {new Date(session.expiresAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            {' · '}
-                            {session.validSeconds}s
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => handleCopySessionUrl(session.publicUrl)}
-                        >
-                          <Copy className="h-3 w-3" />Copy Link
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="overflow-x-auto rounded-lg border border-border/60">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-slate-50 dark:bg-slate-900/50 border-b">
-                          <TableHead className="text-xs font-semibold text-muted-foreground">Student</TableHead>
-                          <TableHead className="text-xs font-semibold text-muted-foreground">Institute ID</TableHead>
-                          <TableHead className="text-xs font-semibold text-muted-foreground">System ID</TableHead>
-                          {sessionColumns.map((session, idx) => (
-                            <TableHead key={session.id} className="text-center min-w-[120px] text-xs font-semibold text-muted-foreground">
-                              <div className="text-[10px] font-semibold">Session {idx + 1}</div>
-                              <div className="text-[10px] text-muted-foreground/70">
-                                {new Date(session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </div>
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sessionRows.map((row, idx) => (
-                          <TableRow key={row.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/30 border-b ${idx % 2 === 0 ? 'bg-white/50 dark:bg-slate-900/20' : ''}`}>
-                            <TableCell className="text-xs font-medium">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <Avatar className="h-8 w-8 shrink-0 ring-2 ring-primary/20">
-                                  <AvatarImage
-                                    src={getImageUrl((row.imageUrl || studentDirectoryById[row.id]?.imageUrl || '').trim()) || undefined}
-                                    alt={row.name}
-                                  />
-                                  <AvatarFallback className="text-[10px] font-semibold">
-                                    {row.name.split(' ').filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="min-w-0">
-                                  <div className="truncate font-semibold text-foreground">{row.name}</div>
-                                  <div className="text-[10px] text-muted-foreground/60 truncate">ID: {row.id.slice(0, 8)}</div>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground/70 font-mono">{row.instituteUserId}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground/70 font-mono">{row.id.slice(0, 12)}</TableCell>
-                            {row.sessionCells.map(cell => (
-                              <TableCell key={cell.sessionId} className="text-center p-2">
-                                <div className={`inline-flex flex-col items-center justify-center gap-1 min-h-[46px] px-2 py-1 rounded-lg border ${
-                                  cell.marked ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-500/5 border-slate-500/15'
-                                }`}>
-                                  {cell.marked ? (
-                                    <>
-                                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                      <span className="text-[10px] font-semibold text-emerald-700">Present</span>
-                                      {cell.markedAt && (
-                                        <span className="text-[9px] text-emerald-600/70">
-                                          {new Date(cell.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <XCircle className="h-4 w-4 text-slate-400" />
-                                      <span className="text-[10px] font-semibold text-slate-500">Not Marked</span>
-                                    </>
-                                  )}
-                                </div>
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Live Attendance Links card removed — session columns are integrated into the main table */}
         </div>
       </PageContainer>
     );
