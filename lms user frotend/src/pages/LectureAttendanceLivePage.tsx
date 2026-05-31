@@ -61,6 +61,10 @@ export default function LectureAttendanceLivePage() {
   const [createSessionOpen, setCreateSessionOpen] = useState(false);
   const [sessionDurationSeconds, setSessionDurationSeconds] = useState(300);
   const [creatingSession, setCreatingSession] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'present' | 'absent'>('all');
+  const [sessionFilter, setSessionFilter] = useState<'all' | 'marked' | 'not_marked'>('all');
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
 
   // ── Visit detail popup ────────────────────────────────────────────────────
   const [visitPopup, setVisitPopup] = useState<{
@@ -412,12 +416,42 @@ export default function LectureAttendanceLivePage() {
       };
     });
 
-    const presentCount = attendanceRows.reduce((count, row) => {
-      return count + row.cells.filter(cell => cell.attended).length;
+    // Apply search & filters
+    const matchesSearch = (row: any) => {
+      if (!searchTerm) return true;
+      const q = searchTerm.trim().toLowerCase();
+      return (row.name || '').toLowerCase().includes(q)
+        || (row.instituteUserId || '').toLowerCase().includes(q)
+        || (row.id || '').toLowerCase().includes(q);
+    };
+
+    const matchesAttendanceFilter = (row: any) => {
+      if (attendanceFilter === 'all') return true;
+      const anyPresent = row.cells.some((c: any) => c.attended);
+      return attendanceFilter === 'present' ? anyPresent : !anyPresent;
+    };
+
+    const matchesSessionFilter = (row: any) => {
+      if (sessionFilter === 'all') return true;
+      const anyMarked = row.sessionCells.some((s: any) => s.marked);
+      return sessionFilter === 'marked' ? anyMarked : !anyMarked;
+    };
+
+    const filteredRows = attendanceRows.filter(row => matchesSearch(row) && matchesAttendanceFilter(row) && matchesSessionFilter(row));
+
+    const presentCount = filteredRows.reduce((count, row) => {
+      return count + row.cells.filter((cell: any) => cell.attended).length;
     }, 0);
-    const totalSlots = attendanceRows.length * gridLectureColumns.length;
+    const totalSlots = filteredRows.length * Math.max(1, gridLectureColumns.length);
     const absentCount = totalSlots - presentCount;
     const attendancePercentage = totalSlots > 0 ? Math.round((presentCount / totalSlots) * 100) : 0;
+
+    // reusable counts for filter UI (per-student and per-session)
+    const totalStudents = attendanceRows.length;
+    const presentStudents = attendanceRows.filter(r => r.cells.some((c: any) => c.attended)).length;
+    const absentStudents = totalStudents - presentStudents;
+    const sessionMarked = attendanceRows.filter(r => r.sessionCells.some((s: any) => s.marked)).length;
+    const sessionNotMarked = totalStudents - sessionMarked;
 
     return (
       <PageContainer maxWidth="full" className="h-full">
@@ -474,6 +508,113 @@ export default function LectureAttendanceLivePage() {
             className={selectedClass.name}
             studentDirectoryById={studentDirectoryById}
           />
+
+          {/* Search & Filters (responsive) */}
+          <div className="flex items-center gap-3 w-full">
+            {/* Desktop: show full filters */}
+            <div className="hidden md:flex items-center gap-3">
+              <Input
+                placeholder="Search students by name / institute id / system id"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-64"
+              />
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant={attendanceFilter === 'all' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('all')}>
+                    All
+                  </Button>
+                  <Button size="sm" variant={attendanceFilter === 'present' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('present')}>
+                    Present
+                  </Button>
+                  <Button size="sm" variant={attendanceFilter === 'absent' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('absent')}>
+                    Absent
+                  </Button>
+                  <Badge className="text-[11px] ml-2">{presentStudents}P · {absentStudents}A</Badge>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant={sessionFilter === 'all' ? 'default' : 'outline'} onClick={() => setSessionFilter('all')}>
+                    Session: All
+                  </Button>
+                  <Button size="sm" variant={sessionFilter === 'marked' ? 'default' : 'outline'} onClick={() => setSessionFilter('marked')}>
+                    Marked
+                  </Button>
+                  <Button size="sm" variant={sessionFilter === 'not_marked' ? 'default' : 'outline'} onClick={() => setSessionFilter('not_marked')}>
+                    Not marked
+                  </Button>
+                  <Badge className="text-[11px] ml-2">{sessionMarked}M · {sessionNotMarked}NM</Badge>
+                </div>
+              </div>
+
+              <Button size="sm" variant="ghost" onClick={() => { setSearchTerm(''); setAttendanceFilter('all'); setSessionFilter('all'); }}>
+                Clear
+              </Button>
+            </div>
+
+            {/* Mobile: compact search + Filters sheet trigger */}
+            <div className="flex md:hidden items-center gap-2 w-full">
+              <Input
+                placeholder="Search"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+              <Button size="sm" onClick={() => setShowFilterSheet(true)}>
+                Filters
+                <Badge className="ml-2 text-[11px]">{presentStudents}P</Badge>
+              </Button>
+            </div>
+
+            {/* Mobile filters sheet */}
+            <Sheet open={showFilterSheet} onOpenChange={setShowFilterSheet}>
+              <SheetContent side="bottom" className="w-full sm:max-w-md">
+                <SheetHeader>
+                  <SheetTitle>Filters</SheetTitle>
+                  <SheetDescription className="text-xs">Search and filter attendance</SheetDescription>
+                </SheetHeader>
+                <div className="p-4 space-y-3">
+                  <Input
+                    placeholder="Search students by name / institute id / system id"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant={attendanceFilter === 'all' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('all')}>
+                      All
+                    </Button>
+                    <Button size="sm" variant={attendanceFilter === 'present' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('present')}>
+                      Present
+                    </Button>
+                    <Button size="sm" variant={attendanceFilter === 'absent' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('absent')}>
+                      Absent
+                    </Button>
+                    <Badge className="text-[11px] ml-2">{presentStudents}P · {absentStudents}A</Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant={sessionFilter === 'all' ? 'default' : 'outline'} onClick={() => setSessionFilter('all')}>
+                      Session: All
+                    </Button>
+                    <Button size="sm" variant={sessionFilter === 'marked' ? 'default' : 'outline'} onClick={() => setSessionFilter('marked')}>
+                      Marked
+                    </Button>
+                    <Button size="sm" variant={sessionFilter === 'not_marked' ? 'default' : 'outline'} onClick={() => setSessionFilter('not_marked')}>
+                      Not marked
+                    </Button>
+                    <Badge className="text-[11px] ml-2">{sessionMarked}M · {sessionNotMarked}NM</Badge>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button size="sm" variant="ghost" onClick={() => { setSearchTerm(''); setAttendanceFilter('all'); setSessionFilter('all'); setShowFilterSheet(false); }}>
+                      Clear
+                    </Button>
+                    <Button size="sm" className="ml-2" onClick={() => setShowFilterSheet(false)}>Done</Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
 
           {/* Visit Detail Sheet */}
           <Sheet open={!!visitPopup} onOpenChange={open => { if (!open) setVisitPopup(null); }} routeName="visit-details-sheet">
@@ -652,7 +793,7 @@ export default function LectureAttendanceLivePage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {attendanceRows.map((row, idx) => (
+                      {filteredRows.map((row, idx) => (
                         <TableRow key={row.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/30 border-b transition-colors ${idx % 2 === 0 ? 'bg-white/50 dark:bg-slate-900/20' : ''}`}>
                           <TableCell className="text-xs font-medium">
                             <div className="flex items-center gap-3 min-w-0">
