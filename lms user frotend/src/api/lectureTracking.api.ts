@@ -73,6 +73,64 @@ export interface RecordingAccessInfo {
   recordingUrl?: string;
 }
 
+export interface LiveAttendanceSessionAccessInfo {
+  lectureId: string;
+  title: string;
+  description?: string;
+  startTime?: string;
+  endTime?: string;
+  instituteId: string;
+  instituteName?: string;
+  instituteLogoUrl?: string;
+  subdomain?: string;
+  customDomain?: string;
+  sessionId: string;
+  createdAt: string;
+  expiresAt: string;
+  validSeconds: number;
+  accessLevel: 'ANYONE' | 'SURAKSHA_USERS' | 'ENROLLED_ONLY' | 'PAID_ONLY';
+  hasAccess: boolean;
+  requirePayment: boolean;
+  notPaidPaymentId?: string;
+  alreadyMarked: boolean;
+  markedAt?: string;
+  isExpired?: boolean;
+  loginRequired?: boolean;
+}
+
+export interface LiveAttendanceSessionInfo {
+  id: string;
+  urlId: string;
+  validSeconds: number;
+  createdAt: string;
+  expiresAt: string;
+  isExpired: boolean;
+  markedCount?: number;
+  publicUrl: string;
+}
+
+export interface LiveAttendanceSessionGrid {
+  lecture: {
+    id: string;
+    title: string;
+    startTime?: string;
+    subjectId?: string | null;
+    status?: string;
+  };
+  sessions: LiveAttendanceSessionInfo[];
+  students: Array<{
+    id: string;
+    name: string;
+    imageUrl?: string | null;
+  }>;
+  grid: Record<string, Record<string, { marked: boolean; markedAt?: string }>>;
+}
+
+export interface LiveAttendanceMarkResult {
+  status: 'MARKED' | 'ALREADY_MARKED';
+  markedAt: string;
+}
+
 export interface LiveJoinResult {
   attendanceId: string;
   lectureId: string;
@@ -221,6 +279,18 @@ class LectureTrackingApi {
     return request<RecordingAccessInfo>(`/subject-recording-tracking/recording/access/${urlId}`);
   }
 
+  // ── Live attendance link access ───────────────────────────────────────
+
+  validateLiveAttendanceSession(urlId: string): Promise<LiveAttendanceSessionAccessInfo> {
+    return request<LiveAttendanceSessionAccessInfo>(`/lecture-tracking/live-attendance/access/${urlId}`);
+  }
+
+  markLiveAttendanceSession(urlId: string): Promise<LiveAttendanceMarkResult> {
+    return request<LiveAttendanceMarkResult>(`/lecture-tracking/live-attendance/mark/${urlId}`, {
+      method: 'POST',
+    }, true);
+  }
+
   // ── Live session lifecycle ──────────────────────────────────────────────
 
   joinLive(payload: {
@@ -298,6 +368,42 @@ class LectureTrackingApi {
   }
 
   // ── Admin reports (require auth) ────────────────────────────────────────
+
+  createLiveAttendanceSession(payload: {
+    lectureId: string;
+    validSeconds?: number;
+  }): Promise<LiveAttendanceSessionInfo> {
+    return request<LiveAttendanceSessionInfo>(
+      '/lecture-tracking/live-attendance/sessions',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      true,
+    );
+  }
+
+  getLiveAttendanceSessionGrid(params: {
+    lectureId: string;
+    classId: string;
+    instituteId: string;
+  }): Promise<LiveAttendanceSessionGrid> {
+    if (!params.lectureId || !params.classId || !params.instituteId) {
+      return Promise.resolve({ lecture: { id: '', title: '' }, sessions: [], students: [], grid: {} });
+    }
+
+    const qs = new URLSearchParams({
+      lectureId: params.lectureId,
+      classId: params.classId,
+      instituteId: params.instituteId,
+    });
+
+    return request<LiveAttendanceSessionGrid>(
+      `/lecture-tracking/live-attendance/session-grid?${qs}`,
+      {},
+      true,
+    );
+  }
 
   getAttendanceGrid(params: {
     lectureIds: string[];

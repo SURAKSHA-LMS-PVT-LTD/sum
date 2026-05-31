@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { lectureApi, Lecture } from '@/api/lecture.api';
 import {
-  lectureTrackingApi, AttendanceGridResult,
+  lectureTrackingApi, AttendanceGridResult, LiveAttendanceSessionGrid,
 } from '@/api/lectureTracking.api';
 import { instituteStudentsApi, StudentListRecord } from '@/api/instituteStudents.api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -13,12 +13,15 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
 import {
   ArrowLeft, Calendar, Users,
-  Loader2, RefreshCw, Clock, FileDown, CheckCircle2, XCircle,
+  Loader2, RefreshCw, Clock, FileDown, CheckCircle2, XCircle, Link2, Copy,
 } from 'lucide-react';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
 import { useContextUrlSync } from '@/utils/pageNavigation';
@@ -51,6 +54,13 @@ export default function LectureAttendanceLivePage() {
   // ── Dedicated grid view state ─────────────────────────────────────────────
   const [viewGrid, setViewGrid] = useState<AttendanceGridResult | null>(null);
   const [loadingViewGrid, setLoadingViewGrid] = useState(false);
+
+  // ── Live attendance link sessions ─────────────────────────────────────────
+  const [sessionGrid, setSessionGrid] = useState<LiveAttendanceSessionGrid | null>(null);
+  const [loadingSessionGrid, setLoadingSessionGrid] = useState(false);
+  const [createSessionOpen, setCreateSessionOpen] = useState(false);
+  const [sessionDurationSeconds, setSessionDurationSeconds] = useState(300);
+  const [creatingSession, setCreatingSession] = useState(false);
 
   // ── Visit detail popup ────────────────────────────────────────────────────
   const [visitPopup, setVisitPopup] = useState<{
@@ -252,7 +262,11 @@ export default function LectureAttendanceLivePage() {
         .sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    return (viewGrid?.students || [])
+    const fallbackStudents = viewGrid?.students?.length
+      ? viewGrid.students
+      : (sessionGrid?.students || []);
+
+    return fallbackStudents
       .map(student => ({
         id: student.id,
         name: student.name,
@@ -260,12 +274,74 @@ export default function LectureAttendanceLivePage() {
         imageUrl: student.imageUrl || '',
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [studentDirectoryById, viewGrid]);
+  }, [studentDirectoryById, viewGrid, sessionGrid]);
 
   const gridLectureColumns = useMemo(
     () => selectedLectures.length > 0 ? selectedLectures : allLectures.filter(lecture => viewLectureIds.includes(lecture.id)),
     [selectedLectures, allLectures, viewLectureIds],
   );
+
+  const activeSessionLecture = useMemo(
+    () => (viewMode === 'grid' && gridLectureColumns.length === 1 ? gridLectureColumns[0] : null),
+    [viewMode, gridLectureColumns],
+  );
+
+  const loadSessionGrid = useCallback(async () => {
+    if (viewMode !== 'grid' || !activeSessionLecture || !currentInstituteId || !currentClassId) {
+      setSessionGrid(null);
+      return;
+    }
+
+    setLoadingSessionGrid(true);
+    try {
+      const grid = await lectureTrackingApi.getLiveAttendanceSessionGrid({
+        lectureId: activeSessionLecture.id,
+        classId: currentClassId,
+        instituteId: currentInstituteId,
+      });
+      setSessionGrid(grid);
+    } catch {
+      setSessionGrid(null);
+      toast.error('Failed to load live attendance sessions.');
+    } finally {
+      setLoadingSessionGrid(false);
+    }
+  }, [viewMode, activeSessionLecture?.id, currentInstituteId, currentClassId]);
+
+  useEffect(() => { loadSessionGrid(); }, [loadSessionGrid]);
+
+  const handleCreateSession = async () => {
+    if (!activeSessionLecture) return;
+    const seconds = Math.floor(Number(sessionDurationSeconds));
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      toast.error('Enter a valid duration in seconds.');
+      return;
+    }
+
+    setCreatingSession(true);
+    try {
+      await lectureTrackingApi.createLiveAttendanceSession({
+        lectureId: activeSessionLecture.id,
+        validSeconds: seconds,
+      });
+      toast.success('Live attendance link created.');
+      setCreateSessionOpen(false);
+      await loadSessionGrid();
+    } catch {
+      toast.error('Failed to create live attendance link.');
+    } finally {
+      setCreatingSession(false);
+    }
+  };
+
+  const handleCopySessionUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Link copied.');
+    } catch {
+      toast.error('Failed to copy link.');
+    }
+  };
 
   const openReportingForLecture = async (lecture: Lecture) => {
     if (!currentInstituteId || !currentClassId) return;
@@ -314,6 +390,21 @@ export default function LectureAttendanceLivePage() {
             joinTime: cell?.joinTime,
             durationMinutes: cell?.durationMinutes,
             visits: cell?.visits,
+          };
+        }),
+      };
+    });
+
+    const sessionColumns = sessionGrid?.sessions ?? [];
+    const sessionRows = enrolledStudentsForView.map(student => {
+      return {
+        ...student,
+        sessionCells: sessionColumns.map(session => {
+          const cell = sessionGrid?.grid?.[student.id]?.[session.id];
+          return {
+            sessionId: session.id,
+            marked: !!cell?.marked,
+            markedAt: cell?.markedAt,
           };
         }),
       };
@@ -587,6 +678,180 @@ export default function LectureAttendanceLivePage() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Live Attendance Links */}
+          <Dialog open={createSessionOpen} onOpenChange={setCreateSessionOpen} routeName="create-live-attendance-link-popup">
+            <DialogContent className="sm:max-w-[420px]">
+              <DialogHeader>
+                <DialogTitle>Create Live Attendance Link</DialogTitle>
+                <DialogDescription>
+                  Generate a time-limited link for students to mark attendance once.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-2">
+                <div className="space-y-2">
+                  <Label>Valid for (seconds)</Label>
+                  <Input
+                    type="number"
+                    min={5}
+                    value={sessionDurationSeconds}
+                    onChange={(e) => setSessionDurationSeconds(Number(e.target.value))}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Example: 300 seconds = 5 minutes.</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateSessionOpen(false)} disabled={creatingSession}>Cancel</Button>
+                <Button onClick={handleCreateSession} disabled={creatingSession || !activeSessionLecture}>
+                  {creatingSession ? 'Creating...' : 'Create Link'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Card className="overflow-hidden border-0 shadow-md">
+            <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b pb-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Link2 className="h-5 w-5 text-primary" />
+                    Live Attendance Links
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-2">
+                    Create one-time links for {activeSessionLecture?.title ?? 'a lecture'}.
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => setCreateSessionOpen(true)}
+                  disabled={!activeSessionLecture}
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  Collect Live Attendance
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              {!activeSessionLecture ? (
+                <div className="text-xs text-muted-foreground">
+                  Select a single lecture to manage attendance links.
+                </div>
+              ) : loadingSessionGrid ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
+                </div>
+              ) : sessionColumns.length === 0 ? (
+                <div className="text-xs text-muted-foreground">
+                  No live attendance links created yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid gap-2">
+                    {sessionColumns.map((session, idx) => (
+                      <div key={session.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold">Session {idx + 1}</span>
+                            <Badge variant={session.isExpired ? 'destructive' : 'secondary'} className="text-[10px]">
+                              {session.isExpired ? 'Expired' : 'Active'}
+                            </Badge>
+                            {session.markedCount != null && (
+                              <Badge variant="outline" className="text-[10px]">{session.markedCount} marked</Badge>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-1">
+                            Created {new Date(session.createdAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            {' · '}
+                            Expires {new Date(session.expiresAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            {' · '}
+                            {session.validSeconds}s
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => handleCopySessionUrl(session.publicUrl)}
+                        >
+                          <Copy className="h-3 w-3" />Copy Link
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="overflow-x-auto rounded-lg border border-border/60">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50 dark:bg-slate-900/50 border-b">
+                          <TableHead className="text-xs font-semibold text-muted-foreground">Student</TableHead>
+                          <TableHead className="text-xs font-semibold text-muted-foreground">Institute ID</TableHead>
+                          <TableHead className="text-xs font-semibold text-muted-foreground">System ID</TableHead>
+                          {sessionColumns.map((session, idx) => (
+                            <TableHead key={session.id} className="text-center min-w-[120px] text-xs font-semibold text-muted-foreground">
+                              <div className="text-[10px] font-semibold">Session {idx + 1}</div>
+                              <div className="text-[10px] text-muted-foreground/70">
+                                {new Date(session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </div>
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sessionRows.map((row, idx) => (
+                          <TableRow key={row.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/30 border-b ${idx % 2 === 0 ? 'bg-white/50 dark:bg-slate-900/20' : ''}`}>
+                            <TableCell className="text-xs font-medium">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Avatar className="h-8 w-8 shrink-0 ring-2 ring-primary/20">
+                                  <AvatarImage
+                                    src={getImageUrl((row.imageUrl || studentDirectoryById[row.id]?.imageUrl || '').trim()) || undefined}
+                                    alt={row.name}
+                                  />
+                                  <AvatarFallback className="text-[10px] font-semibold">
+                                    {row.name.split(' ').filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <div className="truncate font-semibold text-foreground">{row.name}</div>
+                                  <div className="text-[10px] text-muted-foreground/60 truncate">ID: {row.id.slice(0, 8)}</div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground/70 font-mono">{row.instituteUserId}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground/70 font-mono">{row.id.slice(0, 12)}</TableCell>
+                            {row.sessionCells.map(cell => (
+                              <TableCell key={cell.sessionId} className="text-center p-2">
+                                <div className={`inline-flex flex-col items-center justify-center gap-1 min-h-[46px] px-2 py-1 rounded-lg border ${
+                                  cell.marked ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-500/5 border-slate-500/15'
+                                }`}>
+                                  {cell.marked ? (
+                                    <>
+                                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                      <span className="text-[10px] font-semibold text-emerald-700">Present</span>
+                                      {cell.markedAt && (
+                                        <span className="text-[9px] text-emerald-600/70">
+                                          {new Date(cell.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="h-4 w-4 text-slate-400" />
+                                      <span className="text-[10px] font-semibold text-slate-500">Not Marked</span>
+                                    </>
+                                  )}
+                                </div>
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               )}
             </CardContent>
