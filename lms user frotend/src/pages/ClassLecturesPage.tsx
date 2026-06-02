@@ -228,7 +228,7 @@ const ClassLecturesPage = () => {
                   New Lecture
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+              <DialogContent className="max-w-2xl sm:max-w-4xl max-h-[95vh] overflow-y-auto">
                 <DialogTitle className="sr-only">Create Class Lecture</DialogTitle>
                 <DialogDescription className="sr-only">Form to create a new class lecture</DialogDescription>
                 <CreateClassLectureForm onClose={() => setShowCreateDialog(false)} onSuccess={handleCreateSuccess} />

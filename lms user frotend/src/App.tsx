@@ -66,7 +66,6 @@ import RegisterInstitute from "@/pages/RegisterInstitute";
 import ReuploadProfileImagePage from "@/pages/ReuploadProfileImagePage";
 import AttendanceViewPage from "@/pages/AttendanceViewPage";
 import LiveLecturePage from "@/pages/LiveLecturePage";
-import LiveAttendanceMarkPage from "@/pages/LiveAttendanceMarkPage";
 import ViewRecordingPage from "@/pages/ViewRecordingPage";
 import StudentInstituteProfilePage from "@/pages/StudentInstituteProfilePage";
 import StudentClassProfilePage from "@/pages/StudentClassProfilePage";
@@ -197,7 +196,6 @@ const AppContent = () => {
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/live-lecture/:urlId" element={<LiveLecturePage />} />
-      <Route path="/live-attendance/:urlId" element={<LiveAttendanceMarkPage />} />
       <Route path="/view-recording/:urlId" element={<ViewRecordingPage />} />
       <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
       <Route path="/activate/identify" element={<ActivateAccount />} />

@@ -318,6 +318,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   //   2. Permission check — if the user has a CUSTOM (non-system) RBAC user type,
   //      use their `canView` permission for that feature key.
   //      Otherwise fall back to the hard-coded role permission matrix.
+  // Determine current navigation scope for scope-aware feature checks
   const currentNavScope: 'institute' | 'class' | 'subject' = selectedSubject
     ? 'subject'
     : selectedClass
@@ -334,7 +335,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       if (item.alwaysShow) return true;
 
       // Scope-aware feature check using featureKey override when provided.
-      // Disabled features only hide items at their matching navigation level.
+      // class-scope keys (class-mark-attendance etc.) only hide items inside a class.
+      // subject-scope keys only hide inside a subject. institute-scope always applies.
       const featureEnabled = isFeatureEnabledForScope(item.featureKey ?? item.id, currentNavScope);
       if (!featureEnabled) return false;
 
@@ -351,7 +353,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       // Legacy hard-coded role check (system types: student, teacher, admin, etc.)
       return AccessControl.hasPermission(userRole as any, (item.permission || 'view-dashboard') as any);
     });
-  }, [userRole, isFeatureEnabledForScope, currentNavScope, rbacContext, rbacLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userRole, isFeatureEnabled, isFeatureEnabledForScope, currentNavScope, rbacContext, rbacLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Build nav groups based on role + selection state ──────────
   const navGroups = React.useMemo((): NavGroup[] => {
@@ -544,9 +546,9 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         groups.push({ id: 'attendance', label: teacherAttendanceLabel, icon: UserCheck, defaultOpen: hasActiveInGroup(['daily-attendance','my-attendance','select-attendance-mark-type','qr-attendance','rfid-attendance','institute-mark-attendance','close-attendance','lecture-live-attendance','lecture-recording-attendance'], activePage), items: [
           { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MARK_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MARK_ATTENDANCE } : {}) },
           ...(selectedClass ? [{ id: FEATURE_KEYS.DAILY_ATTENDANCE, label: teacherItemLabel, icon: ClipboardList, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_DAILY_ATTENDANCE : FEATURE_KEYS.CLASS_DAILY_ATTENDANCE }] : []),
-          // Live/Recording attendance only when a class is selected (subject hides class-level items)
-          ...(selectedClass && !selectedSubject ? [{ id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_LIVE_ATTENDANCE }] : []),
-          ...(selectedClass && !selectedSubject ? [{ id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE }] : []),
+          // Live/Recording attendance only when a class is selected
+          ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_LIVE_ATTENDANCE }] : []),
+          ...(selectedClass ? [{ id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE }] : []),
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MY_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MY_ATTENDANCE } : {}) },
         ]});
 
@@ -664,11 +666,9 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         const attendanceItems: NavItem[] = selectedClass ? [
           { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_MARK_ATTENDANCE : FEATURE_KEYS.CLASS_MARK_ATTENDANCE },
           { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: attendanceItemLabel, icon: ClipboardList, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_DAILY_ATTENDANCE : FEATURE_KEYS.CLASS_DAILY_ATTENDANCE },
-          // Live/Recording attendance only when a class is selected (subject hides class-level items)
-          ...(selectedSubject ? [] : [
-            { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_LIVE_ATTENDANCE },
-            { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE },
-          ]),
+          // Live/Recording attendance only when a class is selected (lecture-based features)
+          { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_LIVE_ATTENDANCE },
+          { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE },
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck, featureKey: selectedSubject ? FEATURE_KEYS.SUBJECT_MY_ATTENDANCE : FEATURE_KEYS.CLASS_MY_ATTENDANCE },
         ] : [
           // Institute level — no lecture attendance here
@@ -857,9 +857,9 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         ]});
 
         groups.push({ id: 'attendance', label: 'Attendance', icon: UserCheck, defaultOpen: true, items: [
-          { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: 'Daily Attendance', icon: UserCheck, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_DAILY_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_DAILY_ATTENDANCE } : {}) },
-          { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MARK_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MARK_ATTENDANCE } : {}) },
-          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MY_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MY_ATTENDANCE } : {}) },
+          { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: 'Daily Attendance', icon: UserCheck },
+          { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode },
+          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
         ]});
 
         if (!selectedClass) {
@@ -950,14 +950,12 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         ]});
 
         groups.push({ id: 'attendance', label: 'Attendance', icon: UserCheck, items: [
-          { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MARK_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MARK_ATTENDANCE } : {}) },
-          { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: 'Daily Attendance', icon: ClipboardList, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_DAILY_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_DAILY_ATTENDANCE } : {}) },
-          ...(selectedClass && !selectedSubject ? [
-            { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_LIVE_ATTENDANCE },
-            { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3, featureKey: FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE },
-          ] : []),
+          { id: FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE, label: 'Mark Attendance', icon: QrCode },
+          { id: FEATURE_KEYS.DAILY_ATTENDANCE, label: 'Daily Attendance', icon: ClipboardList },
+          { id: FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE, label: 'Live Attendance', icon: BarChart3 },
+          { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Attendance', icon: BarChart3 },
           { id: FEATURE_KEYS.ADMIN_ATTENDANCE, label: 'Advanced Attendance', icon: BarChart3 },
-          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck, ...(selectedSubject ? { featureKey: FEATURE_KEYS.SUBJECT_MY_ATTENDANCE } : selectedClass ? { featureKey: FEATURE_KEYS.CLASS_MY_ATTENDANCE } : {}) },
+          { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
           { id: FEATURE_KEYS.CALENDAR_VIEW, label: 'Calendar', icon: Calendar },
         ]});
 

@@ -26,7 +26,7 @@ const CardDemo: React.FC = () => {
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Animated Cards Demo</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Animated Cards Demo</h1>
             <p className="text-muted-foreground mt-1">Beautiful, responsive cards for web and mobile</p>
           </div>
         </div>

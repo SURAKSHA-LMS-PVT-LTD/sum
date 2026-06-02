@@ -4,8 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
-import { useFeatures, type FeatureScope } from '@/contexts/FeaturesContext';
-import { FEATURE_KEYS } from '@/config/feature-keys';
+import { useFeatures } from '@/contexts/FeaturesContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useContextUrlSync, extractPageFromUrl } from '@/utils/pageNavigation';
 import { stripPopupRouteFromPath } from '@/utils/popupRoutes';
@@ -143,55 +142,10 @@ interface AppContentProps {
   initialPage?: string;
 }
 
-const FeatureGatedPage: React.FC<{ featureKey: string; component: React.ReactNode; scopeOverride?: FeatureScope }> = ({
-  featureKey,
-  component,
-  scopeOverride,
-}) => {
-  const { selectedClass, selectedSubject } = useAuth();
+const FeatureGatedPage: React.FC<{ featureKey: string; component: React.ReactNode }> = ({ featureKey, component }) => {
   const { isFeatureEnabled } = useFeatures();
 
-  const resolvedKey = React.useMemo(() => {
-    const effectiveScope: FeatureScope = scopeOverride ?? (selectedSubject ? 'subject' : selectedClass ? 'class' : 'institute');
-
-    if (effectiveScope === 'subject') {
-      switch (featureKey) {
-        case FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE:
-          return FEATURE_KEYS.SUBJECT_MARK_ATTENDANCE;
-        case FEATURE_KEYS.DAILY_ATTENDANCE:
-          return FEATURE_KEYS.SUBJECT_DAILY_ATTENDANCE;
-        case FEATURE_KEYS.MY_ATTENDANCE:
-          return FEATURE_KEYS.SUBJECT_MY_ATTENDANCE;
-        case FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE:
-          return FEATURE_KEYS.SUBJECT_LIVE_ATTENDANCE;
-        case FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE:
-          return FEATURE_KEYS.SUBJECT_RECORDING_ATTENDANCE;
-        default:
-          return featureKey;
-      }
-    }
-
-    if (effectiveScope === 'class') {
-      switch (featureKey) {
-        case FEATURE_KEYS.SELECT_ATTENDANCE_MARK_TYPE:
-          return FEATURE_KEYS.CLASS_MARK_ATTENDANCE;
-        case FEATURE_KEYS.DAILY_ATTENDANCE:
-          return FEATURE_KEYS.CLASS_DAILY_ATTENDANCE;
-        case FEATURE_KEYS.MY_ATTENDANCE:
-          return FEATURE_KEYS.CLASS_MY_ATTENDANCE;
-        case FEATURE_KEYS.LECTURE_LIVE_ATTENDANCE:
-          return FEATURE_KEYS.CLASS_LIVE_ATTENDANCE;
-        case FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE:
-          return FEATURE_KEYS.CLASS_RECORDING_ATTENDANCE;
-        default:
-          return featureKey;
-      }
-    }
-
-    return featureKey;
-  }, [featureKey, scopeOverride, selectedClass?.id, selectedSubject?.id]);
-
-  if (isFeatureEnabled(resolvedKey)) {
+  if (isFeatureEnabled(featureKey)) {
     return <>{component}</>;
   }
 
@@ -977,9 +931,9 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'class-lectures':
           return <FeatureGatedPage featureKey="class-lectures" component={<ClassLecturesPage />} />;
         case 'lecture-live-attendance':
-          return <FeatureGatedPage featureKey="lecture-live-attendance" scopeOverride="class" component={<LectureAttendanceLivePage />} />;
+          return <FeatureGatedPage featureKey="lecture-live-attendance" component={<LectureAttendanceLivePage />} />;
         case 'lecture-recording-attendance':
-          return <FeatureGatedPage featureKey="lecture-recording-attendance" scopeOverride="class" component={<LectureRecordingAttendancePage />} />;
+          return <FeatureGatedPage featureKey="lecture-recording-attendance" component={<LectureRecordingAttendancePage />} />;
         case 'lecture-recording-student':
           return <StudentRecordingActivityPage />;
         default:
@@ -1161,9 +1115,9 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         case 'class-lectures':
           return <FeatureGatedPage featureKey="class-lectures" component={<ClassLecturesPage />} />;
         case 'lecture-live-attendance':
-          return <FeatureGatedPage featureKey="lecture-live-attendance" scopeOverride="class" component={<LectureAttendanceLivePage />} />;
+          return <FeatureGatedPage featureKey="lecture-live-attendance" component={<LectureAttendanceLivePage />} />;
         case 'lecture-recording-attendance':
-          return <FeatureGatedPage featureKey="lecture-recording-attendance" scopeOverride="class" component={<LectureRecordingAttendancePage />} />;
+          return <FeatureGatedPage featureKey="lecture-recording-attendance" component={<LectureRecordingAttendancePage />} />;
         case 'lecture-recording-student':
           return <StudentRecordingActivityPage />;
         case 'institute-lectures':
@@ -1538,9 +1492,9 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       case 'lecture-attendance-report':
         return <LectureAttendanceReportPage />;
       case 'lecture-live-attendance':
-        return <FeatureGatedPage featureKey="lecture-live-attendance" scopeOverride="class" component={<LectureAttendanceLivePage />} />;
+        return <FeatureGatedPage featureKey="lecture-live-attendance" component={<LectureAttendanceLivePage />} />;
       case 'lecture-recording-attendance':
-        return <FeatureGatedPage featureKey="lecture-recording-attendance" scopeOverride="class" component={<LectureRecordingAttendancePage />} />;
+        return <FeatureGatedPage featureKey="lecture-recording-attendance" component={<LectureRecordingAttendancePage />} />;
       case 'lecture-recording-student':
         return <StudentRecordingActivityPage />;
       case 'parent-attendance':

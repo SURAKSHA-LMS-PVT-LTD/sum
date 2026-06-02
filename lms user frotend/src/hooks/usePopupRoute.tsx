@@ -8,6 +8,7 @@ interface PopupRouteContextValue {
   open: boolean;
   registerRouteName: (routeName: string) => void;
   routeName?: string | null;
+  syncEnabled: boolean;
 }
 
 export const PopupRouteContext = React.createContext<PopupRouteContextValue | null>(null);
@@ -17,8 +18,9 @@ const getLastSegment = (pathname: string) => {
   return segments[segments.length - 1] ?? '';
 };
 
-const getCurrentPopupRoute = () => {
-  const lastSegment = getLastSegment(window.location.pathname);
+const getCurrentPopupRoute = (pathname?: string) => {
+  const path = pathname || window.location.pathname;
+  const lastSegment = getLastSegment(path);
   return isPopupRouteSegment(lastSegment) ? lastSegment : null;
 };
 
@@ -38,49 +40,78 @@ export function usePopupRouteRoot({
   const isControlled = open !== undefined;
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen ?? false);
   const actualOpen = isControlled ? Boolean(open) : internalOpen;
-  const previousOpenRef = React.useRef(actualOpen);
-  const routeWasActiveRef = React.useRef(Boolean(getCurrentPopupRoute()));
+  const activeRouteName = React.useMemo(() => routeName ? slugifyPopupRouteName(routeName, routeName, 'popup') : null, [routeName]);
+  const previousPathnameRef = React.useRef(location.pathname);
+  const currentRoute = getCurrentPopupRoute(location.pathname);
+  const routeMismatchAfterPathChange = Boolean(
+    actualOpen &&
+    activeRouteName &&
+    previousPathnameRef.current !== location.pathname &&
+    currentRoute !== activeRouteName,
+  );
 
   const closePopupRoute = React.useCallback(() => {
-    if (!getCurrentPopupRoute()) return;
-    navigate(`${stripPopupRouteFromPath(window.location.pathname)}${window.location.search}`, { replace: false });
-  }, [navigate]);
+    const currentRoute = getCurrentPopupRoute(location.pathname);
+    if (!currentRoute) {
+      return;
+    }
+    const newPath = `${stripPopupRouteFromPath(location.pathname)}${location.search}`;
+    if (newPath !== `${location.pathname}${location.search}`) {
+      navigate(newPath, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
 
   const handleOpenChange = React.useCallback<OpenChangeHandler>((nextOpen) => {
-    if (!isControlled) setInternalOpen(nextOpen);
-    if (!nextOpen) closePopupRoute();
+    if (!isControlled) {
+      setInternalOpen(nextOpen);
+    }
+    if (!nextOpen) {
+      closePopupRoute();
+    }
     onOpenChange?.(nextOpen);
   }, [closePopupRoute, isControlled, onOpenChange]);
 
   React.useEffect(() => {
-    if (previousOpenRef.current && !actualOpen) closePopupRoute();
-    previousOpenRef.current = actualOpen;
-  }, [actualOpen, closePopupRoute]);
+    if (!actualOpen || !activeRouteName) return;
+
+    if (routeMismatchAfterPathChange) return;
+
+    if (currentRoute !== activeRouteName) {
+      const targetPath = buildPopupRoutePath(location.pathname, activeRouteName);
+      const targetUrl = `${targetPath}${location.search}`;
+      if (targetUrl !== `${location.pathname}${location.search}`) {
+        navigate(targetUrl, { replace: false });
+      }
+    }
+  }, [actualOpen, activeRouteName, currentRoute, location.pathname, location.search, navigate, routeMismatchAfterPathChange]);
 
   React.useEffect(() => {
-    if (!actualOpen) {
-      routeWasActiveRef.current = false;
-      return;
+    const pathnameChanged = previousPathnameRef.current !== location.pathname;
+
+    if (actualOpen && pathnameChanged && activeRouteName && currentRoute !== activeRouteName) {
+      if (isControlled) {
+        onOpenChange?.(false);
+      } else {
+        setInternalOpen(false);
+        onOpenChange?.(false);
+      }
     }
+    previousPathnameRef.current = location.pathname;
+  }, [location.pathname, actualOpen, activeRouteName, currentRoute, isControlled, onOpenChange]);
 
-    const currentPopupRoute = getCurrentPopupRoute();
-    if (currentPopupRoute) {
-      routeWasActiveRef.current = true;
-      return;
-    }
+  const contextValue = React.useMemo<PopupRouteContextValue>(() => {
+    const value = {
+      open: routeMismatchAfterPathChange ? false : actualOpen,
+      registerRouteName: (routeName: string) => {
+        return routeName;
+      },
+      routeName: activeRouteName,
+      syncEnabled: !routeMismatchAfterPathChange,
+    };
+    return value;
+  }, [actualOpen, activeRouteName, routeMismatchAfterPathChange]);
 
-    if (routeWasActiveRef.current) handleOpenChange(false);
-  }, [actualOpen, handleOpenChange, location.pathname]);
-
-  const contextValue = React.useMemo<PopupRouteContextValue>(() => ({
-    open: actualOpen,
-    registerRouteName: (routeName: string) => {
-      return routeName;
-    },
-    routeName,
-  }), [actualOpen, routeName]);
-
-  return { open: actualOpen, onOpenChange: handleOpenChange, contextValue };
+  return { open: routeMismatchAfterPathChange ? false : actualOpen, onOpenChange: handleOpenChange, contextValue };
 }
 
 export function usePopupRouteContent(
@@ -90,18 +121,24 @@ export function usePopupRouteContent(
 ) {
   const routeContext = React.useContext(PopupRouteContext);
   const navigate = useNavigate();
+  const location = useLocation();
 
   React.useEffect(() => {
-    if (!routeContext?.open) return;
+    if (!routeContext?.open || !routeContext.syncEnabled) {
+      return;
+    }
 
-    const existingPopupRoute = getCurrentPopupRoute();
+    const existingPopupRoute = getCurrentPopupRoute(location.pathname);
     const title = contentRef.current?.querySelector('[data-popup-route-title="true"]')?.textContent?.trim();
     const routeName = slugifyPopupRouteName(routeContext.routeName || title || fallbackName, fallbackName, suffix);
 
     routeContext.registerRouteName(routeName);
 
-    if (!existingPopupRoute || isGenericPopupRouteSegment(existingPopupRoute)) {
-      navigate(`${buildPopupRoutePath(window.location.pathname, routeName)}${window.location.search}`, { replace: false });
+    if (!existingPopupRoute || existingPopupRoute !== routeName || isGenericPopupRouteSegment(existingPopupRoute)) {
+      const newPath = `${buildPopupRoutePath(location.pathname, routeName)}${location.search}`;
+      if (newPath !== `${location.pathname}${location.search}`) {
+        navigate(newPath, { replace: false });
+      }
     }
-  }, [contentRef, fallbackName, navigate, routeContext, suffix]);
+  }, [contentRef, fallbackName, navigate, routeContext, suffix, location.pathname, location.search]);
 }

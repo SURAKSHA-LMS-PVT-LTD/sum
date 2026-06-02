@@ -222,10 +222,10 @@ const FreeLectures = () => {
 
   if (error) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
-        <Alert variant="destructive" className="rounded-2xl">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+      <div className="p-3 sm:p-4 md:p-6 max-w-6xl mx-auto">
+        <Alert variant="destructive" className="rounded-xl sm:rounded-2xl">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <AlertDescription className="text-sm">{error}</AlertDescription>
         </Alert>
       </div>
     );

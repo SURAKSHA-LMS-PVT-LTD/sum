@@ -261,7 +261,7 @@ const PaymentSubmissionsPhysicalInstitute: React.FC = () => {
               <Button
                 onClick={() => handleSearch()}
                 disabled={searching}
-                className="shrink-0 h-14 px-8 bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg shadow-primary/30 rounded-2xl text-base font-semibold"
+                className="shrink-0 h-10 sm:h-12 md:h-14 px-4 sm:px-6 bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg shadow-primary/30 rounded-xl sm:rounded-2xl text-sm md:text-base font-semibold"
               >
                 {searching
                   ? <Loader2 className="h-5 w-5 animate-spin" />
@@ -277,7 +277,7 @@ const PaymentSubmissionsPhysicalInstitute: React.FC = () => {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Student Hero Card */}
             <Card className="border-border/50 shadow-xl shadow-primary/5 overflow-hidden rounded-3xl bg-card/80 backdrop-blur-sm">
-              <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 px-6 sm:px-10 py-8 border-b border-border/40">
+              <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 border-b border-border/40">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,hsl(var(--primary)/0.18),transparent_55%)]" />
                 <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-7">
                   {searchResult.student.image ? (

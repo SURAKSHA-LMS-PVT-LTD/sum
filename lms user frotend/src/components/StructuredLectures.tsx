@@ -698,9 +698,9 @@ const StructuredLectures = () => {
 
       {/* ── Error ── */}
       {error && (
-        <Alert variant="destructive" className="rounded-2xl">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="rounded-lg sm:rounded-2xl">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <AlertDescription className="text-sm">{error}</AlertDescription>
         </Alert>
       )}
 

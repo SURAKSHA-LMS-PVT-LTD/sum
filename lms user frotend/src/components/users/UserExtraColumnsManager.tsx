@@ -384,9 +384,9 @@ export const UserExtraColumnsManager: React.FC<UserExtraColumnsManagerProps> = (
           </div>
 
           {addError && (
-            <Alert variant="destructive" className="py-2">
-              <AlertCircle className="h-3 w-3" />
-              <AlertDescription className="text-xs">{addError}</AlertDescription>
+            <Alert variant="destructive" className="py-2 px-3 sm:px-4 rounded-lg">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <AlertDescription className="text-xs sm:text-sm">{addError}</AlertDescription>
             </Alert>
           )}
 

@@ -1931,7 +1931,7 @@ const InstituteSettingsPage = () => {
           </div>
 
           {/* Custom users dialog */}
-          <Dialog open={customUsersDialogOpen} onOpenChange={setCustomUsersDialogOpen} routeName="custom-user-types-popup">
+          <Dialog open={customUsersDialogOpen} onOpenChange={setCustomUsersDialogOpen} routeName="select-users-session-limit-popup">
             <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>Choose Users to Update</DialogTitle>

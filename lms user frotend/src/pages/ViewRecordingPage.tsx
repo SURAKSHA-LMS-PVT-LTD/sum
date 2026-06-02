@@ -746,7 +746,7 @@ export default function ViewRecordingPage() {
                     <HardDrive className="w-10 h-10 text-blue-400" />
                   </div>
                   <h3 className="text-2xl font-bold text-white mb-2">Google Drive Recording</h3>
-                  <a href={info.recordingUrl} target="_blank" rel="noopener noreferrer" className="px-8 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition flex items-center gap-2">
+                  <a href={info.recordingUrl} target="_blank" rel="noopener noreferrer" className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition flex items-center gap-2 text-xs sm:text-sm">
                     <ExternalLink className="w-5 h-5" /> Open in Google Drive
                   </a>
                 </div>

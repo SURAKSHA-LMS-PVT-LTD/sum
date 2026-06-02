@@ -46,7 +46,7 @@ function ClassPaymentBankDetailsDialog({ open, onOpenChange, payment }: { open: 
   const bank = SRI_LANKAN_BANKS.find(b => b.name === payment.bankName || b.abbreviation === payment.bankName);
   return (
     <Dialog open={open} onOpenChange={onOpenChange} routeName="create-class-payment-popup">
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-xs sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Bank Details</DialogTitle>
         </DialogHeader>

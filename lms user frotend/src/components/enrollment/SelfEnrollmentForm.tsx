@@ -129,8 +129,8 @@ const SelfEnrollmentForm = () => {
                   disabled={isLoading}
                 />
                 {errors.enrollmentKey && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{errors.enrollmentKey.message}</AlertDescription>
+                  <Alert variant="destructive" className="rounded-lg">
+                    <AlertDescription className="text-sm">{errors.enrollmentKey.message}</AlertDescription>
                   </Alert>
                 )}
                 <p className="text-xs text-muted-foreground">

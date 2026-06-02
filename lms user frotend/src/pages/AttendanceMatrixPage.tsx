@@ -718,7 +718,7 @@ const AttendanceMatrixPage: React.FC = () => (
   <AppLayout>
     <div className="pb-24 min-h-screen">
       <div className="p-3">
-        <h1 className="text-lg font-bold mb-1">Attendance Matrix</h1>
+        <h1 className="text-base sm:text-lg font-bold mb-1">Attendance Matrix</h1>
       </div>
       <AttendanceMatrixView />
     </div>

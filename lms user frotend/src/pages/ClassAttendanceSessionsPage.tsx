@@ -23,9 +23,9 @@ export default function ClassAttendanceSessionsPage() {
 
   if (!instituteId || !classId) {
     return (
-      <div className="p-4">
-        <Alert>
-          <AlertDescription>
+      <div className="p-3 sm:p-4">
+        <Alert className="rounded-lg">
+          <AlertDescription className="text-sm">
             Please select an institute and a class to view attendance sessions.
           </AlertDescription>
         </Alert>

@@ -82,7 +82,7 @@ const AssignSubjectToClassForm: React.FC<AssignSubjectToClassFormProps> = ({
 }) => {
   const { currentInstituteId, user } = useAuth();
   const userRole = useInstituteRole();
-  const { subjectsLabel } = useInstituteLabels();
+  const { subjectsLabel, subjectLabel } = useInstituteLabels();
   const { toast } = useToast();
 
   const [selectedClassId, setSelectedClassId] = useState(preselectedClassId || '');
@@ -103,10 +103,10 @@ const AssignSubjectToClassForm: React.FC<AssignSubjectToClassFormProps> = ({
 
   if (userRole !== 'Teacher' && userRole !== 'InstituteAdmin') {
     return (
-      <div className="p-4 text-center">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Access Denied: Only Institute Admins and Teachers can assign subjects.</AlertDescription>
+      <div className="p-3 sm:p-4 text-center">
+        <Alert variant="destructive" className="rounded-lg">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <AlertDescription className="text-sm">Access Denied: Only Institute Admins and Teachers can assign subjects.</AlertDescription>
         </Alert>
       </div>
     );
@@ -323,13 +323,13 @@ const AssignSubjectToClassForm: React.FC<AssignSubjectToClassFormProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <Label className="text-sm font-medium flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-primary" />Subjects
+                <BookOpen className="h-4 w-4 text-primary" />{subjectsLabel}
               </Label>
               {subjects.length === 0 ? (
                 <Button size="sm" variant="outline" onClick={handleLoadSubjects} disabled={subjectsLoading}>
                   {subjectsLoading
                     ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Loading…</>
-                    : <><BookOpen className="h-3 w-3 mr-1.5" />Load Subjects</>}
+                    : <><BookOpen className="h-3 w-3 mr-1.5" />Load {subjectsLabel}</> }
                 </Button>
               ) : (
                 <span className="text-xs text-muted-foreground">{filteredSubjects.length} of {subjects.length}</span>
@@ -339,7 +339,7 @@ const AssignSubjectToClassForm: React.FC<AssignSubjectToClassFormProps> = ({
             {subjects.length > 0 && (
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search subjects…" value={searchQuery}
+                <Input placeholder={`Search ${subjectsLabel.toLowerCase()}…`} value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)} className="pl-8" />
               </div>
             )}
@@ -380,7 +380,7 @@ const AssignSubjectToClassForm: React.FC<AssignSubjectToClassFormProps> = ({
             ) : (
               <div className="border rounded-lg p-8 text-center bg-muted/30">
                 <BookOpen className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">Click "Load Subjects" to continue</p>
+                <p className="text-sm text-muted-foreground">Click "Load {subjectsLabel}" to continue</p>
               </div>
             )}
           </div>
@@ -390,7 +390,7 @@ const AssignSubjectToClassForm: React.FC<AssignSubjectToClassFormProps> = ({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Badge variant="default" className="rounded-full">{selectedSubjectIds.length}</Badge>
-                <span className="text-sm text-muted-foreground">subject(s) selected</span>
+                <span className="text-sm text-muted-foreground">{subjectLabel.toLowerCase()}(s) selected</span>
               </div>
 
               <Card className="border-dashed">
@@ -565,8 +565,8 @@ const AssignSubjectToClassForm: React.FC<AssignSubjectToClassFormProps> = ({
 
           {/* Assignment result */}
           {assignResult && (
-            <Alert variant={assignResult.success ? 'default' : 'destructive'}>
-              {assignResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+            <Alert variant={assignResult.success ? 'default' : 'destructive'} className="rounded-lg">
+              {assignResult.success ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
               <AlertDescription className="text-sm space-y-1">
                 <p className="font-medium">{assignResult.message}</p>
                 {assignResult.assignedCount > 0 && (

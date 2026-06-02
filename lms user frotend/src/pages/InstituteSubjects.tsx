@@ -42,6 +42,7 @@ const InstituteSubjects = () => {
   const userRole = useInstituteRole();
   const { subjectLabel: itemLabel, subjectsLabel, isTuition: isTuitionInstitute } = useInstituteLabels();
   const pageTitle = `Institute ${subjectsLabel || 'Subjects'}`;
+  const createButtonLabel = isTuitionInstitute ? 'Months' : 'Subject';
   
   // Data states
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -573,7 +574,7 @@ const InstituteSubjects = () => {
           {canCreate && (
             <Button onClick={handleOpenCreate} size="sm" className="h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3">
               <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
-              <span className="hidden xs:inline">Add</span> Subject
+              <span className="hidden xs:inline">Add</span> {createButtonLabel}
             </Button>
           )}
           
@@ -842,9 +843,9 @@ const InstituteSubjects = () => {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} routeName="create-subject-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Subject</DialogTitle>
+            <DialogTitle>Create New {createButtonLabel}</DialogTitle>
             <DialogDescription>
-              Add a new subject to the institute
+              Add a new {createButtonLabel.toLowerCase()} to the institute
             </DialogDescription>
           </DialogHeader>
           
@@ -984,7 +985,7 @@ const InstituteSubjects = () => {
               Cancel
             </Button>
             <Button onClick={handleCreateSubject} disabled={isCreating}>
-              {isCreating ? 'Creating...' : 'Create Subject'}
+              {isCreating ? 'Creating...' : `Create ${createButtonLabel}`}
             </Button>
           </div>
         </DialogContent>
@@ -1302,9 +1303,9 @@ const InstituteSubjects = () => {
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen} routeName="assign-subjects-to-class-popup">
         <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Assign Subjects to Class</DialogTitle>
+            <DialogTitle>Assign {subjectsLabel} to Class</DialogTitle>
             <DialogDescription>
-              Select a class and assign subjects with optional default teacher
+              Select a class and assign {subjectsLabel.toLowerCase()} with optional default teacher
             </DialogDescription>
           </DialogHeader>
           <AssignSubjectToClassForm

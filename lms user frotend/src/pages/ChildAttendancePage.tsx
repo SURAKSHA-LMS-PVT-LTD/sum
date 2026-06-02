@@ -136,11 +136,11 @@ const ChildAttendancePage = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col space-y-6 p-6 overflow-hidden bg-gradient-to-br from-background to-muted/20">
+    <div className="h-screen flex flex-col space-y-3 sm:space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6 overflow-hidden bg-gradient-to-br from-background to-muted/20">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
               <CalendarDays className="h-5 w-5 text-primary-foreground" />
             </div>

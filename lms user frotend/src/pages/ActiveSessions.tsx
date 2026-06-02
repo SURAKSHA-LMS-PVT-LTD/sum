@@ -122,7 +122,7 @@ const ActiveSessionsPage = () => {
     <AppLayout>
       <div className="container max-w-2xl mx-auto p-4 md:p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Active Sessions</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Active Sessions</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage devices where you're currently logged in. You can log out individual devices or all at once.
           </p>

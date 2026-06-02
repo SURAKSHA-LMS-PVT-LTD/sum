@@ -840,10 +840,10 @@ const ManualClassAttendance = () => {
                 )}
               </div>
               {loadError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription className="flex items-center justify-between gap-2">
-                    <span>{loadError}</span>
-                    <Button size="sm" variant="outline" onClick={() => void loadManualAttendance()}>Retry</Button>
+                <Alert variant="destructive" className="mb-3 sm:mb-4 rounded-lg">
+                  <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <span className="text-sm">{loadError}</span>
+                    <Button size="sm" variant="outline" onClick={() => void loadManualAttendance()} className="w-full sm:w-auto">Retry</Button>
                   </AlertDescription>
                 </Alert>
               )}

@@ -710,7 +710,7 @@ const StudentInstituteProfilePage: React.FC = () => {
       </Card>
 
       {/* Sections */}
-      <div className="space-y-3">
+<div className="space-y-3 sm:space-y-4 md:space-y-6">
 
         {/* Institute User Details */}
         <Section id="institute-details" icon={Building2} title="Institute User Details" isOpen={openSections.has('institute-details')} onToggle={() => toggleSection('institute-details')}>

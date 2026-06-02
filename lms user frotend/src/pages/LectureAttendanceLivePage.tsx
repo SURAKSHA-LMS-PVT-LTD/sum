@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { lectureApi, Lecture } from '@/api/lecture.api';
 import {
-  lectureTrackingApi, AttendanceGridResult, LiveAttendanceSessionGrid,
+  lectureTrackingApi, AttendanceGridResult,
 } from '@/api/lectureTracking.api';
 import { instituteStudentsApi, StudentListRecord } from '@/api/instituteStudents.api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -13,15 +13,12 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
 import {
   ArrowLeft, Calendar, Users,
-  Loader2, RefreshCw, Clock, FileDown, CheckCircle2, XCircle, Link2, Copy,
+  Loader2, RefreshCw, Clock, FileDown, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
 import { useContextUrlSync } from '@/utils/pageNavigation';
@@ -54,17 +51,6 @@ export default function LectureAttendanceLivePage() {
   // ── Dedicated grid view state ─────────────────────────────────────────────
   const [viewGrid, setViewGrid] = useState<AttendanceGridResult | null>(null);
   const [loadingViewGrid, setLoadingViewGrid] = useState(false);
-
-  // ── Live attendance link sessions ─────────────────────────────────────────
-  const [sessionGrid, setSessionGrid] = useState<LiveAttendanceSessionGrid | null>(null);
-  const [loadingSessionGrid, setLoadingSessionGrid] = useState(false);
-  const [createSessionOpen, setCreateSessionOpen] = useState(false);
-  const [sessionDurationSeconds, setSessionDurationSeconds] = useState(300);
-  const [creatingSession, setCreatingSession] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'present' | 'absent'>('all');
-  const [sessionFilter, setSessionFilter] = useState<'all' | 'marked' | 'not_marked'>('all');
-  const [showFilterSheet, setShowFilterSheet] = useState(false);
 
   // ── Visit detail popup ────────────────────────────────────────────────────
   const [visitPopup, setVisitPopup] = useState<{
@@ -266,93 +252,20 @@ export default function LectureAttendanceLivePage() {
         .sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    const fallbackStudents = viewGrid?.students?.length
-      ? viewGrid.students
-      : (sessionGrid?.students || []);
-
-    // Dedupe fallback students by id and ensure imageUrl is present
-    const dedupMap = new Map<string, any>();
-    for (const s of fallbackStudents) {
-      if (!s || !s.id) continue;
-      if (!dedupMap.has(String(s.id))) {
-        dedupMap.set(String(s.id), {
-          id: String(s.id),
-          name: s.name || String(s.id),
-          instituteUserId: s.id,
-          imageUrl: s.imageUrl ?? '',
-        });
-      }
-    }
-
-    return Array.from(dedupMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [studentDirectoryById, viewGrid, sessionGrid]);
+    return (viewGrid?.students || [])
+      .map(student => ({
+        id: student.id,
+        name: student.name,
+        instituteUserId: student.id,
+        imageUrl: student.imageUrl || '',
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [studentDirectoryById, viewGrid]);
 
   const gridLectureColumns = useMemo(
     () => selectedLectures.length > 0 ? selectedLectures : allLectures.filter(lecture => viewLectureIds.includes(lecture.id)),
     [selectedLectures, allLectures, viewLectureIds],
   );
-
-  const activeSessionLecture = useMemo(
-    () => (viewMode === 'grid' && gridLectureColumns.length === 1 ? gridLectureColumns[0] : null),
-    [viewMode, gridLectureColumns],
-  );
-
-  const loadSessionGrid = useCallback(async () => {
-    if (viewMode !== 'grid' || !activeSessionLecture || !currentInstituteId || !currentClassId) {
-      setSessionGrid(null);
-      return;
-    }
-
-    setLoadingSessionGrid(true);
-    try {
-      const grid = await lectureTrackingApi.getLiveAttendanceSessionGrid({
-        lectureId: activeSessionLecture.id,
-        classId: currentClassId,
-        instituteId: currentInstituteId,
-      });
-      setSessionGrid(grid);
-    } catch {
-      setSessionGrid(null);
-      toast.error('Failed to load live attendance sessions.');
-    } finally {
-      setLoadingSessionGrid(false);
-    }
-  }, [viewMode, activeSessionLecture?.id, currentInstituteId, currentClassId]);
-
-  useEffect(() => { loadSessionGrid(); }, [loadSessionGrid]);
-
-  const handleCreateSession = async () => {
-    if (!activeSessionLecture) return;
-    const seconds = Math.floor(Number(sessionDurationSeconds));
-    if (!Number.isFinite(seconds) || seconds <= 0) {
-      toast.error('Enter a valid duration in seconds.');
-      return;
-    }
-
-    setCreatingSession(true);
-    try {
-      await lectureTrackingApi.createLiveAttendanceSession({
-        lectureId: activeSessionLecture.id,
-        validSeconds: seconds,
-      });
-      toast.success('Live attendance link created.');
-      setCreateSessionOpen(false);
-      await loadSessionGrid();
-    } catch {
-      toast.error('Failed to create live attendance link.');
-    } finally {
-      setCreatingSession(false);
-    }
-  };
-
-  const handleCopySessionUrl = async (url: string) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success('Link copied.');
-    } catch {
-      toast.error('Failed to copy link.');
-    }
-  };
 
   const openReportingForLecture = async (lecture: Lecture) => {
     if (!currentInstituteId || !currentClassId) return;
@@ -388,8 +301,6 @@ export default function LectureAttendanceLivePage() {
   }
 
   if (viewMode === 'grid') {
-    const sessionColumns = sessionGrid?.sessions ?? [];
-
     const attendanceRows = enrolledStudentsForView.map(student => {
       return {
         ...student,
@@ -405,53 +316,15 @@ export default function LectureAttendanceLivePage() {
             visits: cell?.visits,
           };
         }),
-        sessionCells: sessionColumns.map(session => {
-          const cell = sessionGrid?.grid?.[student.id]?.[session.id];
-          return {
-            sessionId: session.id,
-            marked: !!cell?.marked,
-            markedAt: cell?.markedAt,
-          };
-        }),
       };
     });
 
-    // Apply search & filters
-    const matchesSearch = (row: any) => {
-      if (!searchTerm) return true;
-      const q = searchTerm.trim().toLowerCase();
-      return (row.name || '').toLowerCase().includes(q)
-        || (row.instituteUserId || '').toLowerCase().includes(q)
-        || (row.id || '').toLowerCase().includes(q);
-    };
-
-    const matchesAttendanceFilter = (row: any) => {
-      if (attendanceFilter === 'all') return true;
-      const anyPresent = row.cells.some((c: any) => c.attended);
-      return attendanceFilter === 'present' ? anyPresent : !anyPresent;
-    };
-
-    const matchesSessionFilter = (row: any) => {
-      if (sessionFilter === 'all') return true;
-      const anyMarked = row.sessionCells.some((s: any) => s.marked);
-      return sessionFilter === 'marked' ? anyMarked : !anyMarked;
-    };
-
-    const filteredRows = attendanceRows.filter(row => matchesSearch(row) && matchesAttendanceFilter(row) && matchesSessionFilter(row));
-
-    const presentCount = filteredRows.reduce((count, row) => {
-      return count + row.cells.filter((cell: any) => cell.attended).length;
+    const presentCount = attendanceRows.reduce((count, row) => {
+      return count + row.cells.filter(cell => cell.attended).length;
     }, 0);
-    const totalSlots = filteredRows.length * Math.max(1, gridLectureColumns.length);
+    const totalSlots = attendanceRows.length * gridLectureColumns.length;
     const absentCount = totalSlots - presentCount;
     const attendancePercentage = totalSlots > 0 ? Math.round((presentCount / totalSlots) * 100) : 0;
-
-    // reusable counts for filter UI (per-student and per-session)
-    const totalStudents = attendanceRows.length;
-    const presentStudents = attendanceRows.filter(r => r.cells.some((c: any) => c.attended)).length;
-    const absentStudents = totalStudents - presentStudents;
-    const sessionMarked = attendanceRows.filter(r => r.sessionCells.some((s: any) => s.marked)).length;
-    const sessionNotMarked = totalStudents - sessionMarked;
 
     return (
       <PageContainer maxWidth="full" className="h-full">
@@ -487,17 +360,6 @@ export default function LectureAttendanceLivePage() {
                 )}
               </Button>
             )}
-            {activeSessionLecture && (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-9 gap-2 ml-2"
-                onClick={() => setCreateSessionOpen(true)}
-              >
-                <Link2 className="h-4 w-4" />
-                <span className="text-xs">Collect Live Attendance</span>
-              </Button>
-            )}
           </div>
 
           <LiveAttendanceReportingDialog
@@ -508,113 +370,6 @@ export default function LectureAttendanceLivePage() {
             className={selectedClass.name}
             studentDirectoryById={studentDirectoryById}
           />
-
-          {/* Search & Filters (responsive) */}
-          <div className="flex items-center gap-3 w-full">
-            {/* Desktop: show full filters */}
-            <div className="hidden md:flex items-center gap-3">
-              <Input
-                placeholder="Search students by name / institute id / system id"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-64"
-              />
-
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant={attendanceFilter === 'all' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('all')}>
-                    All
-                  </Button>
-                  <Button size="sm" variant={attendanceFilter === 'present' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('present')}>
-                    Present
-                  </Button>
-                  <Button size="sm" variant={attendanceFilter === 'absent' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('absent')}>
-                    Absent
-                  </Button>
-                  <Badge className="text-[11px] ml-2">{presentStudents}P · {absentStudents}A</Badge>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant={sessionFilter === 'all' ? 'default' : 'outline'} onClick={() => setSessionFilter('all')}>
-                    Session: All
-                  </Button>
-                  <Button size="sm" variant={sessionFilter === 'marked' ? 'default' : 'outline'} onClick={() => setSessionFilter('marked')}>
-                    Marked
-                  </Button>
-                  <Button size="sm" variant={sessionFilter === 'not_marked' ? 'default' : 'outline'} onClick={() => setSessionFilter('not_marked')}>
-                    Not marked
-                  </Button>
-                  <Badge className="text-[11px] ml-2">{sessionMarked}M · {sessionNotMarked}NM</Badge>
-                </div>
-              </div>
-
-              <Button size="sm" variant="ghost" onClick={() => { setSearchTerm(''); setAttendanceFilter('all'); setSessionFilter('all'); }}>
-                Clear
-              </Button>
-            </div>
-
-            {/* Mobile: compact search + Filters sheet trigger */}
-            <div className="flex md:hidden items-center gap-2 w-full">
-              <Input
-                placeholder="Search"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="flex-1"
-              />
-              <Button size="sm" onClick={() => setShowFilterSheet(true)}>
-                Filters
-                <Badge className="ml-2 text-[11px]">{presentStudents}P</Badge>
-              </Button>
-            </div>
-
-            {/* Mobile filters sheet */}
-            <Sheet open={showFilterSheet} onOpenChange={setShowFilterSheet}>
-              <SheetContent side="bottom" className="w-full sm:max-w-md">
-                <SheetHeader>
-                  <SheetTitle>Filters</SheetTitle>
-                  <SheetDescription className="text-xs">Search and filter attendance</SheetDescription>
-                </SheetHeader>
-                <div className="p-4 space-y-3">
-                  <Input
-                    placeholder="Search students by name / institute id / system id"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant={attendanceFilter === 'all' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('all')}>
-                      All
-                    </Button>
-                    <Button size="sm" variant={attendanceFilter === 'present' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('present')}>
-                      Present
-                    </Button>
-                    <Button size="sm" variant={attendanceFilter === 'absent' ? 'default' : 'outline'} onClick={() => setAttendanceFilter('absent')}>
-                      Absent
-                    </Button>
-                    <Badge className="text-[11px] ml-2">{presentStudents}P · {absentStudents}A</Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant={sessionFilter === 'all' ? 'default' : 'outline'} onClick={() => setSessionFilter('all')}>
-                      Session: All
-                    </Button>
-                    <Button size="sm" variant={sessionFilter === 'marked' ? 'default' : 'outline'} onClick={() => setSessionFilter('marked')}>
-                      Marked
-                    </Button>
-                    <Button size="sm" variant={sessionFilter === 'not_marked' ? 'default' : 'outline'} onClick={() => setSessionFilter('not_marked')}>
-                      Not marked
-                    </Button>
-                    <Badge className="text-[11px] ml-2">{sessionMarked}M · {sessionNotMarked}NM</Badge>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button size="sm" variant="ghost" onClick={() => { setSearchTerm(''); setAttendanceFilter('all'); setSessionFilter('all'); setShowFilterSheet(false); }}>
-                      Clear
-                    </Button>
-                    <Button size="sm" className="ml-2" onClick={() => setShowFilterSheet(false)}>Done</Button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
-          </div>
 
           {/* Visit Detail Sheet */}
           <Sheet open={!!visitPopup} onOpenChange={open => { if (!open) setVisitPopup(null); }} routeName="visit-details-sheet">
@@ -759,41 +514,10 @@ export default function LectureAttendanceLivePage() {
                             )}
                           </TableHead>
                         ))}
-                        {sessionColumns.map((session, idx) => (
-                          <TableHead key={session.id} className="text-center min-w-[140px] text-xs font-semibold text-muted-foreground">
-                            <div className="flex flex-col items-center gap-1">
-                              <div className="text-[10px] font-semibold">Session {idx + 1}</div>
-                              <div className="flex items-center gap-1">
-                                <Badge variant={session.isExpired ? 'destructive' : 'secondary'} className="text-[9px]">
-                                  {session.isExpired ? 'Expired' : 'Active'}
-                                </Badge>
-                                {session.markedCount != null && (
-                                  <span className="text-[9px] text-muted-foreground/70">{session.markedCount} marked</span>
-                                )}
-                              </div>
-                              {session.createdAt && (
-                                <div className="text-[9px] text-muted-foreground/70">
-                                  {new Date(session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </div>
-                              )}
-                              {session.publicUrl && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
-                                  onClick={() => handleCopySessionUrl(session.publicUrl)}
-                                  aria-label={`Copy session ${idx + 1} link`}
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          </TableHead>
-                        ))}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredRows.map((row, idx) => (
+                      {attendanceRows.map((row, idx) => (
                         <TableRow key={row.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/30 border-b transition-colors ${idx % 2 === 0 ? 'bg-white/50 dark:bg-slate-900/20' : ''}`}>
                           <TableCell className="text-xs font-medium">
                             <div className="flex items-center gap-3 min-w-0">
@@ -814,8 +538,6 @@ export default function LectureAttendanceLivePage() {
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground/70 font-mono">{row.instituteUserId}</TableCell>
                           <TableCell className="text-xs text-muted-foreground/70 font-mono">{row.id.slice(0, 12)}</TableCell>
-
-                          {/* Lecture attendance cells (per selected lecture columns) */}
                           {row.cells.map(cell => (
                             <TableCell key={cell.lectureId} className="text-center p-2">
                               <div
@@ -861,30 +583,6 @@ export default function LectureAttendanceLivePage() {
                               </div>
                             </TableCell>
                           ))}
-
-                          {/* Session mark columns */}
-                          {row.sessionCells.map(cell => (
-                            <TableCell key={cell.sessionId} className="text-center p-2">
-                              <div className={`inline-flex flex-col items-center justify-center gap-1 min-h-[46px] px-2 py-1 rounded-lg border ${
-                                cell.marked ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-50 border border-slate-200'
-                              }`}>
-                                {cell.marked ? (
-                                  <>
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                    <span className="text-[10px] font-semibold text-emerald-700">Present</span>
-                                    {cell.markedAt && (
-                                      <span className="text-[9px] text-emerald-600/70">{new Date(cell.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    )}
-                                  </>
-                                ) : (
-                                  <>
-                                    <XCircle className="h-4 w-4 text-slate-500" />
-                                    <span className="text-[10px] font-semibold text-slate-700">Not Marked</span>
-                                  </>
-                                )}
-                              </div>
-                            </TableCell>
-                          ))}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -893,38 +591,6 @@ export default function LectureAttendanceLivePage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Live Attendance Links */}
-          <Dialog open={createSessionOpen} onOpenChange={setCreateSessionOpen} routeName="create-live-attendance-link-popup">
-            <DialogContent className="sm:max-w-[420px]">
-              <DialogHeader>
-                <DialogTitle>Create Live Attendance Link</DialogTitle>
-                <DialogDescription>
-                  Generate a time-limited link for students to mark attendance once.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-2">
-                <div className="space-y-2">
-                  <Label>Valid for (seconds)</Label>
-                  <Input
-                    type="number"
-                    min={5}
-                    value={sessionDurationSeconds}
-                    onChange={(e) => setSessionDurationSeconds(Number(e.target.value))}
-                  />
-                  <p className="text-[10px] text-muted-foreground">Example: 300 seconds = 5 minutes.</p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateSessionOpen(false)} disabled={creatingSession}>Cancel</Button>
-                <Button onClick={handleCreateSession} disabled={creatingSession || !activeSessionLecture}>
-                  {creatingSession ? 'Creating...' : 'Create Link'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Live Attendance Links card removed — session columns are integrated into the main table */}
         </div>
       </PageContainer>
     );

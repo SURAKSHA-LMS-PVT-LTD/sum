@@ -50,8 +50,12 @@ const DialogContent = React.forwardRef<
   }>(
   ({ className, children, allowOutsideClose = false, routeName, ...props }, ref) => {
     const isMobile = useIsMobile();
+    const routeContext = React.useContext(PopupRouteContext);
     const contentRef = React.useRef<React.ElementRef<typeof DialogPrimitive.Content>>(null);
-    usePopupRouteContent(contentRef, routeName || 'details', 'popup');
+    
+    // Use routeName from context first (from Dialog), then prop, then default
+    const finalRouteName = routeContext?.routeName || routeName || 'details';
+    usePopupRouteContent(contentRef, finalRouteName, 'popup');
 
     return (
       <DialogPortal>
