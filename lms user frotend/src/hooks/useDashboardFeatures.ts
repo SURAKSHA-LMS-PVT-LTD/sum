@@ -39,7 +39,7 @@ export const FEATURE_CATALOG: Record<string, FeatureDef> = {
   'exams':                    { id: 'exams',                    label: 'Exams',               color: 'bg-rose-500',    description: 'Examinations & results',         icon: 'Award' },
   'subject-payments':         { id: 'subject-payments',         label: 'Subject Fees',        color: 'bg-amber-600',   description: 'Subject fee details',            icon: 'CreditCard' },
   'my-attendance':            { id: 'my-attendance',            label: 'My Attendance',       color: 'bg-cyan-500',    description: 'Your attendance history',        icon: 'UserCheck' },
-  'grading':                  { id: 'grading',                  label: 'Grading',             color: 'bg-rose-400',    description: 'Manage grades',                  icon: 'Award' },
+  
   'rfid-attendance':          { id: 'rfid-attendance',          label: 'RFID Attendance',     color: 'bg-purple-500',  description: 'Mark via RFID',                  icon: 'Wifi' },
   'structured-lectures':      { id: 'structured-lectures',      label: 'Structured Lectures', color: 'bg-blue-400',    description: 'Structured lecture management',  icon: 'Video' },
 };
@@ -61,8 +61,8 @@ const ROLE_DEFAULTS: Record<string, Record<string, string[]>> = {
     Parent:           [],
   },
   subject: {
-    InstituteAdmin:   ['select-attendance-mark-type', 'lectures', 'homework', 'exams', 'students', 'grading'],
-    Teacher:          ['select-attendance-mark-type', 'lectures', 'homework', 'exams', 'students', 'grading'],
+    InstituteAdmin:   ['select-attendance-mark-type', 'lectures', 'homework', 'exams', 'students'],
+    Teacher:          ['select-attendance-mark-type', 'lectures', 'homework', 'exams', 'students'],
     Student:          ['lectures', 'homework', 'exams', 'calendar-view'],
     AttendanceMarker: ['select-attendance-mark-type'],
     Parent:           ['lectures', 'homework', 'exams'],
@@ -86,8 +86,8 @@ const ROLE_AVAILABLE: Record<string, Record<string, string[]>> = {
     Parent:           [],
   },
   subject: {
-    InstituteAdmin:   ['lectures', 'free-lectures', 'structured-lectures', 'homework', 'exams', 'students', 'grading', 'calendar-view', 'select-attendance-mark-type', 'qr-attendance'],
-    Teacher:          ['lectures', 'free-lectures', 'structured-lectures', 'homework', 'exams', 'students', 'grading', 'calendar-view', 'select-attendance-mark-type'],
+    InstituteAdmin:   ['lectures', 'free-lectures', 'structured-lectures', 'homework', 'exams', 'students', 'calendar-view', 'select-attendance-mark-type', 'qr-attendance'],
+    Teacher:          ['lectures', 'free-lectures', 'structured-lectures', 'homework', 'exams', 'students', 'calendar-view', 'select-attendance-mark-type'],
     Student:          ['lectures', 'free-lectures', 'structured-lectures', 'homework', 'exams', 'calendar-view'],
     AttendanceMarker: ['select-attendance-mark-type', 'qr-attendance'],
     Parent:           ['lectures', 'free-lectures', 'homework', 'exams'],
@@ -123,7 +123,10 @@ export const useDashboardFeatures = (level: DashboardLevel, userRole: string) =>
   }, [level, userRole, storageKey]);
 
   const roleAvailableIds = (ROLE_AVAILABLE[level]?.[userRole] ?? []).filter(isFeatureEnabled);
-  const pinnedFeatures = pinnedIds.map(id => FEATURE_CATALOG[id]).filter(Boolean);
+  const pinnedFeatures = pinnedIds
+    .filter(id => isFeatureEnabled(id))
+    .map(id => FEATURE_CATALOG[id])
+    .filter(Boolean);
   const availableToAdd = roleAvailableIds
     .filter(id => !pinnedIds.includes(id))
     .map(id => FEATURE_CATALOG[id])

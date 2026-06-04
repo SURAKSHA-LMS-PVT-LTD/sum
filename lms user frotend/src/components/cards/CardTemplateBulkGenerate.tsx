@@ -421,24 +421,29 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
   // ── LIST VIEW — pick a template ───────────────────────────────────────────
   if (!activeTemplateId || !selectedTemplate) {
     return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-2">
-          <LayoutGrid className="h-5 w-5 text-muted-foreground" />
-          <span className="font-semibold text-base">Select a Template</span>
-          <Badge variant="secondary">{templates.length}</Badge>
+      <div className="space-y-3 sm:space-y-5 pb-20 sm:pb-12">
+        <div className="flex items-center gap-2 p-3 sm:p-4 bg-card rounded-lg sm:rounded-xl border border-border">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <LayoutGrid className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-sm sm:text-base">Select Template</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">Pick one to generate cards</p>
+          </div>
+          <Badge variant="secondary" className="ml-auto">{templates.length}</Badge>
         </div>
 
         {templates.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground border-2 border-dashed border-border rounded-xl">
-            <Layers className="h-12 w-12 mx-auto mb-3 opacity-25" />
-            <p className="font-medium">No templates yet</p>
-            <p className="text-sm mt-1">Go to <strong>Template Designer</strong> to create one first.</p>
+          <div className="text-center py-12 sm:py-20 text-muted-foreground border-2 border-dashed border-border rounded-xl">
+            <Layers className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-3 opacity-25" />
+            <p className="font-medium text-sm sm:text-base">No templates yet</p>
+            <p className="text-xs sm:text-sm mt-1">Go to <strong>Template Designer</strong> to create one first.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {templates.map(t => (
               <div key={t.id}
-                className="group relative rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-md transition-all"
+                className="group relative rounded-lg sm:rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-md transition-all active:scale-95"
                 onClick={() => onTemplateSelect(t.id)}>
                 {/* Preview thumbnail */}
                 <div className="relative overflow-hidden bg-muted/40" style={{ paddingBottom: `${(t.cardHeight / t.cardWidth) * 100}%` }}>
@@ -477,21 +482,21 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                     )}
                   </div>
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ zIndex: 20 }}>
-                    <span className="flex items-center gap-1.5 text-white text-sm font-medium bg-black/30 px-3 py-1.5 rounded-lg">
-                      <Zap className="h-4 w-4" />Generate
+                    <span className="flex items-center gap-1.5 text-white text-xs sm:text-sm font-medium bg-black/30 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
+                      <Zap className="h-3 w-3 sm:h-4 sm:w-4" />Generate
                     </span>
                   </div>
                 </div>
-                <div className="p-3">
-                  <p className="font-medium text-sm truncate">{t.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-muted-foreground">{t.cardWidth}×{t.cardHeight}px</span>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="text-xs text-muted-foreground">{t.elements.length} element{t.elements.length !== 1 ? 's' : ''}</span>
+                <div className="p-2 sm:p-3">
+                  <p className="font-medium text-xs sm:text-sm truncate">{t.name}</p>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                    <span className="text-[10px] sm:text-xs">{t.cardWidth}×{t.cardHeight}px</span>
+                    <span>·</span>
+                    <span className="text-[10px] sm:text-xs">{t.elements.length} el</span>
                   </div>
-                  <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>Updated {new Date(t.updatedAt).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-muted-foreground">
+                    <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                    <span>{new Date(t.updatedAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
@@ -507,20 +512,20 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
   const failCount = results.filter(r => r.status === 'error').length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 sm:space-y-4 pb-20 sm:pb-12">
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" />Templates
+      <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 bg-card rounded-lg sm:rounded-xl border border-border flex-wrap">
+        <button onClick={onBack} className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />Templates
         </button>
-        <span className="text-muted-foreground">/</span>
-        <div className="flex items-center gap-2">
-          <div className="rounded border overflow-hidden shrink-0 relative" style={{ width: 40, height: 25 }}>
+        <span className="text-muted-foreground hidden sm:inline text-xs">/</span>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="rounded border overflow-hidden shrink-0 relative" style={{ width: 32, height: 20 }}>
             <div style={{ position: 'absolute', inset: 0, background: selectedTemplate.backgroundImageUrl ? `url(${selectedTemplate.backgroundImageUrl}) center/cover` : 'linear-gradient(135deg,#1a237e,#283593)' }} />
             {selectedTemplate.overlayImageUrl && <img src={selectedTemplate.overlayImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
           </div>
-          <span className="text-sm font-medium truncate max-w-[200px]">{selectedTemplate.name}</span>
+          <span className="text-xs sm:text-sm font-medium truncate">{selectedTemplate.name}</span>
         </div>
       </div>
 
@@ -528,26 +533,26 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
       <Card>
         <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
           <CollapsibleTrigger asChild>
-            <CardHeader className="py-3 px-4 cursor-pointer select-none">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Filter className="h-4 w-4" />Filters
-                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+            <CardHeader className="py-2 sm:py-3 px-3 sm:px-4 cursor-pointer select-none">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-2">
+                <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />Filters
+                <ChevronDown className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ml-auto transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
               </CardTitle>
             </CardHeader>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <CardContent className="px-4 pb-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
 
                 {/* User Type */}
                 <div className="space-y-1">
                   <Label className="text-xs">User Type *</Label>
                   <Select value={filters.userTypeSlug} onValueChange={v => setFilters(f => ({ ...f, userTypeSlug: v, classId: '', subjectId: '' }))}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="STUDENT">Students</SelectItem>
                       <SelectItem value="TEACHER">Teachers</SelectItem>
-                      <SelectItem value="ATTENDANCE_MARKER">Attendance Markers</SelectItem>
+                      <SelectItem value="ATTENDANCE_MARKER">Markers</SelectItem>
                       <SelectItem value="INSTITUTE_ADMIN">Admins</SelectItem>
                       {userTypes.filter(ut => !['STUDENT','TEACHER','ATTENDANCE_MARKER','INSTITUTE_ADMIN','PARENT'].includes(ut.slug.toUpperCase())).map(ut => (
                         <SelectItem key={ut.id} value={ut.slug.toUpperCase()}>{ut.name}</SelectItem>
@@ -558,11 +563,11 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
 
                 {/* Class */}
                 <div className="space-y-1">
-                  <Label className="text-xs">Class (optional)</Label>
+                  <Label className="text-xs">Class</Label>
                   <Select value={filters.classId || '__all__'} onValueChange={v => setFilters(f => ({ ...f, classId: v === '__all__' ? '' : v, subjectId: '' }))}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All classes" /></SelectTrigger>
+                    <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm"><SelectValue placeholder="All" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__all__">All classes</SelectItem>
+                      <SelectItem value="__all__">All</SelectItem>
                       {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -571,11 +576,11 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                 {/* Subject */}
                 {filters.classId && subjects.length > 0 && (
                   <div className="space-y-1">
-                    <Label className="text-xs">Subject (optional)</Label>
+                    <Label className="text-xs">Subject</Label>
                     <Select value={filters.subjectId || '__all__'} onValueChange={v => setFilters(f => ({ ...f, subjectId: v === '__all__' ? '' : v }))}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="All subjects" /></SelectTrigger>
+                      <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm"><SelectValue placeholder="All" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__all__">All subjects</SelectItem>
+                        <SelectItem value="__all__">All</SelectItem>
                         {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -584,15 +589,15 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
 
                 {/* Search */}
                 <div className="space-y-1">
-                  <Label className="text-xs">Search name / email</Label>
-                  <Input value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Search…" className="h-8 text-sm" />
+                  <Label className="text-xs">Search</Label>
+                  <Input value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Name/email…" className="h-7 sm:h-8 text-xs sm:text-sm" />
                 </div>
 
                 {/* Gender */}
                 <div className="space-y-1">
                   <Label className="text-xs">Gender</Label>
                   <Select value={filters.gender || '__all__'} onValueChange={v => setFilters(f => ({ ...f, gender: v === '__all__' ? '' : v }))}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">All</SelectItem>
                       <SelectItem value="MALE">Male</SelectItem>
@@ -648,8 +653,8 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
 
               </div>
 
-              <Button onClick={fetchUsers} disabled={loadingUsers || !filters.userTypeSlug} className="mt-4 gap-2" size="sm">
-                {loadingUsers ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              <Button onClick={fetchUsers} disabled={loadingUsers || !filters.userTypeSlug} className="mt-2 sm:mt-4 gap-1 sm:gap-2 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3" size="sm">
+                {loadingUsers ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Search className="h-3 w-3 sm:h-4 sm:w-4" />}
                 Fetch Users
               </Button>
             </CardContent>
@@ -659,51 +664,53 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
 
       {/* ── Step 3: User list ────────────────────────────────────────────────── */}
       {loadingUsers ? (
-        <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground text-sm">
-          <Loader2 className="h-5 w-5 animate-spin" />Fetching users…
+        <div className="flex items-center justify-center py-8 sm:py-10 gap-2 text-muted-foreground text-xs sm:text-sm">
+          <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />Fetching users…
         </div>
       ) : hasFetched && (
         <Card>
-          <CardHeader className="py-3 px-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <CardTitle className="text-sm flex items-center gap-2"><Users className="h-4 w-4" />Users</CardTitle>
-              <Badge variant="secondary">
-                {totalUsers > users.length ? `${users.length} loaded / ${totalUsers} total` : `${users.length} users`}
+          <CardHeader className="py-2 sm:py-3 px-3 sm:px-4">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+                <CardTitle className="text-xs sm:text-sm">Users</CardTitle>
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {totalUsers > users.length ? `${users.length}/${totalUsers}` : `${users.length}`}
               </Badge>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
                 <button onClick={toggleAll} className="text-xs text-primary underline underline-offset-2">
-                  {selectedIds.size === users.length ? 'Deselect all' : 'Select all'}
+                  {selectedIds.size === users.length ? 'Desel' : 'All'}
                 </button>
-                <Badge variant="outline">{selectedIds.size} selected</Badge>
+                <Badge variant="outline" className="text-xs">{selectedIds.size}</Badge>
               </div>
             </div>
           </CardHeader>
           {users.length === 0 ? (
-            <CardContent className="px-4 pb-4 text-center text-sm text-muted-foreground py-6">No users found for these filters.</CardContent>
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4 text-center text-xs sm:text-sm text-muted-foreground py-4">No users found.</CardContent>
           ) : (
-            <CardContent className="px-4 pb-4">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
               <div className="max-h-72 overflow-y-auto rounded-lg border divide-y divide-border/60">
                 {users.map(user => {
                   const sel    = selectedIds.has(user.id);
                   const result = results.find(r => r.userId === user.id);
                   return (
                     <div key={user.id} onClick={() => toggleUser(user.id)}
-                      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors ${sel ? 'bg-primary/5' : 'hover:bg-muted/40'}`}>
-                      <input type="checkbox" checked={sel} readOnly className="shrink-0 pointer-events-none" />
-                      <Avatar className="h-8 w-8 shrink-0">
+                      className={`flex items-center gap-2 px-2 sm:px-3 py-2 sm:py-2.5 cursor-pointer select-none transition-colors ${sel ? 'bg-primary/5' : 'hover:bg-muted/40'}`}>
+                      <input type="checkbox" checked={sel} readOnly className="shrink-0 pointer-events-none h-4 w-4" />
+                      <Avatar className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
                         <AvatarImage src={getImageUrl(user.imageUrl || '')} />
                         <AvatarFallback className="text-xs bg-muted">{(user.name || '?').slice(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium leading-tight truncate">{user.nameWithInitials || user.name}</p>
+                        <p className="text-xs sm:text-sm font-medium leading-tight truncate">{user.nameWithInitials || user.name}</p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {user.userIdByInstitute && <span className="mr-1">#{user.userIdByInstitute} ·</span>}
-                          {user.email}
+                          {user.userIdByInstitute && <span className="mr-1">#{user.userIdByInstitute}</span>}
                         </p>
                       </div>
                       {result && (result.status === 'ok'
-                        ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                        : <span title={result.error}><XCircle className="h-4 w-4 text-destructive shrink-0" /></span>
+                        ? <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500 shrink-0" />
+                        : <span title={result.error}><XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive shrink-0" /></span>
                       )}
                     </div>
                   );
@@ -718,21 +725,21 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
       <Card>
         <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
           <CollapsibleTrigger asChild>
-            <CardHeader className="py-3 px-4 cursor-pointer select-none">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Settings2 className="h-4 w-4" />Output Settings
-                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${settingsOpen ? 'rotate-180' : ''}`} />
+            <CardHeader className="py-2 sm:py-3 px-3 sm:px-4 cursor-pointer select-none">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-2">
+                <Settings2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />Output Settings
+                <ChevronDown className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ml-auto transition-transform ${settingsOpen ? 'rotate-180' : ''}`} />
               </CardTitle>
             </CardHeader>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <CardContent className="px-4 pb-4 space-y-4">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3 sm:space-y-4">
 
               {/* File type */}
               <div className="space-y-1">
                 <Label className="text-xs">File Type</Label>
                 <Select value={fileType} onValueChange={v => setFileType(v as any)}>
-                  <SelectTrigger className="h-8 text-sm w-48"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm w-40 sm:w-48"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {FILE_TYPES.map(ft => <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>)}
                   </SelectContent>
@@ -746,15 +753,15 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                   value={namingPattern}
                   onChange={e => setNamingPattern(e.target.value)}
                   placeholder="{userId}_{fullName}"
-                  className="h-8 text-sm font-mono"
+                  className="h-7 sm:h-8 text-xs sm:text-sm font-mono"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Preview: <span className="font-mono text-foreground">{namingPattern || 'file'}.{fileType}</span>
+                  Preview: <span className="font-mono text-foreground text-xs">{namingPattern || 'file'}.{fileType}</span>
                 </p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {NAMING_TOKENS.map(t => (
                     <button key={t} onClick={() => setNamingPattern(p => p + t)}
-                      className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/70 font-mono border border-border/60 transition-colors">
+                      className="text-xs px-1.5 sm:px-2 py-0.5 rounded bg-muted hover:bg-muted/70 font-mono border border-border/60 transition-colors text-xs">
                       {t}
                     </button>
                   ))}
@@ -764,19 +771,19 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
           </CollapsibleContent>
         </Collapsible>
 
-        <CardContent className="px-4 pb-5 space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button size="lg" onClick={generate} disabled={generating || !selectedTemplate || selectedIds.size === 0} className="gap-2">
+        <CardContent className="px-3 sm:px-4 pb-3 sm:pb-5 space-y-2 sm:space-y-4">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <Button onClick={generate} disabled={generating || !selectedTemplate || selectedIds.size === 0} className="gap-1 sm:gap-2 h-7 sm:h-9 text-xs sm:text-sm px-2 sm:px-4">
               {generating
-                ? <><Loader2 className="h-4 w-4 animate-spin" />Generating…</>
-                : <><Download className="h-4 w-4" />Generate & Download ZIP</>}
+                ? <><Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /><span className="hidden sm:inline">Generating…</span><span className="sm:hidden">Gen…</span></>
+                : <><Download className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Generate & Download ZIP</span><span className="sm:hidden">Download</span></>}
             </Button>
             {generating && (
-              <Button variant="outline" size="sm" onClick={() => { abortRef.current = true; }}>Cancel</Button>
+              <Button variant="outline" size="sm" onClick={() => { abortRef.current = true; }} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">Cancel</Button>
             )}
             {!generating && selectedTemplate && selectedIds.size > 0 && (
               <span className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{selectedIds.size}</span> {fileType.toUpperCase()} files · <span className="font-medium text-foreground">{selectedTemplate.name}</span>
+                <span className="font-medium text-foreground">{selectedIds.size}</span> {fileType} · <span className="hidden sm:inline font-medium">{selectedTemplate.name}</span>
               </span>
             )}
           </div>
@@ -800,7 +807,7 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                         ? <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
                         : <XCircle className="h-3 w-3 text-destructive shrink-0" />}
                       <span className="truncate text-muted-foreground">{r.userName}</span>
-                      {r.error && <span className="text-destructive/70">— {r.error}</span>}
+                      {r.error && <span className="text-destructive/70 hidden sm:inline">— {r.error}</span>}
                     </div>
                   ))}
                 </div>
@@ -811,15 +818,15 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
           {/* Summary */}
           {results.length > 0 && !generating && (
             <div className="space-y-2">
-              <div className="flex items-center gap-4 text-sm">
-                {okCount > 0 && <span className="flex items-center gap-1.5 text-green-600 font-medium"><CheckCircle2 className="h-4 w-4" />{okCount} generated</span>}
-                {failCount > 0 && <span className="flex items-center gap-1.5 text-destructive font-medium"><XCircle className="h-4 w-4" />{failCount} failed</span>}
+              <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm flex-wrap">
+                {okCount > 0 && <span className="flex items-center gap-1 sm:gap-1.5 text-green-600 font-medium"><CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{okCount} ok</span>}
+                {failCount > 0 && <span className="flex items-center gap-1 sm:gap-1.5 text-destructive font-medium"><XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{failCount} fail</span>}
               </div>
               {failCount > 0 && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
-                  <p className="text-xs font-semibold text-destructive flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" />Failed:</p>
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 sm:p-3 space-y-1">
+                  <p className="text-xs font-semibold text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />Failed:</p>
                   {results.filter(r => r.status === 'error').map(r => (
-                    <p key={r.userId} className="text-xs text-muted-foreground">{r.userName} — {r.error}</p>
+                    <p key={r.userId} className="text-xs text-muted-foreground truncate">{r.userName}</p>
                   ))}
                 </div>
               )}

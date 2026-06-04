@@ -73,30 +73,32 @@ const LectureUrlPanel: React.FC<LectureUrlPanelProps> = ({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(liveUrl); }}
-            className="flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded px-1.5 py-0.5 transition-colors"
-            title={liveUrl}
+            className="flex h-7 w-7 sm:w-auto items-center justify-center gap-1 text-[10px] text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded px-0 sm:px-1.5 py-0.5 transition-colors"
+            title="Copy live URL"
+            aria-label="Copy live URL"
           >
-            <Radio className="h-3 w-3" />Live URL
+            <Radio className="h-3 w-3" /><span className="hidden sm:inline">Live URL</span>
           </button>
         )}
         {livePending && (
-          <span className="flex items-center gap-1 text-[10px] text-blue-400 bg-blue-50 rounded px-1.5 py-0.5">
-            <Radio className="h-3 w-3" />Live (save to activate)
+          <span className="flex h-7 w-7 sm:w-auto items-center justify-center gap-1 text-[10px] text-blue-400 bg-blue-50 rounded px-0 sm:px-1.5 py-0.5" title="Live URL pending">
+            <Radio className="h-3 w-3" /><span className="hidden sm:inline">Live (save to activate)</span>
           </span>
         )}
         {recUrl && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(recUrl); }}
-            className="flex items-center gap-1 text-[10px] text-violet-600 hover:text-violet-700 bg-violet-50 hover:bg-violet-100 rounded px-1.5 py-0.5 transition-colors"
-            title={recUrl}
+            className="flex h-7 w-7 sm:w-auto items-center justify-center gap-1 text-[10px] text-violet-600 hover:text-violet-700 bg-violet-50 hover:bg-violet-100 rounded px-0 sm:px-1.5 py-0.5 transition-colors"
+            title="Copy recording URL"
+            aria-label="Copy recording URL"
           >
-            <Video className="h-3 w-3" />Recording URL
+            <Video className="h-3 w-3" /><span className="hidden sm:inline">Recording URL</span>
           </button>
         )}
         {recPending && (
-          <span className="flex items-center gap-1 text-[10px] text-violet-400 bg-violet-50 rounded px-1.5 py-0.5">
-            <Video className="h-3 w-3" />Recording (save to activate)
+          <span className="flex h-7 w-7 sm:w-auto items-center justify-center gap-1 text-[10px] text-violet-400 bg-violet-50 rounded px-0 sm:px-1.5 py-0.5" title="Recording URL pending">
+            <Video className="h-3 w-3" /><span className="hidden sm:inline">Recording (save to activate)</span>
           </span>
         )}
       </div>

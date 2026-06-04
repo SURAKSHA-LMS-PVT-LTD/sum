@@ -405,40 +405,40 @@ const SubjectDashboard = () => {
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-12">
+    <div className="space-y-3 sm:space-y-4 pb-24 sm:pb-12 px-3 sm:px-4">
       {/* Greeting Section */}
-      <div className="px-2 pt-2 pb-1">
-        <h1 className="text-2xl font-bold text-foreground">
+      <div className="pt-2 pb-1">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
           {greeting}, <span className="text-primary">{firstName}</span>!
         </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
           You are exploring <span className="font-semibold text-foreground">{selectedSubject.name}</span> in <span className="text-foreground">{selectedClass.name}</span>.
         </p>
       </div>
       {/* Breadcrumb */}
-      <div className="px-2 pt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="pt-2 flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground overflow-x-auto">
         <button
           onClick={() => { setSelectedSubject(null); setSelectedClass(null); if (selectedInstitute) navigate(`/institute/${selectedInstitute.id}/dashboard`); }}
-          className="hover:text-foreground transition-colors flex items-center gap-1"
+          className="hover:text-foreground transition-colors flex items-center gap-1 shrink-0 active:scale-95 p-1 rounded hover:bg-muted/50"
         >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          <Building2 className="h-3 w-3" />
-          <span className="truncate max-w-[100px]">{selectedInstitute?.shortName || selectedInstitute?.name}</span>
+          <ChevronLeft className="h-3.5 w-3.5 shrink-0" />
+          <Building2 className="h-3 w-3 shrink-0" />
+          <span className="truncate max-w-[80px] sm:max-w-[120px]">{selectedInstitute?.shortName || selectedInstitute?.name}</span>
         </button>
-        <span>/</span>
+        <span className="shrink-0">/</span>
         <button
           onClick={() => { setSelectedSubject(null); if (selectedInstitute && selectedClass) navigate(`/institute/${selectedInstitute.id}/class/${selectedClass.id}/dashboard`); }}
-          className="hover:text-foreground transition-colors flex items-center gap-1 truncate max-w-[100px]"
+          className="hover:text-foreground transition-colors flex items-center gap-1 truncate active:scale-95 p-1 rounded hover:bg-muted/50"
         >
-          <School className="h-3 w-3" />
-          {selectedClass?.name}
+          <School className="h-3 w-3 shrink-0" />
+          <span className="truncate">{selectedClass?.name}</span>
         </button>
       </div>
 
       {/* Subject header */}
-      <div className="mx-2 bg-card border border-border rounded-2xl p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl shrink-0 overflow-hidden">
+      <div className="bg-card border border-border rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl shrink-0 overflow-hidden">
             {((selectedSubject as any).imgUrl || (selectedSubject as any).image || (selectedSubject as any).thumbnail) ? (
               <img
                 src={getImageUrl((selectedSubject as any).imgUrl || (selectedSubject as any).image || (selectedSubject as any).thumbnail)}
@@ -447,21 +447,21 @@ const SubjectDashboard = () => {
               />
             ) : (
               <div className="w-full h-full bg-violet-500/10 flex items-center justify-center">
-                <BookOpen className="h-6 w-6 text-violet-500" />
+                <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-violet-500" />
               </div>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold text-foreground truncate">{selectedSubject.name}</h2>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <h2 className="text-sm sm:text-base font-bold text-foreground truncate">{selectedSubject.name}</h2>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <span className="text-xs text-muted-foreground truncate">{selectedClass?.name}</span>
               {(selectedSubject as any).code && (
-                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
+                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono shrink-0">
                   {(selectedSubject as any).code}
                 </span>
               )}
               {(selectedSubject as any).type && (
-                <span className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded shrink-0">
                   {(selectedSubject as any).type}
                 </span>
               )}
@@ -471,33 +471,33 @@ const SubjectDashboard = () => {
       </div>
 
       {/* Subject switcher */}
-      <div className="mx-2 bg-card border border-border rounded-2xl p-4 shadow-sm">
+      <div className="bg-card border border-border rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm">
         <DashboardSubjectCards />
       </div>
 
       {/* Quick Access Features */}
-      <div className="mx-2 bg-card border border-border rounded-2xl p-4 shadow-sm">
+      <div className="bg-card border border-border rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm">
         <FeaturesSection level="subject" />
       </div>
 
       {/* Lectures */}
-      <div className="mx-2 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between p-4 pb-3">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+      <div className="bg-card border border-border rounded-xl sm:rounded-2xl shadow-sm overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 pb-2 sm:pb-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 flex-shrink-0">
             <Video className="h-4 w-4 text-blue-500" />
             Lectures
             {lectures.length > 0 && <span className="text-xs font-normal text-muted-foreground">({lectures.length})</span>}
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <div className="flex items-center border border-border rounded-lg overflow-hidden">
               <button onClick={() => setLecturesViewMode('card')} className={`p-1.5 transition-colors ${lecturesViewMode === 'card' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`} title="Card view"><LayoutGrid className="h-3.5 w-3.5" /></button>
               <button onClick={() => setLecturesViewMode('table')} className={`p-1.5 transition-colors ${lecturesViewMode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`} title="Table view"><Table2 className="h-3.5 w-3.5" /></button>
             </div>
-            <button onClick={lecturesTable.actions.refresh} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <button onClick={lecturesTable.actions.refresh} className="p-1.5 rounded-lg hover:bg-muted transition-colors active:scale-95">
               <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
             <Button
-              size="sm" variant="outline" className="h-7 text-xs"
+              size="sm" variant="outline" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
               onClick={() => navigate(buildSidebarUrl('lecture-live-attendance', {
                 instituteId: currentInstituteId,
                 classId: currentClassId,
@@ -507,7 +507,7 @@ const SubjectDashboard = () => {
               <BarChart3 className="h-3 w-3 mr-1" />Live
             </Button>
             <Button
-              size="sm" variant="outline" className="h-7 text-xs"
+              size="sm" variant="outline" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
               onClick={() => navigate(buildSidebarUrl('lecture-recording-attendance', {
                 instituteId: currentInstituteId,
                 classId: currentClassId,
@@ -517,68 +517,70 @@ const SubjectDashboard = () => {
               <BarChart3 className="h-3 w-3 mr-1" />Rec
             </Button>
             {canAdd && (
-              <Button size="sm" className="h-7 text-xs" onClick={() => setIsCreateLectureOpen(true)}>
+              <Button size="sm" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3" onClick={() => setIsCreateLectureOpen(true)}>
                 <Plus className="h-3 w-3 mr-1" />Add
               </Button>
             )}
           </div>
         </div>
         {lectures.length > 0 && (
-          <div className="px-4 pb-3 grid grid-cols-3 gap-2">
+          <div className="px-3 sm:px-4 pb-2 sm:pb-3 grid grid-cols-3 gap-2">
             {[
               { label: 'Scheduled', value: lectures.filter((l: any) => l.status === 'scheduled').length },
               { label: 'Live Now', value: lectures.filter((l: any) => l.status === 'ongoing' || l.status === 'in_progress').length },
               { label: 'Completed', value: lectures.filter((l: any) => l.status === 'completed').length },
             ].map(({ label, value }) => (
-              <div key={label} className="rounded-xl bg-muted/60 border border-border/50 p-2 text-center">
-                <div className="text-base font-bold">{value}</div>
-                <p className="text-[10px] text-muted-foreground">{label}</p>
+              <div key={label} className="rounded-lg sm:rounded-xl bg-muted/60 border border-border/50 p-2 text-center">
+                <div className="text-base sm:text-lg font-bold">{value}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">{label}</p>
               </div>
             ))}
           </div>
         )}
-        <div className="px-4 pb-4">
+        <div className="px-3 sm:px-4 pb-3 sm:pb-4">
           {lecturesTable.state.loading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-6 sm:py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : lectures.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-6 sm:py-8 text-muted-foreground">
               <Video className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No lectures yet</p>
               {canAdd && (
-                <Button size="sm" variant="outline" className="mt-3 h-7 text-xs" onClick={() => setIsCreateLectureOpen(true)}>
+                <Button size="sm" variant="outline" className="mt-2 sm:mt-3 h-7 sm:h-8 text-xs sm:text-sm" onClick={() => setIsCreateLectureOpen(true)}>
                   <Plus className="h-3 w-3 mr-1" />Add Lecture
                 </Button>
               )}
             </div>
           ) : lecturesViewMode === 'table' ? (
-            <MUITable
-              title=""
-              data={lectures}
-              columns={lectureColumns}
-              page={0}
-              rowsPerPage={lectures.length || 50}
-              totalCount={lectures.length}
-              onPageChange={() => {}}
-              onRowsPerPageChange={() => {}}
-              allowAdd={false}
-              allowEdit={false}
-              allowDelete={false}
-            />
+            <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+              <MUITable
+                title=""
+                data={lectures}
+                columns={lectureColumns}
+                page={0}
+                rowsPerPage={lectures.length || 50}
+                totalCount={lectures.length}
+                onPageChange={() => {}}
+                onRowsPerPageChange={() => {}}
+                allowAdd={false}
+                allowEdit={false}
+                allowDelete={false}
+              />
+            </div>
           ) : (
-            <div className="relative">
-              {lectures.length > 2 && (
+            <div className="relative -mx-3 sm:mx-0">
+              {lectures.length > 1 && (
                 <>
-                  <button onClick={() => scrollLectures('left')} className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-background border border-border shadow-md flex items-center justify-center hover:bg-muted transition-colors">
+                  <button onClick={() => scrollLectures('left')} className="absolute -left-1 sm:-left-2 top-1/2 -translate-y-1/2 z-10 h-7 sm:h-8 w-7 sm:w-8 rounded-full bg-background border border-border shadow-md flex items-center justify-center hover:bg-muted transition-colors active:scale-95">
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <button onClick={() => scrollLectures('right')} className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-background border border-border shadow-md flex items-center justify-center hover:bg-muted transition-colors">
+                  <button onClick={() => scrollLectures('right')} className="absolute -right-1 sm:-right-2 top-1/2 -translate-y-1/2 z-10 h-7 sm:h-8 w-7 sm:w-8 rounded-full bg-background border border-border shadow-md flex items-center justify-center hover:bg-muted transition-colors active:scale-95">
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </>
               )}
-              <div ref={lectureScrollRef} className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div ref={lectureScrollRef} className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide px-6 sm:px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {lectures.map((l: any) => <LectureCard key={l.id} item={l} />)}
               </div>
             </div>
@@ -587,14 +589,14 @@ const SubjectDashboard = () => {
       </div>
 
       {/* Exams */}
-      <div className="mx-2 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between p-4 pb-3">
+      <div className="bg-card border border-border rounded-xl sm:rounded-2xl shadow-sm overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 pb-2 sm:pb-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <FileText className="h-4 w-4 text-rose-500" />
             Exams
             {exams.length > 0 && <span className="text-xs font-normal text-muted-foreground">({exams.length})</span>}
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button onClick={examsTable.actions.refresh} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
               <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
@@ -605,17 +607,17 @@ const SubjectDashboard = () => {
             )}
           </div>
         </div>
-        <div className="px-4 pb-4">
+        <div className="px-3 sm:px-4 pb-3 sm:pb-4">
           {examsTable.state.loading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-6 sm:py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : exams.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-6 sm:py-8 text-muted-foreground">
               <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No exams yet</p>
               {canAdd && (
-                <Button size="sm" variant="outline" className="mt-3 h-7 text-xs" onClick={() => setIsCreateExamOpen(true)}>
+                <Button size="sm" variant="outline" className="mt-2 sm:mt-3 h-7 sm:h-8 text-xs sm:text-sm" onClick={() => setIsCreateExamOpen(true)}>
                   <Plus className="h-3 w-3 mr-1" />Add Exam
                 </Button>
               )}
@@ -629,13 +631,11 @@ const SubjectDashboard = () => {
       </div>
 
       {/* My Attendance */}
-      <div className="mx-2">
-        <AttendanceFeedWidget filterInstituteId={selectedInstitute.id} />
-      </div>
+      <AttendanceFeedWidget filterInstituteId={selectedInstitute.id} />
 
       {/* Create Lecture Dialog */}
       <Dialog open={isCreateLectureOpen} onOpenChange={setIsCreateLectureOpen} routeName="create-subject-lecture-popup">
-        <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full max-w-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Lecture</DialogTitle>
           </DialogHeader>
@@ -648,7 +648,7 @@ const SubjectDashboard = () => {
 
       {/* Edit Lecture Dialog */}
       <Dialog open={isEditLectureOpen} onOpenChange={setIsEditLectureOpen} routeName="edit-subject-lecture-popup">
-        <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full max-w-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Lecture</DialogTitle>
           </DialogHeader>
@@ -664,7 +664,7 @@ const SubjectDashboard = () => {
 
       {/* Create Exam Dialog */}
       <Dialog open={isCreateExamOpen} onOpenChange={setIsCreateExamOpen} routeName="create-subject-exam-popup">
-        <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full max-w-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Exam</DialogTitle>
           </DialogHeader>
@@ -677,7 +677,7 @@ const SubjectDashboard = () => {
 
       {/* Edit Exam Dialog */}
       <Dialog open={isEditExamOpen} onOpenChange={setIsEditExamOpen} routeName="edit-subject-exam-popup">
-        <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full max-w-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Exam</DialogTitle>
           </DialogHeader>

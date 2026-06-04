@@ -8,7 +8,7 @@ import { CustomToggle } from '@/components/ui/custom-toggle';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Filter, Plus, Calendar, Clock, FileText, CheckCircle, ExternalLink, BarChart3, Eye, ChevronDown, LayoutList, LayoutGrid, Table2, Award } from 'lucide-react';
+import { RefreshCw, Filter, Plus, Calendar, Clock, FileText, CheckCircle, ExternalLink, BarChart3, Eye, ChevronDown, LayoutList, LayoutGrid, Table2, Award, Edit, Trash2 } from 'lucide-react';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
@@ -250,9 +250,9 @@ const Exams = ({
   }, ...((['InstituteAdmin', 'Teacher', 'Student'] as UserRole[]).includes(userRole) ? [{
     key: 'examLink',
     header: 'Exam Link',
-    render: (value: string, row: any) => value ? <Button size="sm" variant="destructive" className="bg-red-600 hover:bg-red-700 text-white" onClick={() => window.open(value, '_blank')}>
-          <ExternalLink className="h-3 w-3 mr-1" />
-          Exam Link
+    render: (value: string, row: any) => value ? <Button size="sm" variant="destructive" className="h-8 w-8 p-0 sm:w-auto sm:px-3" onClick={() => window.open(value, '_blank')} title="Open exam" aria-label="Open exam">
+          <ExternalLink className="h-3 w-3 sm:mr-1" />
+          <span className="hidden sm:inline">Exam Link</span>
         </Button> : <span className="text-gray-400">No link</span>
   }] : []), {
     key: 'status',
@@ -274,9 +274,9 @@ const Exams = ({
         return;
       }
       navigate(`/institute/${currentInstituteId}/class/${currentClassId}/subject/${currentSubjectId}/exam/${row.id}/create-results`);
-    }} className="flex items-center gap-2">
+    }} className="h-8 w-8 p-0 sm:w-auto sm:px-3 flex items-center justify-center gap-2" title="Create results" aria-label="Create results">
           <BarChart3 className="h-4 w-4" />
-          Create
+          <span className="hidden sm:inline">Create</span>
         </Button>
   }] : []), {
     key: 'results',
@@ -284,9 +284,9 @@ const Exams = ({
     render: (value: any, row: any) => <Button size="sm" variant="default" onClick={(e) => {
       e.stopPropagation();
       handleViewResults(row);
-    }} className="flex items-center gap-2">
+    }} className="h-8 w-8 p-0 sm:w-auto sm:px-3 flex items-center justify-center gap-2" title="View results" aria-label="View results">
           <Eye className="h-4 w-4" />
-          View
+          <span className="hidden sm:inline">View</span>
         </Button>
   }];
   const { hasCustomType, canCreate: rbacCanCreate, canUpdate: rbacCanUpdate, canDelete: rbacCanDelete } = usePermission('exams');
@@ -397,10 +397,10 @@ const Exams = ({
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-3xl font-bold text-foreground truncate">
+                <h1 className="text-xl sm:text-3xl font-bold text-foreground">
                   Exams
                 </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 line-clamp-2 sm:truncate">
                   {selectedInstitute?.name}{selectedClass ? ` → ${selectedClass.name}` : ''}{selectedSubject ? ` → ${selectedSubject.name}` : ''}
                 </p>
                 {lastRefresh && <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
@@ -410,16 +410,16 @@ const Exams = ({
             </div>
             
             {/* Action bar */}
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className="h-8 px-2.5 text-xs sm:text-sm sm:h-9 sm:px-3">
-                <Filter className="h-3.5 w-3.5 mr-1" />
-                Filters
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+              <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className="h-9 w-9 shrink-0 p-0 sm:w-auto sm:px-3 sm:text-sm" title="Filters" aria-label="Filters">
+                <Filter className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">Filters</span>
               </Button>
-              <Button onClick={handleRefreshData} disabled={isLoading} variant="outline" size="sm" className="h-8 px-2.5 text-xs sm:text-sm sm:h-9 sm:px-3">
-                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Loading...' : 'Refresh'}
+              <Button onClick={handleRefreshData} disabled={isLoading} variant="outline" size="sm" className="h-9 w-9 shrink-0 p-0 sm:w-auto sm:px-3 sm:text-sm" title="Refresh" aria-label="Refresh exams">
+                <RefreshCw className={`h-3.5 w-3.5 sm:mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{isLoading ? 'Loading...' : 'Refresh'}</span>
               </Button>
-              <div className="flex items-center border border-border rounded-lg overflow-hidden">
+              <div className="flex shrink-0 items-center border border-border rounded-lg overflow-hidden">
                 <button onClick={() => setPageViewMode('card')} className={`p-1.5 transition-colors ${pageViewMode === 'card' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`} title="Card view"><LayoutGrid className="h-4 w-4" /></button>
                 <button onClick={() => setPageViewMode('table')} className={`p-1.5 transition-colors ${pageViewMode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`} title="Table view"><Table2 className="h-4 w-4" /></button>
               </div>
@@ -482,9 +482,9 @@ const Exams = ({
 
            {/* Create button — visible to any role with canCreate permission */}
            {canAdd && <div className="flex justify-end">
-                <Button onClick={() => setIsCreateDialogOpen(true)} size="sm" className="h-8 text-xs sm:h-9 sm:text-sm">
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Create Exam
+                 <Button onClick={() => setIsCreateDialogOpen(true)} size="sm" className="h-9 w-9 p-0 sm:w-auto sm:px-3 sm:text-sm" title="Create Exam" aria-label="Create Exam">
+                   <Plus className="h-3.5 w-3.5 sm:mr-1" />
+                   <span className="hidden sm:inline">Create Exam</span>
                 </Button>
               </div>}
 
@@ -499,31 +499,31 @@ const Exams = ({
                     <Collapsible key={item.id || item._id} open={isOpen} onOpenChange={() => setExpandedExam(isOpen ? null : (item.id || item._id))}>
                       <CollapsibleTrigger asChild>
                         <Card className="cursor-pointer hover:shadow-md transition-shadow">
-                          <CardContent className="p-4 flex items-center justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{item.title}</p>
-                              <p className="text-[13px] text-muted-foreground mt-0.5">
-                                {item.scheduleDate ? new Date(item.scheduleDate).toLocaleDateString() : 'No date'}
-                                {' • '}
+                          <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm line-clamp-2 sm:truncate">{item.title}</p>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
+                                <span>{item.scheduleDate ? new Date(item.scheduleDate).toLocaleDateString() : 'No date'}</span>
                                 <Badge variant={item.examType === 'online' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">{item.examType}</Badge>
-                                {' '}
                                 <Badge variant={item.status === 'scheduled' ? 'default' : item.status === 'completed' ? 'outline' : 'destructive'} className="text-[10px] px-1.5 py-0">{item.status}</Badge>
-                              </p>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex w-full items-center gap-1.5 overflow-x-auto pb-1 sm:w-auto sm:shrink-0 sm:overflow-visible sm:pb-0">
                               {item.examLink && (
-                                <Button size="sm" variant="destructive" className="h-7 text-xs px-2.5" onClick={(e) => { e.stopPropagation(); window.open(item.examLink, '_blank'); }}>
-                                  <ExternalLink className="h-3 w-3 mr-1" />Exam
+                                <Button size="sm" variant="destructive" className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2.5 text-xs" onClick={(e) => { e.stopPropagation(); window.open(item.examLink, '_blank'); }} title="Open exam" aria-label="Open exam">
+                                  <ExternalLink className="h-3 w-3 sm:mr-1" /><span className="hidden sm:inline">Exam</span>
                                 </Button>
                               )}
-                              <Button size="sm" variant="outline" className="h-7 text-xs px-2.5" onClick={(e) => { e.stopPropagation(); handleViewResults(item); }}>
-                                <Eye className="h-3 w-3 mr-1" />Results
+                              <Button size="sm" variant="outline" className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2.5 text-xs" onClick={(e) => { e.stopPropagation(); handleViewResults(item); }} title="Results" aria-label="View results">
+                                <Eye className="h-3 w-3 sm:mr-1" /><span className="hidden sm:inline">Results</span>
                               </Button>
                               {canAdd && (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-7 text-xs px-2.5 text-blue-600 border-blue-300 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-700"
+                                  className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2.5 text-xs text-blue-600 border-blue-300 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-700"
+                                  title="Create results"
+                                  aria-label="Create results"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (!currentInstituteId || !currentClassId || !currentSubjectId) {
@@ -533,11 +533,11 @@ const Exams = ({
                                     navigate(`/institute/${currentInstituteId}/class/${currentClassId}/subject/${currentSubjectId}/exam/${item.id}/create-results`);
                                   }}
                                 >
-                                  <BarChart3 className="h-3 w-3 mr-1" />Create Results
+                                  <BarChart3 className="h-3 w-3 sm:mr-1" /><span className="hidden sm:inline">Create Results</span>
                                 </Button>
                               )}
+                              <ChevronDown className={`ml-auto h-4 w-4 text-muted-foreground shrink-0 transition-transform sm:ml-0 ${isOpen ? 'rotate-180' : ''}`} />
                             </div>
-                            <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                           </CardContent>
                         </Card>
                       </CollapsibleTrigger>
@@ -584,10 +584,14 @@ const Exams = ({
                             {(canEdit || canDelete) && (
                               <div className="flex gap-2 pt-1 border-t">
                                 {canEdit && (
-                                  <Button size="sm" variant="outline" className="h-8" onClick={() => handleEditExam(item)}>Edit</Button>
+                                  <Button size="sm" variant="outline" className="h-8 w-8 p-0 sm:w-auto sm:px-3" onClick={() => handleEditExam(item)} title="Edit" aria-label="Edit exam">
+                                    <Edit className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Edit</span>
+                                  </Button>
                                 )}
                                 {canDelete && (
-                                  <Button size="sm" variant="outline" className="h-8 text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => handleDeleteExam(item)}>Delete</Button>
+                                  <Button size="sm" variant="outline" className="h-8 w-8 p-0 sm:w-auto sm:px-3 text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => handleDeleteExam(item)} title="Delete" aria-label="Delete exam">
+                                    <Trash2 className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Delete</span>
+                                  </Button>
                                 )}
                               </div>
                             )}

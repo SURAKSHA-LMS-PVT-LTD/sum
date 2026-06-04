@@ -30,11 +30,9 @@ const ChildAttendance = React.lazy(() => import('@/components/ChildAttendance'))
 const ChildResults = React.lazy(() => import('@/components/ChildResults'));
 const VerifyImage = React.lazy(() => import('@/components/VerifyImage'));
 
-const Grades = React.lazy(() => import('@/components/Grades'));
 const Classes = React.lazy(() => import('@/components/Classes'));
 const ClassSubjects = React.lazy(() => import('@/components/ClassSubjects'));
 const Institutes = React.lazy(() => import('@/components/Institutes'));
-const Grading = React.lazy(() => import('@/components/Grading'));
 const Attendance = React.lazy(() => import('@/components/Attendance'));
 const NewAttendance = React.lazy(() => import('@/components/NewAttendance'));
 const MyAttendance = React.lazy(() => import('@/components/MyAttendance'));
@@ -1043,7 +1041,7 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         return <SubjectSelector />;
       }
 
-      const classRequiredPages = ['grading'];
+      const classRequiredPages: string[] = [];
       if (selectedInstitute && !selectedClass && classRequiredPages.includes(currentPage)) {
         return <ClassSelector />;
       }
@@ -1084,12 +1082,6 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <FeatureGatedPage featureKey="class-subjects" component={<ClassSubjects />} />;
         case 'select-institute':
           return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
-        case 'grading':
-        case 'grades-table':
-        case 'create-grade':
-        case 'assign-grade-classes':
-        case 'view-grade-classes':
-          return <FeatureGatedPage featureKey="grading" component={<Grading />} />;
         case 'attendance':
         case 'daily-attendance':
           return <FeatureGatedPage featureKey="daily-attendance" component={<Attendance />} />;
@@ -1313,7 +1305,7 @@ const AppContent = ({ initialPage }: AppContentProps) => {
     // ONLY show class selector for pages that explicitly require a class
     // AND are NOT in the exception list
     if (!pagesWithoutClassRequirement.includes(currentPage)) {
-      const classRequiredPages = ['grading'];
+      const classRequiredPages: string[] = [];
       if (selectedInstitute && !selectedClass && classRequiredPages.includes(currentPage)) {
         return <ClassSelector />;
       }
@@ -1361,8 +1353,6 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         return <Teachers />;
       case 'parents':
         return <FeatureGatedPage featureKey="parents" component={<Parents />} />;
-      case 'grades':
-        return <FeatureGatedPage featureKey="grading" component={<Grades />} />;
       case 'classes':
         return <FeatureGatedPage featureKey="classes" component={<Classes />} />;
       case 'subjects':
@@ -1376,12 +1366,6 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         return <FeatureGatedPage featureKey="institute-organizations" component={<InstituteOrganizations />} />;
       case 'select-institute':
         return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector />;
-      case 'grading':
-      case 'grades-table':
-      case 'create-grade':
-      case 'assign-grade-classes':
-      case 'view-grade-classes':
-        return <FeatureGatedPage featureKey="grading" component={<Grading />} />;
       case 'attendance':
       case 'daily-attendance':
         return <FeatureGatedPage featureKey="daily-attendance" component={<Attendance />} />;

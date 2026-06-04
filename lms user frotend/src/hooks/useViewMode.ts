@@ -18,6 +18,10 @@ const readMode = (key: string): ViewMode => {
     return legacy;
   }
 
+  // Fall back to user's global default preference (Settings page).
+  const globalDefault = localStorage.getItem('viewMode:global') as ViewMode | null;
+  if (globalDefault === 'card' || globalDefault === 'table') return globalDefault;
+
   return 'card';
 };
 

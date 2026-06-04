@@ -1,0 +1,235 @@
+/**
+ * Global Mobile Responsive CSS Utilities
+ * Add this to your global CSS or use with styled-components
+ */
+
+:root {
+  /* Mobile-first spacing scale */
+  --spacing-xs: 0.5rem;      /* 8px */
+  --spacing-sm: 0.75rem;     /* 12px */
+  --spacing-md: 1rem;        /* 16px */
+  --spacing-lg: 1.5rem;      /* 24px */
+  --spacing-xl: 2rem;        /* 32px */
+  --spacing-2xl: 3rem;       /* 48px */
+  
+  /* Touch targets - minimum 44x44px on mobile */
+  --touch-target-min: 44px;
+  
+  /* Button sizes */
+  --button-height-sm: 28px;   /* 7 h: tailwind */
+  --button-height-md: 36px;   /* 9 h: tailwind */
+  --button-height-lg: 40px;   /* 10 h: tailwind */
+}
+
+/* Mobile-first breakpoints */
+@media (max-width: 639px) {
+  /* Mobile-specific optimizations */
+  
+  /* Ensure minimum touch target size for all interactive elements */
+  button,
+  a[role="button"],
+  [role="button"] {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+  }
+  
+  /* Reduce margin on mobile for better space utilization */
+  .container {
+    padding-left: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
+  }
+  
+  /* Make modals full-width on mobile */
+  dialog,
+  [role="dialog"] {
+    width: 95vw !important;
+    max-width: 95vw !important;
+  }
+  
+  /* Stack flex items vertically on mobile */
+  .flex-responsive {
+    flex-direction: column;
+  }
+  
+  /* Hide mobile-hidden elements */
+  .mobile-hidden {
+    display: none !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  /* Tablet-specific optimizations */
+  
+  .tablet-hidden {
+    display: none !important;
+  }
+  
+  .tablet-only {
+    display: block !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Desktop-specific optimizations */
+  
+  .desktop-hidden {
+    display: none !important;
+  }
+  
+  .desktop-only {
+    display: block !important;
+  }
+}
+
+/* Responsive utility classes */
+
+/* Text truncation utilities */
+.truncate-mobile {
+  @apply truncate;
+}
+
+@media (min-width: 640px) {
+  .truncate-mobile {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+}
+
+/* Responsive container width */
+.container-responsive {
+  width: 100%;
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+}
+
+@media (min-width: 640px) {
+  .container-responsive {
+    padding-left: var(--spacing-md);
+    padding-right: var(--spacing-md);
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-responsive {
+    padding-left: var(--spacing-lg);
+    padding-right: var(--spacing-lg);
+  }
+}
+
+/* Responsive grid utilities */
+.grid-responsive {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-sm);
+}
+
+@media (min-width: 640px) {
+  .grid-responsive {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+  }
+}
+
+/* Responsive spacing utilities */
+.space-responsive > * + * {
+  margin-top: var(--spacing-sm);
+}
+
+@media (min-width: 640px) {
+  .space-responsive > * + * {
+    margin-top: var(--spacing-md);
+  }
+}
+
+@media (min-width: 1024px) {
+  .space-responsive > * + * {
+    margin-top: var(--spacing-lg);
+  }
+}
+
+/* Prevent layout shift on mobile */
+.scrollbar-gutter {
+  scrollbar-gutter: stable;
+}
+
+/* Safe area padding for notched devices */
+.safe-area-padding {
+  padding-top: max(var(--spacing-sm), env(safe-area-inset-top));
+  padding-bottom: max(var(--spacing-sm), env(safe-area-inset-bottom));
+  padding-left: max(var(--spacing-sm), env(safe-area-inset-left));
+  padding-right: max(var(--spacing-sm), env(safe-area-inset-right));
+}
+
+/* Fix virtual keyboard on mobile */
+@supports (max(0px)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Smooth transitions for touch devices */
+@media (hover: none) and (pointer: coarse) {
+  /* On touch devices, use faster transitions */
+  * {
+    transition-duration: 0.2s !important;
+  }
+  
+  /* Disable hover states on touch devices */
+  button:hover,
+  a:hover {
+    background-color: inherit;
+  }
+  
+  /* Use active states instead */
+  button:active,
+  a:active {
+    opacity: 0.7;
+  }
+}
+
+/* Print styles for mobile */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    padding: 0;
+    margin: 0;
+  }
+}
+
+/* Responsive typography scale */
+@media (max-width: 639px) {
+  /* Reduce font sizes on mobile for better readability */
+  html {
+    font-size: 14px; /* Smaller base on mobile, 15% reduction */
+  }
+}
+
+@media (min-width: 640px) {
+  html {
+    font-size: 16px; /* Standard size on tablet+ */
+  }
+}
+
+/* Responsive line height for better mobile readability */
+@media (max-width: 639px) {
+  body {
+    line-height: 1.5;
+  }
+}
+
+@media (min-width: 640px) {
+  body {
+    line-height: 1.6;
+  }
+}

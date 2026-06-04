@@ -397,51 +397,51 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
 
     if (selectedEl.type === 'image') {
       return (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm">User Photo Element</h3>
-            <Button variant="ghost" size="sm" onClick={() => deleteElement(selectedEl.id)} className="text-destructive h-7">
-              <Trash2 className="h-3.5 w-3.5" />
+            <h3 className="font-semibold text-xs sm:text-sm">User Photo Element</h3>
+            <Button variant="ghost" size="sm" onClick={() => deleteElement(selectedEl.id)} className="text-destructive h-6 sm:h-7 px-2 sm:px-3 text-xs sm:text-sm">
+              <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             </Button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div className="space-y-1"><Label className="text-xs">X (%)</Label>
               <Input type="number" value={selectedEl.x} min={0} max={95} step={0.5}
-                onChange={e => patchElement(selectedEl.id, { x: +e.target.value })} className="h-8" /></div>
+                onChange={e => patchElement(selectedEl.id, { x: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
             <div className="space-y-1"><Label className="text-xs">Y (%)</Label>
               <Input type="number" value={selectedEl.y} min={0} max={95} step={0.5}
-                onChange={e => patchElement(selectedEl.id, { y: +e.target.value })} className="h-8" /></div>
+                onChange={e => patchElement(selectedEl.id, { y: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
             <div className="space-y-1"><Label className="text-xs">Width (%)</Label>
               <Input type="number" value={selectedEl.width} min={5} max={80} step={1}
-                onChange={e => patchElement(selectedEl.id, { width: +e.target.value })} className="h-8" /></div>
+                onChange={e => patchElement(selectedEl.id, { width: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
             <div className="space-y-1"><Label className="text-xs">Height (%)</Label>
               <Input type="number" value={selectedEl.height} min={5} max={80} step={1}
-                onChange={e => patchElement(selectedEl.id, { height: +e.target.value })} className="h-8" /></div>
+                onChange={e => patchElement(selectedEl.id, { height: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
           </div>
           <div className="space-y-1"><Label className="text-xs">Shape</Label>
             <Select value={selectedEl.shape} onValueChange={v => patchElement(selectedEl.id, { shape: v as any })}>
-              <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-7 sm:h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="circle">Circle</SelectItem>
-                <SelectItem value="square">Square / Rounded</SelectItem>
+                <SelectItem value="square">Square</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div className="space-y-1"><Label className="text-xs">Border Color</Label>
               <input type="color" value={selectedEl.borderColor}
                 onChange={e => patchElement(selectedEl.id, { borderColor: e.target.value })}
-                className="w-full h-8 rounded cursor-pointer border" /></div>
+                className="w-full h-7 sm:h-8 rounded cursor-pointer border" /></div>
             <div className="space-y-1"><Label className="text-xs">Border Width</Label>
               <Input type="number" value={selectedEl.borderWidth} min={0} max={10} step={1}
-                onChange={e => patchElement(selectedEl.id, { borderWidth: +e.target.value })} className="h-8" /></div>
+                onChange={e => patchElement(selectedEl.id, { borderWidth: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
           </div>
-          <div className="flex gap-2 pt-1">
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => moveElementZ(selectedEl.id, 'up')}>
-              <ChevronUp className="h-3.5 w-3.5 mr-1" />Forward
+          <div className="flex gap-1 sm:gap-2 pt-1">
+            <Button variant="outline" size="sm" className="flex-1 h-7 sm:h-8 text-xs sm:text-sm" onClick={() => moveElementZ(selectedEl.id, 'up')}>
+              <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />Forward
             </Button>
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => moveElementZ(selectedEl.id, 'down')}>
-              <ChevronDown className="h-3.5 w-3.5 mr-1" />Back
+            <Button variant="outline" size="sm" className="flex-1 h-7 sm:h-8 text-xs sm:text-sm" onClick={() => moveElementZ(selectedEl.id, 'down')}>
+              <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />Back
             </Button>
           </div>
         </div>
@@ -450,11 +450,11 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
 
     // Text element props
     return (
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm">Text Element</h3>
-          <Button variant="ghost" size="sm" onClick={() => deleteElement(selectedEl.id)} className="text-destructive h-7">
-            <Trash2 className="h-3.5 w-3.5" />
+          <h3 className="font-semibold text-xs sm:text-sm">Text Element</h3>
+          <Button variant="ghost" size="sm" onClick={() => deleteElement(selectedEl.id)} className="text-destructive h-6 sm:h-7 px-2 sm:px-3 text-xs sm:text-sm">
+            <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           </Button>
         </div>
 
@@ -463,16 +463,16 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
           <Label className="text-xs">Content</Label>
           <Input value={selectedEl.content}
             onChange={e => patchElement(selectedEl.id, { content: e.target.value })}
-            placeholder="Enter text or insert tokens…" className="h-8 text-sm" />
+            placeholder="Text or tokens…" className="h-7 sm:h-8 text-xs sm:text-sm" />
         </div>
 
         {/* Token insert */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Insert variable token</Label>
+          <Label className="text-xs text-muted-foreground">Insert variable</Label>
           <div className="flex flex-wrap gap-1">
             {TEXT_TOKENS.map(({ token, label }) => (
               <button key={token}
-                className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                className="text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors active:scale-95"
                 onClick={() => insertToken(token)}>{label}</button>
             ))}
           </div>
@@ -482,7 +482,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
         <div className="space-y-1">
           <Label className="text-xs">Font</Label>
           <Select value={selectedEl.fontFamily} onValueChange={v => { loadGoogleFont(v); patchElement(selectedEl.id, { fontFamily: v }); }}>
-            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-7 sm:h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent className="max-h-60">
               {GOOGLE_FONTS.map(f => (
                 <SelectItem key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</SelectItem>
@@ -492,56 +492,56 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
         </div>
 
         {/* Size + Color */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <div className="space-y-1"><Label className="text-xs">Size (px)</Label>
             <Input type="number" value={selectedEl.fontSize} min={8} max={120} step={1}
-              onChange={e => patchElement(selectedEl.id, { fontSize: +e.target.value })} className="h-8" /></div>
+              onChange={e => patchElement(selectedEl.id, { fontSize: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
           <div className="space-y-1"><Label className="text-xs">Color</Label>
             <input type="color" value={selectedEl.color}
               onChange={e => patchElement(selectedEl.id, { color: e.target.value })}
-              className="w-full h-8 rounded cursor-pointer border" /></div>
+              className="w-full h-7 sm:h-8 rounded cursor-pointer border" /></div>
         </div>
 
         {/* Position + Width */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
           <div className="space-y-1"><Label className="text-xs">X (%)</Label>
             <Input type="number" value={selectedEl.x} min={0} max={95} step={0.5}
-              onChange={e => patchElement(selectedEl.id, { x: +e.target.value })} className="h-8" /></div>
+              onChange={e => patchElement(selectedEl.id, { x: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
           <div className="space-y-1"><Label className="text-xs">Y (%)</Label>
             <Input type="number" value={selectedEl.y} min={0} max={95} step={0.5}
-              onChange={e => patchElement(selectedEl.id, { y: +e.target.value })} className="h-8" /></div>
+              onChange={e => patchElement(selectedEl.id, { y: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
           <div className="space-y-1"><Label className="text-xs">Width (%)</Label>
             <Input type="number" value={selectedEl.width} min={5} max={100} step={1}
-              onChange={e => patchElement(selectedEl.id, { width: +e.target.value })} className="h-8" /></div>
+              onChange={e => patchElement(selectedEl.id, { width: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
         </div>
 
         {/* Style */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-2">
           <button onClick={() => patchElement(selectedEl.id, { bold: !selectedEl.bold })}
-            className={`p-1.5 rounded ${selectedEl.bold ? 'bg-primary text-primary-foreground' : 'border hover:bg-muted'}`}>
-            <Bold className="h-4 w-4" />
+            className={`p-1.5 rounded text-xs sm:text-sm ${selectedEl.bold ? 'bg-primary text-primary-foreground' : 'border hover:bg-muted'}`}>
+            <Bold className="h-3 w-3 sm:h-4 sm:w-4" />
           </button>
           <button onClick={() => patchElement(selectedEl.id, { italic: !selectedEl.italic })}
-            className={`p-1.5 rounded ${selectedEl.italic ? 'bg-primary text-primary-foreground' : 'border hover:bg-muted'}`}>
-            <Italic className="h-4 w-4" />
+            className={`p-1.5 rounded text-xs sm:text-sm ${selectedEl.italic ? 'bg-primary text-primary-foreground' : 'border hover:bg-muted'}`}>
+            <Italic className="h-3 w-3 sm:h-4 sm:w-4" />
           </button>
           <div className="flex border rounded overflow-hidden">
             {(['left', 'center', 'right'] as const).map(a => (
               <button key={a} onClick={() => patchElement(selectedEl.id, { align: a })}
-                className={`p-1.5 ${selectedEl.align === a ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
-                {a === 'left' ? <AlignLeft className="h-4 w-4" /> : a === 'center' ? <AlignCenter className="h-4 w-4" /> : <AlignRight className="h-4 w-4" />}
+                className={`p-1.5 text-xs sm:text-sm ${selectedEl.align === a ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>
+                {a === 'left' ? <AlignLeft className="h-3 w-3 sm:h-4 sm:w-4" /> : a === 'center' ? <AlignCenter className="h-3 w-3 sm:h-4 sm:w-4" /> : <AlignRight className="h-3 w-3 sm:h-4 sm:w-4" />}
               </button>
             ))}
           </div>
         </div>
 
         {/* Z-order */}
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="flex-1" onClick={() => moveElementZ(selectedEl.id, 'up')}>
-            <ChevronUp className="h-3.5 w-3.5 mr-1" />Forward
+        <div className="flex gap-1 sm:gap-2">
+          <Button variant="outline" size="sm" className="flex-1 h-7 sm:h-8 text-xs sm:text-sm" onClick={() => moveElementZ(selectedEl.id, 'up')}>
+            <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />Forward
           </Button>
-          <Button variant="outline" size="sm" className="flex-1" onClick={() => moveElementZ(selectedEl.id, 'down')}>
-            <ChevronDown className="h-3.5 w-3.5 mr-1" />Back
+          <Button variant="outline" size="sm" className="flex-1 h-7 sm:h-8 text-xs sm:text-sm" onClick={() => moveElementZ(selectedEl.id, 'down')}>
+            <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />Back
           </Button>
         </div>
       </div>
@@ -553,32 +553,38 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   // ── LIST VIEW ─────────────────────────────────────────────────────────────
   if (!activeTemplateId) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-3 sm:space-y-5 pb-20 sm:pb-12">
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-card rounded-lg sm:rounded-xl border border-border">
           <div className="flex items-center gap-2">
-            <LayoutGrid className="h-5 w-5 text-muted-foreground" />
-            <span className="font-semibold text-base">Templates</span>
-            <Badge variant="secondary">{templates.length}</Badge>
+            <div className="p-2 rounded-lg bg-primary/10">
+              <LayoutGrid className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm sm:text-base">Templates</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">Manage your card designs</p>
+            </div>
+            <Badge variant="secondary" className="ml-auto sm:ml-2">{templates.length}</Badge>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => saveTemplates(templates)} disabled={saving || templates.length === 0} variant="outline" className="h-8">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-              Save All
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <Button size="sm" onClick={() => saveTemplates(templates)} disabled={saving || templates.length === 0} variant="outline" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">
+              {saving ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin mr-1" /> : <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />}
+              <span className="hidden sm:inline">Save All</span>
+              <span className="sm:hidden">Save</span>
             </Button>
             {addingTemplate ? (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 w-full sm:w-auto">
                 <Input value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)}
-                  placeholder="Template name" className="h-8 w-44 text-sm"
+                  placeholder="Name" className="h-7 sm:h-8 text-xs sm:text-sm flex-1 sm:flex-none sm:w-44"
                   onKeyDown={e => e.key === 'Enter' && addTemplate()} autoFocus />
-                <Button size="sm" onClick={addTemplate} className="h-8"><Check className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" onClick={() => { setAddingTemplate(false); setNewTemplateName(''); }} className="h-8">
-                  <X className="h-4 w-4" />
+                <Button size="sm" onClick={addTemplate} className="h-7 sm:h-8 px-2 sm:px-3"><Check className="h-3 w-3 sm:h-4 sm:w-4" /></Button>
+                <Button size="sm" variant="ghost" onClick={() => { setAddingTemplate(false); setNewTemplateName(''); }} className="h-7 sm:h-8 px-2 sm:px-3">
+                  <X className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             ) : (
-              <Button size="sm" onClick={() => setAddingTemplate(true)} className="h-8">
-                <Plus className="h-4 w-4 mr-1" />New Template
+              <Button size="sm" onClick={() => setAddingTemplate(true)} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /><span className="hidden sm:inline">New Template</span><span className="sm:hidden">New</span>
               </Button>
             )}
           </div>
@@ -586,16 +592,16 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
 
         {/* Grid of template cards */}
         {templates.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground border-2 border-dashed border-border rounded-xl">
-            <Layers className="h-12 w-12 mx-auto mb-3 opacity-25" />
-            <p className="font-medium">No templates yet</p>
-            <p className="text-sm mt-1">Click <strong>New Template</strong> to create your first design.</p>
+          <div className="text-center py-12 sm:py-20 text-muted-foreground border-2 border-dashed border-border rounded-xl">
+            <Layers className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-3 opacity-25" />
+            <p className="font-medium text-sm sm:text-base">No templates yet</p>
+            <p className="text-xs sm:text-sm mt-1">Click <strong>New Template</strong> to create your first design.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {templates.map(t => (
               <div key={t.id}
-                className="group relative rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-md transition-all"
+                className="group relative rounded-lg sm:rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-md transition-all active:scale-95"
                 onClick={() => { onTemplateSelect(t.id); setSelectedElId(null); }}>
                 {/* Preview thumbnail */}
                 <div className="relative overflow-hidden bg-muted/40" style={{ paddingBottom: `${(t.cardHeight / t.cardWidth) * 100}%` }}>
@@ -640,22 +646,22 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                   </div>
                   {/* Edit overlay on hover */}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2" style={{ zIndex: 20 }}>
-                    <span className="flex items-center gap-1.5 text-white text-sm font-medium bg-black/30 px-3 py-1.5 rounded-lg">
-                      <Pencil className="h-4 w-4" />Edit
+                    <span className="flex items-center gap-1.5 text-white text-xs sm:text-sm font-medium bg-black/30 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
+                      <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />Edit
                     </span>
                   </div>
                 </div>
                 {/* Card info */}
-                <div className="p-3">
-                  <p className="font-medium text-sm truncate">{t.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-muted-foreground">{t.cardWidth}×{t.cardHeight}px</span>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="text-xs text-muted-foreground">{t.elements.length} element{t.elements.length !== 1 ? 's' : ''}</span>
+                <div className="p-2 sm:p-3">
+                  <p className="font-medium text-xs sm:text-sm truncate">{t.name}</p>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                    <span className="text-[10px] sm:text-xs">{t.cardWidth}×{t.cardHeight}px</span>
+                    <span>·</span>
+                    <span className="text-[10px] sm:text-xs">{t.elements.length} el</span>
                   </div>
-                  <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>Updated {new Date(t.updatedAt).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-muted-foreground">
+                    <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                    <span>{new Date(t.updatedAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
@@ -668,79 +674,79 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
 
   // ── EDITOR VIEW ───────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 sm:space-y-4 pb-20 sm:pb-12">
       {/* Top bar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap p-2 sm:p-3 bg-card rounded-lg sm:rounded-xl border border-border">
+        <Button size="sm" variant="ghost" className="h-7 sm:h-8 gap-1 text-xs sm:text-sm px-2 sm:px-3 text-muted-foreground hover:text-foreground"
           onClick={() => { onBack(); setSelectedElId(null); }}>
-          <ArrowLeft className="h-4 w-4" />Templates
+          <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Templates</span>
         </Button>
-        <span className="text-muted-foreground">/</span>
-        <span className="text-sm font-medium truncate max-w-[200px]">{activeTemplate!.name}</span>
+        <span className="text-muted-foreground hidden sm:inline">/</span>
+        <span className="text-xs sm:text-sm font-medium truncate">{activeTemplate!.name}</span>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setShowPreview(p => !p)} className="h-8">
-            <Eye className="h-4 w-4 mr-1" />{showPreview ? 'Hide Preview' : 'Preview'}
+        <div className="ml-auto flex items-center gap-1 sm:gap-2 flex-wrap">
+          <Button size="sm" variant="outline" onClick={() => setShowPreview(p => !p)} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 gap-1">
+            <Eye className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">{showPreview ? 'Hide Preview' : 'Preview'}</span><span className="sm:hidden">{showPreview ? 'Hide' : 'Show'}</span>
           </Button>
-          <Button size="sm" variant="ghost" className="h-8 text-destructive"
+          <Button size="sm" variant="ghost" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 text-destructive"
             onClick={() => { if (confirm(`Delete "${activeTemplate!.name}"?`)) { deleteTemplate(activeTemplate!.id); } }}>
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
-          <Button size="sm" onClick={() => saveTemplates(templates)} disabled={saving} className="h-8">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-            Save
+          <Button size="sm" onClick={() => saveTemplates(templates)} disabled={saving} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 gap-1">
+            {saving ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Save className="h-3 w-3 sm:h-4 sm:w-4" />}
+            <span className="hidden sm:inline">Save</span>
           </Button>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_280px] gap-4">
+      <div className="grid lg:grid-cols-[1fr_280px] gap-3 sm:gap-4">
         {/* Left: canvas + layer list */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {/* Template settings */}
           <Card>
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Settings className="h-4 w-4" />Template Settings
+            <CardHeader className="py-2 sm:py-3 px-3 sm:px-4">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-2">
+                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />Template Settings
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-2 sm:space-y-3">
+              <div className="grid grid-cols-1 gap-2 sm:gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Template Name</Label>
+                  <Label className="text-xs">Name</Label>
                   <Input value={activeTemplate!.name}
-                    onChange={e => patchTemplate({ name: e.target.value })} className="h-8 text-sm" />
+                    onChange={e => patchTemplate({ name: e.target.value })} className="h-7 sm:h-8 text-xs sm:text-sm" />
                 </div>
-                <div className="space-y-1 col-span-full sm:col-span-1">
-                  <Label className="text-xs">Card Size</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Card Size (W × H)</Label>
                   <div className="flex gap-1 items-center">
                     <Input type="number" value={activeTemplate!.cardWidth} min={200} max={1200}
-                      onChange={e => patchTemplate({ cardWidth: +e.target.value })} className="h-8 text-sm" />
+                      onChange={e => patchTemplate({ cardWidth: +e.target.value })} className="h-7 sm:h-8 text-xs sm:text-sm flex-1" />
                     <span className="text-muted-foreground text-xs">×</span>
                     <Input type="number" value={activeTemplate!.cardHeight} min={100} max={800}
-                      onChange={e => patchTemplate({ cardHeight: +e.target.value })} className="h-8 text-sm" />
-                    <span className="text-muted-foreground text-xs shrink-0">px</span>
+                      onChange={e => patchTemplate({ cardHeight: +e.target.value })} className="h-7 sm:h-8 text-xs sm:text-sm flex-1" />
+                    <span className="text-muted-foreground text-xs shrink-0 whitespace-nowrap">px</span>
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2 sm:space-y-3">
                 {/* Background image */}
                 <div className="space-y-1">
-                  <Label className="text-xs flex items-center gap-1"><Image className="h-3 w-3" />Background Image</Label>
+                  <Label className="text-xs flex items-center gap-1"><Image className="h-3 w-3" />Background</Label>
                   <div className="flex gap-1">
                     <Input value={activeTemplate!.backgroundImageUrl}
                       onChange={e => patchTemplate({ backgroundImageUrl: e.target.value })}
-                      placeholder="https://… or upload →" className="h-8 text-sm min-w-0" />
-                    <Button type="button" size="sm" variant="outline" className="h-8 px-2 shrink-0"
+                      placeholder="URL or upload…" className="h-7 sm:h-8 text-xs sm:text-sm min-w-0" />
+                    <Button type="button" size="sm" variant="outline" className="h-7 sm:h-8 px-2 shrink-0"
                       disabled={uploadingBg} onClick={() => bgInputRef.current?.click()} title="Upload">
-                      {uploadingBg ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      {uploadingBg ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                     </Button>
                     {activeTemplate!.backgroundImageUrl && (
-                      <Button type="button" size="sm" variant="ghost" className="h-8 px-2 shrink-0 text-muted-foreground"
-                        onClick={() => patchTemplate({ backgroundImageUrl: '' })}><X className="h-3.5 w-3.5" /></Button>
+                      <Button type="button" size="sm" variant="ghost" className="h-7 sm:h-8 px-2 shrink-0 text-muted-foreground"
+                        onClick={() => patchTemplate({ backgroundImageUrl: '' })}><X className="h-3 w-3" /></Button>
                     )}
                   </div>
                   {activeTemplate!.backgroundImageUrl && (
-                    <div className="rounded border border-border overflow-hidden h-14 bg-muted/30">
+                    <div className="rounded border border-border overflow-hidden h-10 sm:h-14 bg-muted/30">
                       <img src={activeTemplate!.backgroundImageUrl} alt="bg preview" className="w-full h-full object-cover" />
                     </div>
                   )}
@@ -754,18 +760,18 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                   <div className="flex gap-1">
                     <Input value={activeTemplate!.overlayImageUrl}
                       onChange={e => patchTemplate({ overlayImageUrl: e.target.value })}
-                      placeholder="https://… (transparent PNG) or upload →" className="h-8 text-sm min-w-0" />
-                    <Button type="button" size="sm" variant="outline" className="h-8 px-2 shrink-0"
+                      placeholder="Transparent PNG URL or upload…" className="h-7 sm:h-8 text-xs sm:text-sm min-w-0" />
+                    <Button type="button" size="sm" variant="outline" className="h-7 sm:h-8 px-2 shrink-0"
                       disabled={uploadingOverlay} onClick={() => overlayInputRef.current?.click()} title="Upload">
-                      {uploadingOverlay ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      {uploadingOverlay ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                     </Button>
                     {activeTemplate!.overlayImageUrl && (
-                      <Button type="button" size="sm" variant="ghost" className="h-8 px-2 shrink-0 text-muted-foreground"
-                        onClick={() => patchTemplate({ overlayImageUrl: '' })}><X className="h-3.5 w-3.5" /></Button>
+                      <Button type="button" size="sm" variant="ghost" className="h-7 sm:h-8 px-2 shrink-0 text-muted-foreground"
+                        onClick={() => patchTemplate({ overlayImageUrl: '' })}><X className="h-3 w-3" /></Button>
                     )}
                   </div>
                   {activeTemplate!.overlayImageUrl && (
-                    <div className="rounded border border-border overflow-hidden h-14 bg-muted/30">
+                    <div className="rounded border border-border overflow-hidden h-10 sm:h-14 bg-muted/30">
                       <img src={activeTemplate!.overlayImageUrl} alt="overlay preview" className="w-full h-full object-cover" />
                     </div>
                   )}
@@ -820,27 +826,27 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
 
           {/* Layer list */}
           <Card>
-            <CardHeader className="py-2 px-4">
-              <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Layers ({activeTemplate!.elements.length})</CardTitle>
+            <CardHeader className="py-2 sm:py-3 px-3 sm:px-4">
+              <CardTitle className="text-[10px] sm:text-xs uppercase tracking-wide text-muted-foreground">Layers ({activeTemplate!.elements.length})</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-3">
+            <CardContent className="px-3 sm:px-4 pb-2 sm:pb-3">
               {activeTemplate!.elements.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-3">No elements yet — add Text or User Photo above</p>
+                <p className="text-xs text-muted-foreground text-center py-2 sm:py-3">No elements yet</p>
               ) : (
                 <div className="space-y-1">
                   {[...activeTemplate!.elements].reverse().map(el => (
                     <div key={el.id}
                       onClick={() => setSelectedElId(el.id)}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm transition-colors ${
+                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer text-xs sm:text-sm transition-colors ${
                         selectedElId === el.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
                       }`}>
-                      {el.type === 'text' ? <Type className="h-3.5 w-3.5 shrink-0" /> : <Image className="h-3.5 w-3.5 shrink-0" />}
+                      {el.type === 'text' ? <Type className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" /> : <Image className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />}
                       <span className="flex-1 truncate text-xs">
-                        {el.type === 'text' ? el.content.slice(0, 30) || '(empty)' : 'User Photo'}
+                        {el.type === 'text' ? el.content.slice(0, 20) || '(empty)' : 'Photo'}
                       </span>
-                      <button className="text-muted-foreground hover:text-destructive"
+                      <button className="text-muted-foreground hover:text-destructive shrink-0 p-0.5"
                         onClick={e => { e.stopPropagation(); deleteElement(el.id); }}>
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                       </button>
                     </div>
                   ))}
@@ -852,11 +858,11 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
 
         {/* Right: properties */}
         <div>
-          <Card className="sticky top-4">
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-sm">Properties</CardTitle>
+          <Card className="sticky top-4 z-20">
+            <CardHeader className="py-2 sm:py-3 px-3 sm:px-4">
+              <CardTitle className="text-xs sm:text-sm">Properties</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
               {renderPropsPanel()}
             </CardContent>
           </Card>

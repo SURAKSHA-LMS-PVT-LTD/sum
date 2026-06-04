@@ -1,3 +1,4 @@
+@import './styles/mobile-responsive.css';
 
 @tailwind base;
 @tailwind components;
@@ -371,11 +372,12 @@ div#goog-gt-,
   /* Global responsive safety net — prevents horizontal page overflow on mobile */
   html, body, #root { max-width: 100vw; overflow-x: hidden; }
 
-  /* Long text / URLs / emails should wrap instead of stretching layout on mobile */
+  /* Long URLs/emails should wrap instead of stretching layout on mobile.
+     Scoped narrowly — applying break-word to every element (incl. div, headings)
+     causes character-by-character wrapping when a flex sibling steals the row. */
   @media (max-width: 640px) {
-    p, span, a, h1, h2, h3, h4, h5, h6, li, td, th, div {
+    a[href], code, pre, .break-anywhere {
       overflow-wrap: anywhere;
-      word-break: break-word;
     }
     /* Images and media never blow out their container */
     img, video, canvas, svg { max-width: 100%; height: auto; }

@@ -158,22 +158,24 @@ const ClassLecturesPage = () => {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={goBack} className="rounded-full shrink-0">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-foreground">Class Lectures</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {selectedClass.name}{selectedInstitute ? ` · ${selectedInstitute.name}` : ''}
-          </p>
+      <div className="space-y-3 sm:flex sm:items-center sm:gap-3 sm:space-y-0">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button variant="outline" size="icon" onClick={goBack} className="rounded-full shrink-0">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold text-foreground">Class Lectures</h1>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:truncate">
+              {selectedClass.name}{selectedInstitute ? ` · ${selectedInstitute.name}` : ''}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => fetchLectures(true)} disabled={loading} className="h-8 text-xs px-2.5">
-            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
+        <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 sm:ml-auto sm:w-auto sm:shrink-0 sm:overflow-visible sm:pb-0">
+          <Button variant="outline" size="sm" onClick={() => fetchLectures(true)} disabled={loading} className="h-9 w-9 shrink-0 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-xs" title="Refresh" aria-label="Refresh lectures">
+            <RefreshCw className={`h-3.5 w-3.5 sm:mr-1 ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <div className="flex items-center border border-border rounded-lg overflow-hidden">
+          <div className="flex shrink-0 items-center border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => setPageViewMode('card')}
               className={`p-1.5 transition-colors ${pageViewMode === 'card' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
@@ -192,40 +194,43 @@ const ClassLecturesPage = () => {
           {canManage && (
             <>
               <Button
-                variant="outline" size="sm" className="h-8 text-xs px-2.5"
+                variant="outline" size="sm" className="h-9 w-9 shrink-0 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-xs"
                 onClick={() => navigate(buildSidebarUrl('lecture-live-attendance', { instituteId, classId }))}
                 title="Live Lecture Attendance"
+                aria-label="Live Lecture Attendance"
               >
-                <BarChart3 className="h-3.5 w-3.5 mr-1" /><span className="hidden sm:inline">Live Att.</span>
+                <BarChart3 className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Live Att.</span>
               </Button>
               <Button
-                variant="outline" size="sm" className="h-8 text-xs px-2.5"
+                variant="outline" size="sm" className="h-9 w-9 shrink-0 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-xs"
                 onClick={() => navigate(buildSidebarUrl('lecture-recording-attendance', { instituteId, classId }))}
                 title="Recording Attendance"
+                aria-label="Recording Attendance"
               >
-                <BarChart3 className="h-3.5 w-3.5 mr-1" /><span className="hidden sm:inline">Rec Att.</span>
+                <BarChart3 className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Rec Att.</span>
               </Button>
             </>
           )}
           {!canManage && user && lectures.length > 0 && (
             <Button
-              variant="outline" size="sm" className="h-8 text-xs px-2.5"
+              variant="outline" size="sm" className="h-9 w-9 shrink-0 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-xs"
               onClick={() => {
                 const ids = lectures.map(l => l.id).join(',');
                 const base = buildSidebarUrl('lecture-recording-student', { instituteId, classId });
                 navigate(`${base}?studentId=${user.id}&ids=${ids}&studentName=${encodeURIComponent((user as any).firstName || 'Me')}`);
               }}
               title="My Recording Activity"
+              aria-label="My Recording Activity"
             >
-              <Video className="h-3.5 w-3.5 mr-1" /><span className="hidden sm:inline">My Activity</span>
+              <Video className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">My Activity</span>
             </Button>
           )}
           {canManage && (
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog} routeName="create-class-lecture-popup">
               <DialogTrigger asChild>
-                <Button size="sm" className="h-8 text-xs px-2.5">
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  New Lecture
+                <Button size="sm" className="h-9 w-9 shrink-0 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-xs" title="New Lecture" aria-label="New Lecture">
+                  <Plus className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">New Lecture</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl sm:max-w-4xl max-h-[95vh] overflow-y-auto">
@@ -361,15 +366,15 @@ const ClassLecturesPage = () => {
                     recUrlId={row.recUrlId}
                     compact
                   />
-                  {row.meetingLink && (row.status === 'scheduled' || row.status === 'ongoing') && (
-                    <Button size="sm" onClick={() => handleJoinLecture(row)} className="h-7 text-xs rounded-lg gap-1">
-                      <ExternalLink className="h-3.5 w-3.5" />Join
+                    {row.meetingLink && (row.status === 'scheduled' || row.status === 'ongoing') && (
+                    <Button size="sm" onClick={() => handleJoinLecture(row)} className="h-7 w-7 p-0 sm:w-auto sm:px-2.5 text-xs rounded-lg gap-1" title="Join" aria-label="Join lecture">
+                      <ExternalLink className="h-3.5 w-3.5" /><span className="hidden sm:inline">Join</span>
                     </Button>
                   )}
                   {row.recordingUrl && (
                     <>
-                      <Button size="sm" variant="outline" onClick={() => handleViewRecording(row)} className="h-7 text-xs rounded-lg gap-1">
-                        <Play className="h-3.5 w-3.5" />Recording
+                      <Button size="sm" variant="outline" onClick={() => handleViewRecording(row)} className="h-7 w-7 p-0 sm:w-auto sm:px-2.5 text-xs rounded-lg gap-1" title="Recording" aria-label="Watch recording">
+                        <Play className="h-3.5 w-3.5" /><span className="hidden sm:inline">Recording</span>
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => handleViewRecording(row, 'cinema')}
                         title="Open in full view" className="h-7 text-xs rounded-lg gap-1">
@@ -379,16 +384,18 @@ const ClassLecturesPage = () => {
                   )}
                   {canManage && (
                     <>
-                      <Button size="sm" variant="ghost" onClick={() => handleUpdateClick(row)} className="h-7 text-xs rounded-lg gap-1">
-                        <Edit className="h-3.5 w-3.5" />Edit
+                      <Button size="sm" variant="ghost" onClick={() => handleUpdateClick(row)} className="h-7 w-7 p-0 sm:w-auto sm:px-2.5 text-xs rounded-lg gap-1" title="Edit" aria-label="Edit lecture">
+                        <Edit className="h-3.5 w-3.5" /><span className="hidden sm:inline">Edit</span>
                       </Button>
                       <Button
                         size="sm" variant="ghost"
                         onClick={() => handleDeleteLecture(row)}
                         disabled={isDeletingId === row.id}
-                        className="h-7 text-xs rounded-lg gap-1 text-destructive hover:text-destructive"
+                        className="h-7 w-7 p-0 sm:w-auto sm:px-2.5 text-xs rounded-lg gap-1 text-destructive hover:text-destructive"
+                        title="Delete"
+                        aria-label="Delete lecture"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />Delete
+                        <Trash2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Delete</span>
                       </Button>
                     </>
                   )}
@@ -442,10 +449,10 @@ const ClassLecturesPage = () => {
 
                   {/* Card Body */}
                   <div className="p-3 flex-1 flex flex-col gap-2">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
                       <Clock className="h-3.5 w-3.5 shrink-0" />
-                      <span>{formatDateTime(lecture.startTime)}</span>
-                      {lecture.endTime && <span>– {format(new Date(lecture.endTime), 'HH:mm')}</span>}
+                      <span className="min-w-0 truncate">{formatDateTime(lecture.startTime)}</span>
+                      {lecture.endTime && <span className="shrink-0">– {format(new Date(lecture.endTime), 'HH:mm')}</span>}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -490,21 +497,24 @@ const ClassLecturesPage = () => {
                       </div>
                     )}
 
-                    <div className="flex flex-wrap items-center gap-1.5 mt-auto pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-border/50 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                       {lecture.meetingLink && (lecture.status === 'scheduled' || lecture.status === 'ongoing') && (
-                        <Button size="sm" className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg gap-1"
+                        <Button size="sm" className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg gap-1"
+                          title="Join" aria-label="Join lecture"
                           onClick={(e) => { e.stopPropagation(); handleJoinLecture(lecture); }}>
-                          <ExternalLink className="h-3 w-3" />Join
+                          <ExternalLink className="h-3 w-3" /><span className="hidden sm:inline">Join</span>
                         </Button>
                       )}
                       {lecture.recordingUrl && (
                         <>
-                          <Button size="sm" variant="outline" className="h-7 text-xs px-2.5 rounded-lg gap-1"
+                          <Button size="sm" variant="outline" className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2.5 rounded-lg gap-1"
+                            title="Recording" aria-label="Watch recording"
                             onClick={(e) => { e.stopPropagation(); handleViewRecording(lecture); }}>
-                            <Play className="h-3 w-3" />Recording
+                            <Play className="h-3 w-3" /><span className="hidden sm:inline">Recording</span>
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-xs px-2 rounded-lg gap-1"
+                          <Button size="sm" variant="ghost" className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2 rounded-lg gap-1"
                             title="Open in full view"
+                            aria-label="Open recording in full view"
                             onClick={(e) => { e.stopPropagation(); handleViewRecording(lecture, 'cinema'); }}>
                             <Maximize2 className="h-3 w-3" />
                           </Button>
@@ -513,15 +523,17 @@ const ClassLecturesPage = () => {
                       <div className="ml-auto flex items-center gap-0.5">
                         {canManage && (
                           <>
-                            <Button size="sm" variant="ghost" className="h-7 text-xs px-2 rounded-lg gap-1"
+                            <Button size="sm" variant="ghost" className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2 rounded-lg gap-1"
+                              title="Edit" aria-label="Edit lecture"
                               onClick={(e) => { e.stopPropagation(); handleUpdateClick(lecture); }}>
-                              <Edit className="h-3 w-3" />Edit
+                              <Edit className="h-3 w-3" /><span className="hidden sm:inline">Edit</span>
                             </Button>
                             <Button size="sm" variant="ghost"
-                              className="h-7 text-xs px-2 rounded-lg gap-1 text-destructive hover:text-destructive"
+                              className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2 rounded-lg gap-1 text-destructive hover:text-destructive"
                               disabled={isDeletingId === lecture.id}
+                              title="Delete" aria-label="Delete lecture"
                               onClick={(e) => { e.stopPropagation(); handleDeleteLecture(lecture); }}>
-                              <Trash2 className="h-3 w-3" />Delete
+                              <Trash2 className="h-3 w-3" /><span className="hidden sm:inline">Delete</span>
                             </Button>
                           </>
                         )}
