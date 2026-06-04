@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual" />
     
     <!-- SEO & Meta Tags -->
-    <title>Suraksha LMS Login | Online Learning Management System Login Portal</title>
+    <title data-default-title="Suraksha LMS Login | Online Learning Management System Login Portal"></title>
     <meta name="description" content="Login to Suraksha LMS - Complete online learning management system for educational institutions. Secure student login, teacher dashboard, attendance tracking, exam management, and homework submission at lms.suraksha.lk" />
     <meta name="keywords" content="Suraksha LMS login, LMS login portal, online education login, school management system, student login, teacher login, LMS dashboard, attendance system, exam management, learning management, Suraksha education platform, LMS system, online classroom, digital education" />
     <meta name="author" content="SurakshaLMS" />
@@ -19,14 +19,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Suraksha LMS" />
+    <meta name="apple-mobile-web-app-title" content="" id="apple-web-app-title-meta" data-default-content="Suraksha LMS" />
     
     <!-- Favicons - served from same origin to avoid CORS issues on custom domains -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/favicon.png" />
-    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E" sizes="any" data-default-href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E" data-default-href="/favicon.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E" data-default-href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E" data-default-href="/favicon.png" />
+    <link rel="shortcut icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E" data-default-href="/favicon.ico" />
 
     <!-- Open Graph Meta Tags -->
     <meta property="og:title" content="Suraksha LMS Login - Educational Learning Management System" />
@@ -92,13 +92,31 @@
       })();
 
       // Apply cached tenant branding (favicon + title) immediately — before React loads.
-      // This prevents the brief flash of "Suraksha LMS" title and generic favicon
-      // on subdomain / custom domain pages.
+      // For tenant domains with no cache, keep title/favicon blank until backend branding arrives.
       (function() {
         try {
           var hostname = window.location.hostname;
           var isTenant = false;
           var cacheKey = null;
+          var blankFavicon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
+          var titleEl = document.querySelector('title');
+          var defaultTitle = titleEl ? (titleEl.getAttribute('data-default-title') || '') : '';
+          var appleTitleMeta = document.getElementById('apple-web-app-title-meta');
+          var defaultAppleTitle = appleTitleMeta ? (appleTitleMeta.getAttribute('data-default-content') || '') : '';
+          var iconLinks = document.querySelectorAll("link[rel~='icon'], link[rel~='shortcut'], link[rel='apple-touch-icon']");
+
+          function setIconsToDefault() {
+            for (var i = 0; i < iconLinks.length; i++) {
+              var defHref = iconLinks[i].getAttribute('data-default-href');
+              if (defHref) iconLinks[i].href = defHref;
+            }
+          }
+
+          function setIconsToBlank() {
+            for (var i = 0; i < iconLinks.length; i++) {
+              iconLinks[i].href = blankFavicon;
+            }
+          }
 
           if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
             var surakshaMatch = hostname.match(/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.suraksha\.lk$/i);
@@ -126,17 +144,30 @@
             }
           }
 
-          if (!isTenant || !cacheKey) return;
+          // Default Suraksha domain: apply default title/favicon values.
+          if (!isTenant || !cacheKey) {
+            if (defaultTitle) document.title = defaultTitle;
+            if (appleTitleMeta) appleTitleMeta.setAttribute('content', defaultAppleTitle);
+            setIconsToDefault();
+            return;
+          }
 
           var raw = localStorage.getItem(cacheKey);
-          if (!raw) return;
-          var branding = JSON.parse(raw);
+          if (!raw) {
+            document.title = '';
+            if (appleTitleMeta) appleTitleMeta.setAttribute('content', '');
+            setIconsToBlank();
+            return;
+          }
 
-          // Apply title immediately
-          if (branding.customAppName) {
-            document.title = branding.customAppName;
-          } else if (branding.name) {
-            document.title = branding.name;
+          var branding = JSON.parse(raw);
+          var resolvedTitle = branding.customAppName || branding.name || '';
+          if (resolvedTitle) {
+            document.title = resolvedTitle;
+            if (appleTitleMeta) appleTitleMeta.setAttribute('content', resolvedTitle);
+          } else {
+            document.title = '';
+            if (appleTitleMeta) appleTitleMeta.setAttribute('content', '');
           }
 
           // Apply favicon immediately — replace all icon links
@@ -144,10 +175,9 @@
             var faviconHref = branding.faviconUrl;
             // If it's a relative path (storage key), it will be resolved by the app later;
             // only apply absolute URLs here to avoid broken icons before JS resolvers load.
-            if (faviconHref.startsWith('http')) {
-              var links = document.querySelectorAll("link[rel~='icon'], link[rel~='shortcut']");
-              for (var i = 0; i < links.length; i++) {
-                links[i].href = faviconHref;
+            if (faviconHref && faviconHref.indexOf('http') === 0) {
+              for (var i = 0; i < iconLinks.length; i++) {
+                iconLinks[i].href = faviconHref;
               }
             }
           }
