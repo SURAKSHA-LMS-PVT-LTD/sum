@@ -23,6 +23,8 @@ const COLOMBO_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function isMysqlDateTime(value: string): boolean {
+  // Only match bare MySQL datetimes (no Z / +offset suffix) — ISO strings with Z are UTC and
+  // must go through parseDateValue → Intl so the timezone conversion is applied correctly.
   return /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)?$/.test(value.trim());
 }
 

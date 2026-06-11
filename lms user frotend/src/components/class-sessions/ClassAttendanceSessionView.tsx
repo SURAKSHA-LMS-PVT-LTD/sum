@@ -482,7 +482,7 @@ export default function ClassAttendanceSessionView({ instituteId, classId, sessi
         studentId: student.studentId,
         studentName: student.studentName,
         statusLabel: label,
-        time: new Date().toLocaleTimeString(),
+        time: new Date().toLocaleTimeString('en-LK', { timeZone: 'Asia/Colombo', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         paymentStatus: student.paymentStatus,
       }, ...prev.slice(0, 49)]);
       load();

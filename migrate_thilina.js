@@ -12,7 +12,9 @@ const ts = new Date();
 
 function toDate(d) {
   if (!d) return null;
-  return new Date(d).toISOString().slice(0, 10);
+  // Use IST (UTC+5:30) to avoid the date shifting to the previous day when MySQL
+  // DATE values are read as UTC midnight by the Node.js mysql2 driver.
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo' }).format(new Date(d));
 }
 
 function mapStatus(s) { return s === 'PRESENT' ? 1 : 0; }

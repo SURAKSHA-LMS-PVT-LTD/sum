@@ -303,8 +303,7 @@ interface Props {
 function getSriLankaDateOffset(offsetDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  const sl = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
-  return sl.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo' }).format(d);
 }
 
 export default function ClassAttendanceSessions({ instituteId, classId, className, defaultView }: Props) {

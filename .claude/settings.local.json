@@ -34,7 +34,8 @@
       "PowerShell(cd \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms-api-suraksha-lk\"; npx tsc --noEmit --skipLibCheck 2>&1 | Where-Object { $_ -match \"user-types|rbac\\\\.dto|rbac\" } | Select-Object -First 20)",
       "PowerShell(cd \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\"; npx tsc --noEmit --skipLibCheck 2>&1 | Where-Object { $_ -match \"AttendanceAlerts|AttendanceByUserType|ClassSubjectDrillDown\" } | Select-Object -First 30)",
       "PowerShell(cd \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\"; npx tsc --noEmit --skipLibCheck 2>&1 | Where-Object { $_ -match \"ManualClassAttendance\" } | Select-Object -First 20)",
-      "PowerShell(cd \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\"; npx tsc --noEmit --skipLibCheck 2>&1 | Where-Object { $_ -match \"InstituteMarkAttendance\" } | Select-Object -First 10)"
+      "PowerShell(cd \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\"; npx tsc --noEmit --skipLibCheck 2>&1 | Where-Object { $_ -match \"InstituteMarkAttendance\" } | Select-Object -First 10)",
+      "Bash(node patch_al27_sessions.js)"
     ]
   }
 }
