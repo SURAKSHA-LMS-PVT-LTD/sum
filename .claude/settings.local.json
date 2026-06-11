@@ -19,7 +19,19 @@
       "Bash(Get-ChildItem -Recurse \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\src\\\\pages\" -Filter \"*attendance*\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object FullName)",
       "PowerShell($assets = \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\dist\\\\assets\"; if \\(Test-Path $assets\\) { $count = \\(Get-ChildItem $assets -File\\).Count; Write-Host \"Files in dist/assets: $count\" } else { Write-Host \"dist/assets does not exist - build may have failed\" }; $distPath = \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\dist\"; Get-ChildItem $distPath -ErrorAction SilentlyContinue | Select-Object Name)",
-      "Bash(node --input-type=module --eval \"import\\('./src/modules/attendance/services/attendance-notification.service.ts'\\)\")"
+      "Bash(node --input-type=module --eval \"import\\('./src/modules/attendance/services/attendance-notification.service.ts'\\)\")",
+      "Bash(node migrate_thilina.js)",
+      "Bash(node ../migrate_thilina.js)",
+      "Bash(Start-Sleep -Seconds 15)",
+      "Bash(Get-Content \"C:\\\\Users\\\\kavis\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--User-Desktop-surakshalms\\\\35660272-1243-4afb-a344-cf4d925597ca\\\\tasks\\\\bzc997ly1.output\")",
+      "Bash(node rerun_attendance.js)",
+      "Bash(node fix_skipped_attendance.js)",
+      "Bash(node fix_attendance_timestamps.js)",
+      "Bash(taskkill /F /IM node.exe)",
+      "PowerShell(Stop-Process -Name node -Force -ErrorAction SilentlyContinue)",
+      "Bash(grep -v \"//\\\\|spec\")",
+      "Bash(dir /b \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\*.js\")",
+      "PowerShell(cd \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms-api-suraksha-lk\"; npx tsc --noEmit --skipLibCheck 2>&1 | Where-Object { $_ -match \"user-types|rbac\\\\.dto|rbac\" } | Select-Object -First 20)"
     ]
   }
 }

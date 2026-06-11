@@ -51,6 +51,8 @@ interface NewUnverifiedStudent {
   name: string;
   phoneNumber: string;
   imageUrl: string;
+  instituteUserImageUrl?: string | null;
+  globalImageUrl?: string | null;
   userIdByInstitute: string;
   studentUserId: string;
   enrollmentDate: string;
@@ -305,12 +307,13 @@ const UnverifiedStudents = () => {
     }
     if ('name' in student) {
       const nameParts = student.name.split(' ');
+      const s = student as NewUnverifiedStudent;
       return {
         firstName: nameParts[0] || '',
         lastName: nameParts.slice(1).join(' ') || '',
         email: 'N/A',
         phone: student.phoneNumber || 'N/A',
-        imageUrl: student.imageUrl || ''
+        imageUrl: s.instituteUserImageUrl || s.globalImageUrl || s.imageUrl || ''
       };
     }
     return {

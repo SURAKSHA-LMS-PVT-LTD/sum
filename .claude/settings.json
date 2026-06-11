@@ -26,7 +26,8 @@
       "Bash(git stash *)",
       "Bash(Get-ChildItem -Recurse -Directory -Name)",
       "Bash(Select-Object -First 20 FullName)",
-      "Bash(node -e \"require\\('bcrypt'\\); console.log\\('bcrypt ok'\\)\")"
+      "Bash(node -e \"require\\('bcrypt'\\); console.log\\('bcrypt ok'\\)\")",
+      "Bash(Read \"C:\\\\Users\\\\kavis\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--User-Desktop-surakshalms\\\\35660272-1243-4afb-a344-cf4d925597ca\\\\tasks\\\\byrq0j7it.output\")"
     ],
     "additionalDirectories": [
       "\\dev"

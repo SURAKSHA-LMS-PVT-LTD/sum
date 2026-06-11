@@ -54,6 +54,8 @@ interface InstituteStudent {
   addressLine2?: string;
   phoneNumber?: string;
   imageUrl?: string;
+  instituteUserImageUrl?: string | null;
+  globalImageUrl?: string | null;
   dateOfBirth?: string;
   userIdByInstitute?: string | null;
   fatherId?: string | null;
@@ -147,6 +149,7 @@ const Students = () => {
   const [showSubjectAssignDialog, setShowSubjectAssignDialog] = useState(false);
   const [showEnrollByPaymentDialog, setShowEnrollByPaymentDialog] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
 
   // Enrollment type state
   const [studentTypeMap, setStudentTypeMap] = useState<Record<string, 'normal' | 'paid' | 'free_card' | 'half_paid' | 'quarter_paid'>>({});
@@ -429,6 +432,7 @@ const Students = () => {
 
     setLastLoadedContext(contextKey);
     isFetchingRef.current = true;
+    setIsInitialLoading(true);
 
     const loadData = async () => {
       try {
@@ -443,6 +447,7 @@ const Students = () => {
         }
       } finally {
         isFetchingRef.current = false;
+        setIsInitialLoading(false);
       }
     };
 
@@ -812,7 +817,10 @@ const Students = () => {
         minWidth: 160,
         render: (value: any, row: Student | InstituteStudent) => {
           const name = 'user' in row ? `${row.user.firstName} ${row.user.lastName}` : ((row as InstituteStudent).nameWithInitials || row.name);
-          const imageUrl = 'user' in row ? row.user.imageUrl : (row as InstituteStudent).imageUrl;
+          const instRow = row as InstituteStudent;
+          const imageUrl = 'user' in row
+            ? row.user.imageUrl
+            : (instRow.instituteUserImageUrl || instRow.globalImageUrl || instRow.imageUrl);
           return (
             <div className="flex items-center space-x-3">
               <div className="cursor-pointer flex-shrink-0" onClick={() => { if (imageUrl) { setImagePreview({ isOpen: true, url: imageUrl, title: name }); } }}>
@@ -1429,7 +1437,20 @@ const Students = () => {
       )}
 
       {/* Students Table/Cards */}
-      {filteredStudents.length === 0 ? (
+      {isInitialLoading ? (
+        <div className="space-y-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 animate-pulse">
+              <div className="h-10 w-10 rounded-full bg-muted shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-1/3 rounded bg-muted" />
+                <div className="h-3 w-1/4 rounded bg-muted" />
+              </div>
+              <div className="h-3 w-16 rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      ) : filteredStudents.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No Students Found"
@@ -1476,10 +1497,11 @@ const Students = () => {
                         className="h-12 w-12 shrink-0 border-2 border-border cursor-pointer hover:opacity-80 transition-opacity"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (student.imageUrl) setImagePreview({ isOpen: true, url: getImageUrl(student.imageUrl), title: student.name });
+                          const displayImg = student.instituteUserImageUrl || student.globalImageUrl || student.imageUrl;
+                          if (displayImg) setImagePreview({ isOpen: true, url: getImageUrl(displayImg), title: student.name });
                         }}
                       >
-                        <AvatarImage src={getImageUrl(student.imageUrl)} />
+                        <AvatarImage src={getImageUrl(student.instituteUserImageUrl || student.globalImageUrl || student.imageUrl)} />
                         <AvatarFallback>{student.name?.[0] || 'S'}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
