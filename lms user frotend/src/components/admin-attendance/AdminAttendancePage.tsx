@@ -32,8 +32,8 @@ const tabGroups = [
   {
     label: 'Drilldowns',
     tabs: [
-      { id: 'user-types', label: 'By Type' },
-      { id: 'drill-down', label: 'Drill-Down' },
+      { id: 'user-types', label: 'Events' },
+      { id: 'drill-down', label: 'Class Attendance' },
       { id: 'student', label: 'Student' },
     ],
   },

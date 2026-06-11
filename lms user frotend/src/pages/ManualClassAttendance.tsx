@@ -11,6 +11,7 @@ import type {
   StudentsWithClassStatusSummary,
   StudentsWithInstituteStatusSummary,
 } from '@/api/attendance.api';
+import classAttendanceSessionsApi, { type Session, type SessionStudentRecord } from '@/api/classAttendanceSessions.api';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { getImageUrl } from '@/utils/imageUrlHelper';
@@ -47,6 +48,7 @@ import {
   UserMinus,
   Users,
   XCircle,
+  CalendarClock,
 } from 'lucide-react';
 
 type FilterMode = 'all' | 'needs-action' | 'already-marked' | 'present-at-source' | 'no-source-mark';
@@ -390,10 +392,18 @@ const ManualClassAttendance = () => {
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   // Per-student override map: studentId → override status
   const [overrides, setOverrides] = useState<Record<string, OverrideStatus>>({});
-  // Track which students are currently being updated via the instant status change API
-  const [updatingStudents, setUpdatingStudents] = useState<Set<string>>(new Set());
   // Guard: prevent a stale in-flight request from overwriting state after deps change
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // ── Session mode state ─────────────────────────────────────────────────────
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState('');
+  const [sessionStudents, setSessionStudents] = useState<SessionStudentRecord[]>([]);
+  const [loadingSession, setLoadingSession] = useState(false);
+  // Local pending status map for session mode: studentId → statusCode (1=present,0=absent,2=late)
+  const [sessionPending, setSessionPending] = useState<Record<string, number>>({});
+  const [bulkSessionLoading, setBulkSessionLoading] = useState(false);
 
   // Auto-advance date state when Sri Lanka rolls past midnight (page open across midnight)
   useEffect(() => {
@@ -415,6 +425,37 @@ const ManualClassAttendance = () => {
       .then((res: any) => setAvailableClasses(Array.isArray(res) ? res : res?.data || []))
       .catch(() => {});
   }, [instituteId, selectedClass]);
+
+  // Load sessions when class is selected (for session picker)
+  useEffect(() => {
+    if (!instituteId || !classId) { setSessions([]); return; }
+    setLoadingSessions(true);
+    setSelectedSessionId('');
+    setSessionStudents([]);
+    setSessionPending({});
+    classAttendanceSessionsApi.getSessions(instituteId, classId, { includeClosed: false })
+      .then(res => setSessions(Array.isArray(res) ? res : []))
+      .catch(() => setSessions([]))
+      .finally(() => setLoadingSessions(false));
+  }, [instituteId, classId]);
+
+  // Load session detail when session is selected
+  useEffect(() => {
+    if (!instituteId || !classId || !selectedSessionId) { setSessionStudents([]); setSessionPending({}); return; }
+    setLoadingSession(true);
+    classAttendanceSessionsApi.getSessionDetail(instituteId, classId, selectedSessionId)
+      .then(detail => {
+        setSessionStudents(detail.students || []);
+        // Pre-fill pending with existing marks
+        const pre: Record<string, number> = {};
+        for (const s of detail.students) {
+          if (s.statusCode !== null) pre[s.studentId] = s.statusCode;
+        }
+        setSessionPending(pre);
+      })
+      .catch(() => setSessionStudents([]))
+      .finally(() => setLoadingSession(false));
+  }, [instituteId, classId, selectedSessionId]);
 
   const today = getSriLankaDate();
   const isPastDate = date < today;
@@ -562,49 +603,44 @@ const ManualClassAttendance = () => {
 
   const totalStudentsInMode = computedCounts.total;
 
-  // Instant per-student status change: calls PATCH API immediately for any student
-  const handleStatusChange = async (studentId: string, value: string, _isAlreadyMarked: boolean) => {
-    if (value === 'auto') {
-      // Just clear the override
-      setOverrides((prev) => {
-        const next = { ...prev };
-        delete next[studentId];
-        return next;
-      });
-      return;
-    }
+  // Local-only override change — no API call; submitted together via bulk button
+  const handleStatusChange = (studentId: string, value: string, _isAlreadyMarked: boolean) => {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      if (value === 'auto') delete next[studentId];
+      else next[studentId] = value as OverrideStatus;
+      return next;
+    });
+  };
 
-    if (instituteId && classId) {
-      // Call API immediately — works for both already-marked and not-yet-marked students
-      setUpdatingStudents((prev) => new Set(prev).add(studentId));
-      try {
-        const result = await attendanceApi.updateStudentStatus(
-          instituteId,
-          classId,
-          studentId,
-          value,
-          mode === 'subject' ? subjectId ?? undefined : undefined,
-          selectedInstitute?.name,
-          selectedClass?.name,
-          mode === 'subject' ? selectedSubject?.name : undefined,
-        );
-        toast.success(result.message || 'Status updated');
-        // Clear this student's override and refresh data
-        setOverrides((prev) => {
-          const next = { ...prev };
-          delete next[studentId];
-          return next;
-        });
-        await loadManualAttendance();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to update status');
-      } finally {
-        setUpdatingStudents((prev) => {
-          const next = new Set(prev);
-          next.delete(studentId);
-          return next;
-        });
+  // Bulk submit for session mode — single API call for all pending changes
+  const handleSessionBulkMark = async () => {
+    if (!instituteId || !classId || !selectedSessionId) return;
+    const records = sessionStudents.map(s => ({
+      studentId: s.studentId,
+      status: sessionPending[s.studentId] ?? s.statusCode ?? 0,
+    }));
+    if (records.length === 0) { toast.info('No students to mark'); return; }
+    setBulkSessionLoading(true);
+    try {
+      const res = await classAttendanceSessionsApi.bulkMarkAttendance(
+        instituteId, classId, selectedSessionId,
+        { records }
+      );
+      toast.success(`Marked ${res.marked} students (${res.updated} updated)`);
+      if (res.errors?.length) toast.error(`${res.errors.length} errors`);
+      // Reload session detail to reflect saved state
+      const detail = await classAttendanceSessionsApi.getSessionDetail(instituteId, classId, selectedSessionId);
+      setSessionStudents(detail.students || []);
+      const pre: Record<string, number> = {};
+      for (const s of detail.students) {
+        if (s.statusCode !== null) pre[s.studentId] = s.statusCode;
       }
+      setSessionPending(pre);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to bulk mark session');
+    } finally {
+      setBulkSessionLoading(false);
     }
   };
 
@@ -713,6 +749,168 @@ const ManualClassAttendance = () => {
                 </SelectContent>
               </Select>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Session picker — shown when class is selected */}
+      {classId && (
+        <Card className="border-border/70">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-primary" />
+              Select Attendance Session
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Choose a session to manually mark attendance for all students at once.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loadingSessions ? (
+              <Skeleton className="h-10 w-full" />
+            ) : sessions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No open sessions found for this class.</p>
+            ) : (
+              <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Choose a session…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sessions.map(s => (
+                    <SelectItem key={s.id} value={s.id}>
+                      <span className="font-medium">{s.name}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {s.date} · {s.startTime}{s.endTime ? `–${s.endTime}` : ''} · {s.totalStudents} students
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Session student grid */}
+            {selectedSessionId && (
+              <div className="space-y-3">
+                {loadingSession ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                  </div>
+                ) : sessionStudents.length > 0 ? (
+                  <>
+                    {/* Quick-set all buttons */}
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-xs text-muted-foreground font-medium">Set all:</span>
+                      <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                        onClick={() => setSessionPending(Object.fromEntries(sessionStudents.map(s => [s.studentId, 1])))}>
+                        All Present
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs border-red-300 text-red-700 hover:bg-red-50"
+                        onClick={() => setSessionPending(Object.fromEntries(sessionStudents.map(s => [s.studentId, 0])))}>
+                        All Absent
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                        onClick={() => setSessionPending(Object.fromEntries(sessionStudents.map(s => [s.studentId, 2])))}>
+                        All Late
+                      </Button>
+                    </div>
+
+                    {/* Summary pills */}
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { code: 1, label: 'Present', cls: 'bg-emerald-100 text-emerald-700' },
+                        { code: 0, label: 'Absent',  cls: 'bg-red-100 text-red-700' },
+                        { code: 2, label: 'Late',    cls: 'bg-amber-100 text-amber-700' },
+                      ].map(({ code, label, cls }) => {
+                        const count = Object.values(sessionPending).filter(v => v === code).length;
+                        return (
+                          <Badge key={code} className={cn('border-0', cls)}>
+                            {label}: {count}
+                          </Badge>
+                        );
+                      })}
+                      {(() => {
+                        const unmarked = sessionStudents.filter(s => sessionPending[s.studentId] === undefined).length;
+                        return unmarked > 0 ? <Badge className="border-0 bg-slate-100 text-slate-600">Not set: {unmarked}</Badge> : null;
+                      })()}
+                    </div>
+
+                    <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+                      <MuiTableContainer sx={{ maxHeight: 420 }}>
+                        <MuiTable stickyHeader size="small">
+                          <MuiTableHead>
+                            <MuiTableRow>
+                              <MuiTableCell sx={{ fontWeight: 600, width: 280 }}>Student</MuiTableCell>
+                              <MuiTableCell sx={{ fontWeight: 600 }}>Current Status</MuiTableCell>
+                              <MuiTableCell sx={{ fontWeight: 600, width: 180 }}>Mark As</MuiTableCell>
+                            </MuiTableRow>
+                          </MuiTableHead>
+                          <MuiTableBody>
+                            {sessionStudents.map(student => {
+                              const pending = sessionPending[student.studentId];
+                              const statusLabel = pending === 1 ? 'Present' : pending === 0 ? 'Absent' : pending === 2 ? 'Late' : '—';
+                              const statusCls = pending === 1 ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                                : pending === 0 ? 'border-red-200 bg-red-100 text-red-700'
+                                : pending === 2 ? 'border-amber-200 bg-amber-100 text-amber-700'
+                                : 'border-slate-200 bg-slate-100 text-slate-500';
+                              return (
+                                <MuiTableRow hover key={student.studentId}>
+                                  <MuiTableCell>
+                                    <div className="flex items-center gap-2.5">
+                                      <Avatar className="h-8 w-8 border border-border/50">
+                                        <AvatarImage src={getImageUrl(student.imageUrl || '')} alt={student.studentName} />
+                                        <AvatarFallback className="text-xs bg-sky-100 text-sky-800">{getInitials(student.studentName)}</AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                        <p className="text-sm font-medium">{student.studentName}</p>
+                                        <p className="text-xs text-muted-foreground">{student.userIdInstitute || student.studentId}</p>
+                                      </div>
+                                    </div>
+                                  </MuiTableCell>
+                                  <MuiTableCell>
+                                    <Badge className={cn('border text-xs', statusCls)}>{statusLabel}</Badge>
+                                  </MuiTableCell>
+                                  <MuiTableCell>
+                                    <div className="flex gap-1">
+                                      {[
+                                        { code: 1, label: 'P', cls: 'border-emerald-300 text-emerald-700 hover:bg-emerald-50' },
+                                        { code: 0, label: 'A', cls: 'border-red-300 text-red-700 hover:bg-red-50' },
+                                        { code: 2, label: 'L', cls: 'border-amber-300 text-amber-700 hover:bg-amber-50' },
+                                      ].map(({ code, label, cls }) => (
+                                        <Button
+                                          key={code}
+                                          size="sm"
+                                          variant="outline"
+                                          className={cn('h-7 w-8 p-0 text-xs font-bold', cls, pending === code && 'ring-2 ring-offset-1')}
+                                          onClick={() => setSessionPending(prev => ({ ...prev, [student.studentId]: code }))}
+                                        >
+                                          {label}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </MuiTableCell>
+                                </MuiTableRow>
+                              );
+                            })}
+                          </MuiTableBody>
+                        </MuiTable>
+                      </MuiTableContainer>
+                    </Paper>
+
+                    <Button
+                      className="w-full bg-sky-600 text-white hover:bg-sky-700"
+                      disabled={bulkSessionLoading || sessionStudents.length === 0}
+                      onClick={handleSessionBulkMark}
+                    >
+                      {bulkSessionLoading
+                        ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
+                        : <><ClipboardCheck className="mr-2 h-4 w-4" />Save All ({sessionStudents.length} students)</>}
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">No students in this session.</p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -929,7 +1127,7 @@ const ManualClassAttendance = () => {
                                     onValueChange={(value) =>
                                       handleStatusChange(student.studentId, value, isAlreadyMarked)
                                     }
-                                    disabled={isNotToday || updatingStudents.has(student.studentId)}
+                                    disabled={isNotToday}
                                   >
                                     <SelectTrigger className="h-8 w-full text-xs">
                                       <SelectValue />
@@ -1020,7 +1218,7 @@ const ManualClassAttendance = () => {
                                 onValueChange={(value) =>
                                   handleStatusChange(student.studentId, value, isAlreadyMarkedMobile)
                                 }
-                                disabled={isNotToday || updatingStudents.has(student.studentId)}
+                                disabled={isNotToday}
                               >
                                 <SelectTrigger className="h-8 w-full text-xs">
                                   <SelectValue />
