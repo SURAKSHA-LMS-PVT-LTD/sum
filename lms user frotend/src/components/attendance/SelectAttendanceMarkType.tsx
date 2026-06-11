@@ -12,10 +12,14 @@ import {
   ChevronRight,
   ClipboardCheck,
   GraduationCap,
+  Nfc,
   QrCode,
   Smartphone,
   Wifi,
 } from 'lucide-react';
+
+const NFC_SUPPORTED = typeof window !== 'undefined' && 'NDEFReader' in window;
+const IS_MOBILE = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
 
 const SelectAttendanceMarkType = () => {
   const navigate = useNavigate();
@@ -207,14 +211,16 @@ const SelectAttendanceMarkType = () => {
                 icon: <Smartphone className="h-5 w-5 text-violet-600" />,
                 bg: 'bg-violet-100',
                 label: 'RFID / NFC',
-                desc: 'Tap RFID or NFC cards to mark attendance',
+                desc: 'Tap RFID or NFC cards · Mobile NFC supported',
+                badge: (NFC_SUPPORTED || IS_MOBILE) ? 'NFC' : undefined,
                 onClick: () => navigate(buildMarkUrl('rfid')),
               },
               {
                 icon: <Wifi className="h-5 w-5 text-emerald-600" />,
                 bg: 'bg-emerald-100',
                 label: 'Institute Card',
-                desc: 'Mark using institute-issued card IDs',
+                desc: 'Mark using institute-issued card IDs · NFC supported',
+                badge: (NFC_SUPPORTED || IS_MOBILE) ? 'NFC' : undefined,
                 onClick: () => navigate(buildMarkUrl('institute-mark-attendance')),
               },
             ].map((m) => (
@@ -227,7 +233,14 @@ const SelectAttendanceMarkType = () => {
                   {m.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground leading-tight">{m.label}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-foreground leading-tight">{m.label}</p>
+                    {(m as any).badge && (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-700 text-[10px] font-bold leading-none">
+                        <Nfc className="h-2.5 w-2.5" />{(m as any).badge}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{m.desc}</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />

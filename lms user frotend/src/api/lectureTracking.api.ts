@@ -81,7 +81,13 @@ export interface LiveJoinResult {
 
 export interface RecordingSessionResult {
   sessionId: string;
-  lectureId: string;
+  lectureId?: string;
+  recordingId?: string;
+  userType?: string;
+  lastPosition?: number;
+  totalWatchedSeconds?: number;
+  timesViewed?: number;
+  watchedRanges?: Array<{ from: number; to: number; speed: number }>;
 }
 
 export interface HeartbeatActivity {
@@ -153,6 +159,21 @@ export interface LiveAttendanceRow {
   visits?: AttendanceVisit[];
 }
 
+export interface RecordingActivityRow {
+  type: string;
+  videoTimestamp: number;
+  wallTime: number | null;
+  at: string;
+  speed: number | null;
+  rangeFrom: number | null;
+  rangeTo: number | null;
+  watchedSeconds: number | null;
+  tabWidth: number | null;
+  tabHeight: number | null;
+  screenWidth: number | null;
+  screenHeight: number | null;
+}
+
 export interface RecordingSessionRow {
   sessionId: string;
   userId?: string;
@@ -162,7 +183,7 @@ export interface RecordingSessionRow {
   endTime?: string;
   totalWatchedSeconds: number;
   lastPositionSeconds: number;
-  activities: Array<{ type: string; videoTimestamp: number; at: string }>;
+  activities: RecordingActivityRow[];
 }
 
 // ─── API helpers ───────────────────────────────────────────────────────────

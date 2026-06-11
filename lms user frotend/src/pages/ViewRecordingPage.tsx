@@ -18,6 +18,7 @@ import {
   PauseCircle, Maximize, Minimize, Settings, Volume2, VolumeX, FastForward, Play, User, Video, Info, Key, Mail, LockIcon, MonitorSmartphone
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { getBaseUrl } from '@/contexts/utils/auth.api';
 import { useTenant } from '@/contexts/TenantContext';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import AppLoadingScreen from '@/components/AppLoadingScreen';
@@ -39,9 +40,14 @@ function getScreenSize() {
 
 /**
  * Compress a raw activity list into optimized WATCH_RANGE entries.
- * Consecutive PLAY → HEARTBEAT(s) → PAUSE sequences are folded into a single
- * WATCH_RANGE with rangeFrom/rangeTo/watchedSeconds.
+ * Consecutive PLAY → HEARTBEAT(s) → (PAUSE | SEEK) sequences are folded into a
+ * single WATCH_RANGE with rangeFrom/rangeTo/watchedSeconds.
  * Non-play events (SEEK, SPEED_CHANGE, TAB_HIDDEN, TAB_VISIBLE) are kept as-is.
+ *
+ * Bug fixes vs original:
+ * - SEEK now closes an open PLAY range (not just PAUSE).
+ * - If no closer is found (PLAY at end of queue = still playing), emit raw PLAY
+ *   entries so they are retried next flush cycle instead of being swallowed.
  */
 function compressActivities(raw: HeartbeatActivity[]): HeartbeatActivity[] {
   const out: HeartbeatActivity[] = [];
@@ -54,15 +60,23 @@ function compressActivities(raw: HeartbeatActivity[]): HeartbeatActivity[] {
       let rangeTo = rangeFrom;
       let endWall = startWall;
       let j = i + 1;
+      // Advance through HEARTBEAT / PLAY (e.g. PLAY after seek resets the start)
       while (j < raw.length && (raw[j].type === 'HEARTBEAT' || raw[j].type === 'PLAY')) {
         rangeTo = raw[j].videoTimestamp;
         endWall = raw[j].wallTime ?? endWall;
         j++;
       }
-      if (j < raw.length && raw[j].type === 'PAUSE') {
+      // Close the range on PAUSE or SEEK
+      if (j < raw.length && (raw[j].type === 'PAUSE' || raw[j].type === 'SEEK')) {
         rangeTo = raw[j].videoTimestamp;
         endWall = raw[j].wallTime ?? endWall;
-        j++;
+        // Only consume PAUSE (SEEK stays in output as its own event)
+        if (raw[j].type === 'PAUSE') j++;
+      } else if (j >= raw.length) {
+        // PLAY still open at end of batch — keep raw so next flush can close it
+        for (let k = i; k < j; k++) out.push(raw[k]);
+        i = j;
+        continue;
       }
       if (rangeTo > rangeFrom) {
         out.push({
@@ -80,7 +94,7 @@ function compressActivities(raw: HeartbeatActivity[]): HeartbeatActivity[] {
           tabVisible: act.tabVisible,
         });
       } else {
-        // Very short or zero-length play — keep raw entries
+        // Zero-length play (e.g. instant seek) — keep raw entries
         for (let k = i; k < j; k++) out.push(raw[k]);
       }
       i = j;
@@ -178,6 +192,11 @@ export default function ViewRecordingPage() {
   const speedRef = useRef(1);
   const [watchRanges, setWatchRanges] = useState<Array<{ from: number; to: number; speed: number }>>([]);
   const playStartRef = useRef<{ pos: number; wall: number } | null>(null);
+  const [unsynced, setUnsynced] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  // Stores lastPosition from session start so we can seek once the player is ready
+  const resumePositionRef = useRef<number>(0);
 
   // Player refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -289,21 +308,50 @@ export default function ViewRecordingPage() {
 
   // ── Activity helpers ─────────────────────────────────────────────────────
 
-  const flushActivities = useCallback(async () => {
+  /** sendBeacon fallback for reliable delivery on page close */
+  const sendBeacon = useCallback((sid: string, batch: HeartbeatActivity[]) => {
+    const base = (getBaseUrl() ?? '').replace(/\/$/, '');
+    const path = isSubjectRecording
+      ? '/subject-recording-tracking/heartbeat'
+      : '/lecture-tracking/recording/heartbeat';
+    const body = JSON.stringify({ sessionId: sid, activities: batch });
+    // sendBeacon ignores auth headers but server accepts unauthenticated heartbeats
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(`${base}${path}`, new Blob([body], { type: 'application/json' }));
+    }
+  }, [isSubjectRecording, getBaseUrl]);
+
+  const flushActivities = useCallback(async (beacon = false) => {
     const sid = sessionIdRef.current;
     if (!sid || activitiesRef.current.length === 0) return;
     const raw = activitiesRef.current.splice(0);
     const batch = compressActivities(raw);
+    if (beacon) {
+      sendBeacon(sid, batch);
+      return;
+    }
     try {
       if (isSubjectRecording) {
         await lectureTrackingApi.sendSubjectRecordingHeartbeats(sid, batch);
       } else {
         await lectureTrackingApi.sendHeartbeats(sid, batch);
       }
+      setUnsynced(false);
     } catch {
       activitiesRef.current.unshift(...raw);
+      setUnsynced(true);
     }
-  }, [isSubjectRecording]);
+  }, [isSubjectRecording, sendBeacon, getBaseUrl]);
+
+  const manualSync = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      await flushActivities();
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, flushActivities]);
 
   const queueActivity = useCallback((type: HeartbeatActivity['type'], videoTimestamp: number) => {
     positionRef.current = videoTimestamp;
@@ -321,6 +369,7 @@ export default function ViewRecordingPage() {
       screenHeight,
     };
     activitiesRef.current.push(act);
+    setUnsynced(true);
 
     // Track watch ranges for the student-visible sidebar
     if (type === 'PLAY') {
@@ -334,7 +383,7 @@ export default function ViewRecordingPage() {
       }
     }
 
-    if (activitiesRef.current.length >= FLUSH_THRESHOLD) flushActivities();
+    if (activitiesRef.current.length >= FLUSH_THRESHOLD) void flushActivities();
   }, [flushActivities]);
 
   // ── Tab visibility tracking ──────────────────────────────────────────────
@@ -351,7 +400,7 @@ export default function ViewRecordingPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [phase, queueActivity]);
 
-  // ── Playback speed tracking (SYSTEM video only) ──────────────────────────
+  // ── Playback speed tracking (SYSTEM video) ──────────────────────────────
 
   useEffect(() => {
     if (phase !== 'playing') return;
@@ -367,12 +416,21 @@ export default function ViewRecordingPage() {
 
   // ── Cleanup / session end ────────────────────────────────────────────────
 
-  const endSession = useCallback(async () => {
+  const endSession = useCallback((useBeacon = false) => {
     if (flushTimerRef.current) { clearInterval(flushTimerRef.current); flushTimerRef.current = null; }
-    await flushActivities();
     const sid = sessionIdRef.current;
-    if (sid) {
-      sessionIdRef.current = null;
+    if (!sid) return;
+    // Use sendBeacon for page-close so the request survives unmount
+    void flushActivities(useBeacon);
+    sessionIdRef.current = null;
+    const base = (getBaseUrl() ?? '').replace(/\/$/, '');
+    const path = isSubjectRecording
+      ? '/subject-recording-tracking/session/end'
+      : '/lecture-tracking/recording/session/end';
+    const body = JSON.stringify({ sessionId: sid, lastPositionSeconds: positionRef.current });
+    if (useBeacon && navigator.sendBeacon) {
+      navigator.sendBeacon(`${base}${path}`, new Blob([body], { type: 'application/json' }));
+    } else {
       const endFn = isSubjectRecording
         ? lectureTrackingApi.endSubjectRecordingSession.bind(lectureTrackingApi)
         : lectureTrackingApi.endRecordingSession.bind(lectureTrackingApi);
@@ -380,7 +438,16 @@ export default function ViewRecordingPage() {
     }
   }, [flushActivities, isSubjectRecording]);
 
-  useEffect(() => () => { endSession(); }, [endSession]);
+  // Page-close: use sendBeacon (survives tab close / navigation away)
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const handleUnload = () => endSession(true);
+    window.addEventListener('pagehide', handleUnload);
+    return () => window.removeEventListener('pagehide', handleUnload);
+  }, [phase, endSession]);
+
+  // Component unmount: normal async end
+  useEffect(() => () => { endSession(false); }, [endSession]);
 
   useEffect(() => {
     if (phase !== 'welcome' || !info?.welcomeMessageEnabled) {
@@ -502,16 +569,33 @@ export default function ViewRecordingPage() {
             ...guestPayload,
           });
       sessionIdRef.current = result.sessionId;
+
+      // Pre-fill watched ranges from prior session
+      if (result.watchedRanges?.length) {
+        setWatchRanges(result.watchedRanges);
+      }
+
+      // Store last position — seek once the player fires its ready/canplay event
+      resumePositionRef.current = result.lastPosition ?? 0;
+
       syncTab('playing');
 
-      // Periodic flush + heartbeat
+      // Periodic heartbeat + flush every FLUSH_INTERVAL_MS
+      // queueActivity auto-flushes on threshold; this ensures periodic delivery
+      // even when the queue stays below threshold (e.g. slow-watching sessions).
       flushTimerRef.current = setInterval(() => {
         const vid = videoRef.current;
-        if (vid && !vid.paused) queueActivity('HEARTBEAT', Math.floor(vid.currentTime));
-        else if (ytPlayerRef.current?.getPlayerState?.() === 1) {
+        if (vid && !vid.paused) {
+          queueActivity('HEARTBEAT', Math.floor(vid.currentTime));
+        } else if (ytPlayerRef.current?.getPlayerState?.() === 1) {
+          // YT PLAYING state = 1
+          const ytRate = ytPlayerRef.current.getPlaybackRate?.() ?? 1;
+          if (ytRate !== speedRef.current) speedRef.current = ytRate;
           queueActivity('HEARTBEAT', Math.floor(ytPlayerRef.current.getCurrentTime?.() ?? 0));
+        } else {
+          // Not playing — just flush any queued events without adding a heartbeat
+          void flushActivities();
         }
-        flushActivities();
       }, FLUSH_INTERVAL_MS);
 
       setPhase('playing');
@@ -560,11 +644,26 @@ export default function ViewRecordingPage() {
         height: '100%',
         playerVars: { autoplay: 0, modestbranding: 1, rel: 0 },
         events: {
+          onReady: () => {
+            const pos = resumePositionRef.current;
+            if (pos > 0) ytPlayerRef.current?.seekTo?.(pos, true);
+          },
           onStateChange: (e: any) => {
             const pos = Math.floor(ytPlayerRef.current?.getCurrentTime?.() ?? 0);
-            if (e.data === 1) queueActivity('PLAY', pos);
-            else if (e.data === 2) queueActivity('PAUSE', pos);
-            else if (e.data === 3) queueActivity('SEEK', pos);
+            // Capture current YT playback rate into speedRef on every state change
+            const rate = ytPlayerRef.current?.getPlaybackRate?.() ?? 1;
+            if (rate !== speedRef.current) {
+              speedRef.current = rate;
+              queueActivity('SPEED_CHANGE', pos);
+            }
+            if (e.data === 1) queueActivity('PLAY', pos);       // PLAYING
+            else if (e.data === 2) queueActivity('PAUSE', pos);  // PAUSED
+            else if (e.data === 3) queueActivity('SEEK', pos);   // BUFFERING (seek)
+          },
+          onPlaybackRateChange: (e: any) => {
+            speedRef.current = e.data ?? 1;
+            const pos = Math.floor(ytPlayerRef.current?.getCurrentTime?.() ?? 0);
+            queueActivity('SPEED_CHANGE', pos);
           },
         },
       });
@@ -609,12 +708,41 @@ export default function ViewRecordingPage() {
               {(userDisplayName[0] || 'U').toUpperCase()}
             </div>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold truncate">{userDisplayName}</p>
             <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
             <p className="text-[10px] text-muted-foreground/70 mt-0.5 flex items-center gap-1">
               <Lock className="h-2.5 w-2.5" /> Secure session
             </p>
+          </div>
+          {/* Sync status indicator + button */}
+          <div className="shrink-0 flex flex-col items-end gap-1">
+            {unsynced ? (
+              <button
+                type="button"
+                onClick={() => void manualSync()}
+                disabled={syncing}
+                className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors text-[10px] font-semibold border border-amber-300/60"
+                title="Activity not yet synced — click to sync now"
+              >
+                {syncing ? (
+                  <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M1 4v6h6M23 20v-6h-6" /><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" />
+                  </svg>
+                )}
+                {syncing ? 'Syncing…' : 'Sync'}
+              </button>
+            ) : (
+              <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Synced
+              </span>
+            )}
           </div>
         </div>
 
@@ -732,6 +860,10 @@ export default function ViewRecordingPage() {
                   controls
                   controlsList="nodownload"
                   src={getImageUrl(info.recordingUrl)}
+                  onLoadedMetadata={() => {
+                    const pos = resumePositionRef.current;
+                    if (pos > 0 && videoRef.current) videoRef.current.currentTime = pos;
+                  }}
                   onPlay={() => queueActivity('PLAY', Math.floor(videoRef.current?.currentTime ?? 0))}
                   onPause={() => queueActivity('PAUSE', Math.floor(videoRef.current?.currentTime ?? 0))}
                   onSeeked={() => queueActivity('SEEK', Math.floor(videoRef.current?.currentTime ?? 0))}

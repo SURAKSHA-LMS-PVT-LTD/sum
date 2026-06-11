@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, CheckCircle, Loader2, User, ArrowLeft, CalendarClock, Building2, GraduationCap, BookOpen, AlertCircle, Nfc, WifiOff } from 'lucide-react';
+import { MapPin, CheckCircle, Loader2, User, ArrowLeft, CalendarClock, Building2, GraduationCap, BookOpen, AlertCircle, Nfc } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -37,6 +37,7 @@ declare global {
 }
 
 const NFC_SUPPORTED = typeof window !== 'undefined' && 'NDEFReader' in window;
+const IS_MOBILE = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
 
 interface LocationViewData {
   studentName: string;
@@ -495,34 +496,40 @@ const InstituteMarkAttendance = () => {
 
               {/* Right - Inputs */}
               <div className="p-6 lg:p-8 flex flex-col justify-center space-y-5">
-                {/* NFC Toggle */}
-                {NFC_SUPPORTED && (
-                  <div className={`flex items-center justify-between rounded-xl px-4 py-3 border-2 transition-colors ${
-                    nfcActive ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/20' : 'border-border bg-muted/30'
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      {nfcActive
-                        ? <Nfc className="h-5 w-5 text-violet-600 animate-pulse" />
-                        : <WifiOff className="h-5 w-5 text-muted-foreground" />}
-                      <div>
-                        <p className="text-sm font-medium leading-tight">
-                          {nfcActive ? 'NFC Active — tap a card' : 'NFC Card Scanner'}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {nfcActive ? 'Hold 13.56 MHz card near phone back' : 'Tap to enable NFC reading'}
-                        </p>
-                      </div>
+                {/* NFC Button — prominent on mobile */}
+                {(NFC_SUPPORTED || IS_MOBILE) && (
+                  <button
+                    type="button"
+                    onClick={nfcActive ? stopNfc : startNfc}
+                    className={`w-full flex items-center gap-4 px-4 py-4 rounded-xl border-2 transition-all text-left ${
+                      nfcActive
+                        ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/30 shadow-inner'
+                        : 'border-violet-300 bg-background hover:bg-violet-50/50 dark:hover:bg-violet-950/10 active:scale-[0.98]'
+                    }`}
+                  >
+                    <div className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${
+                      nfcActive ? 'bg-violet-600' : 'bg-violet-100 dark:bg-violet-900/30'
+                    }`}>
+                      <Nfc className={`h-6 w-6 ${nfcActive ? 'text-white animate-pulse' : 'text-violet-600'}`} />
                     </div>
-                    <Button
-                      type="button"
-                      variant={nfcActive ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={nfcActive ? stopNfc : startNfc}
-                      className={nfcActive ? 'bg-violet-600 hover:bg-violet-700 text-white' : ''}
-                    >
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold leading-tight ${nfcActive ? 'text-violet-700' : 'text-foreground'}`}>
+                        {nfcActive ? 'NFC Active — Tap a Card Now' : 'Scan with NFC'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {nfcActive
+                          ? 'Hold 13.56 MHz NFC card near the back of the phone'
+                          : NFC_SUPPORTED
+                            ? 'Tap to start NFC card reading (Android Chrome)'
+                            : 'Requires Android Chrome with NFC enabled'}
+                      </p>
+                    </div>
+                    <div className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                      nfcActive ? 'bg-violet-200 text-violet-800' : 'bg-violet-100 text-violet-700'
+                    }`}>
                       {nfcActive ? 'Stop' : 'Start'}
-                    </Button>
-                  </div>
+                    </div>
+                  </button>
                 )}
                 {nfcError && (
                   <p className="text-xs text-destructive flex items-center gap-1.5 -mt-2 px-1">
