@@ -401,9 +401,8 @@ const ManualClassAttendance = () => {
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [sessionStudents, setSessionStudents] = useState<SessionStudentRecord[]>([]);
   const [loadingSession, setLoadingSession] = useState(false);
-  // Local pending status map for session mode: studentId → statusCode (1=present,0=absent,2=late)
-  const [sessionPending, setSessionPending] = useState<Record<string, number>>({});
-  const [bulkSessionLoading, setBulkSessionLoading] = useState(false);
+  // Conflict dialog: shown when selected session already has marks before bulk inherit
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
 
   // Auto-advance date state when Sri Lanka rolls past midnight (page open across midnight)
   useEffect(() => {
@@ -432,27 +431,18 @@ const ManualClassAttendance = () => {
     setLoadingSessions(true);
     setSelectedSessionId('');
     setSessionStudents([]);
-    setSessionPending({});
     classAttendanceSessionsApi.getSessions(instituteId, classId, { includeClosed: false })
       .then(res => setSessions(Array.isArray(res) ? res : []))
       .catch(() => setSessions([]))
       .finally(() => setLoadingSessions(false));
   }, [instituteId, classId]);
 
-  // Load session detail when session is selected
+  // Load session detail when session is selected — only to know existing marks (for conflict check)
   useEffect(() => {
-    if (!instituteId || !classId || !selectedSessionId) { setSessionStudents([]); setSessionPending({}); return; }
+    if (!instituteId || !classId || !selectedSessionId) { setSessionStudents([]); return; }
     setLoadingSession(true);
     classAttendanceSessionsApi.getSessionDetail(instituteId, classId, selectedSessionId)
-      .then(detail => {
-        setSessionStudents(detail.students || []);
-        // Pre-fill pending with existing marks
-        const pre: Record<string, number> = {};
-        for (const s of detail.students) {
-          if (s.statusCode !== null) pre[s.studentId] = s.statusCode;
-        }
-        setSessionPending(pre);
-      })
+      .then(detail => setSessionStudents(detail.students || []))
       .catch(() => setSessionStudents([]))
       .finally(() => setLoadingSession(false));
   }, [instituteId, classId, selectedSessionId]);
@@ -603,6 +593,20 @@ const ManualClassAttendance = () => {
 
   const totalStudentsInMode = computedCounts.total;
 
+  // When a session is selected, build a lookup: studentId → statusCode from session data
+  const sessionStatusMap = useMemo(() => {
+    if (!selectedSessionId || sessionStudents.length === 0) return new Map<string, number | null>();
+    return new Map(sessionStudents.map(s => [s.studentId, s.statusCode ?? null]));
+  }, [selectedSessionId, sessionStudents]);
+
+  // Badge for a student's current session status (replaces class attendance column when session selected)
+  const getSessionStatusBadge = (statusCode: number | null | undefined) => {
+    if (statusCode === 1) return { label: 'Present', detail: 'Marked present in session', className: 'border-emerald-200 bg-emerald-100 text-emerald-700' };
+    if (statusCode === 0) return { label: 'Absent',  detail: 'Marked absent in session',  className: 'border-rose-200 bg-rose-100 text-rose-700' };
+    if (statusCode === 2) return { label: 'Late',    detail: 'Marked late in session',    className: 'border-amber-200 bg-amber-100 text-amber-700' };
+    return { label: 'Not Marked', detail: 'No record in session yet', className: 'border-slate-200 bg-slate-100 text-slate-500' };
+  };
+
   // Local-only override change — no API call; submitted together via bulk button
   const handleStatusChange = (studentId: string, value: string, _isAlreadyMarked: boolean) => {
     setOverrides((prev) => {
@@ -613,51 +617,34 @@ const ManualClassAttendance = () => {
     });
   };
 
-  // Bulk submit for session mode — single API call for all pending changes
-  const handleSessionBulkMark = async () => {
+  // Mark only students with no current session record — does NOT touch already-marked students
+  const executeUnmarkedOnlyMark = async (statusCode: 0 | 1 | 2) => {
     if (!instituteId || !classId || !selectedSessionId) return;
-    const records = sessionStudents.map(s => ({
-      studentId: s.studentId,
-      status: sessionPending[s.studentId] ?? s.statusCode ?? 0,
-    }));
-    if (records.length === 0) { toast.info('No students to mark'); return; }
-    setBulkSessionLoading(true);
+    const notMarked = sessionStudents.filter(s => s.statusCode === null);
+    if (notMarked.length === 0) { toast.info('All students are already marked'); return; }
+    const statusLabel = statusCode === 1 ? 'present' : statusCode === 0 ? 'absent' : 'late';
+    setBulkLoading(true);
     try {
-      const res = await classAttendanceSessionsApi.bulkMarkAttendance(
-        instituteId, classId, selectedSessionId,
-        { records }
-      );
-      toast.success(`Marked ${res.marked} students (${res.updated} updated)`);
+      const res = await classAttendanceSessionsApi.bulkMarkAttendance(instituteId, classId, selectedSessionId, {
+        records: notMarked.map(s => ({ studentId: s.studentId, status: statusCode })),
+      });
+      toast.success(`Marked ${res.marked ?? notMarked.length} unmarked students as ${statusLabel}`);
       if (res.errors?.length) toast.error(`${res.errors.length} errors`);
-      // Reload session detail to reflect saved state
+      // Reload session detail to update Session Status column
       const detail = await classAttendanceSessionsApi.getSessionDetail(instituteId, classId, selectedSessionId);
       setSessionStudents(detail.students || []);
-      const pre: Record<string, number> = {};
-      for (const s of detail.students) {
-        if (s.statusCode !== null) pre[s.studentId] = s.statusCode;
-      }
-      setSessionPending(pre);
     } catch (e: any) {
-      toast.error(e.message || 'Failed to bulk mark session');
+      toast.error(e.message || 'Failed to mark attendance');
     } finally {
-      setBulkSessionLoading(false);
+      setBulkLoading(false);
     }
   };
 
-  const handleBulkMark = async () => {
-    if (!instituteId || !classId || !selectedInstitute || !effectiveClassName) {
-      toast.error('Select an institute and class first');
-      return;
-    }
-    // Build studentOverrides array from non-auto overrides
+  const executeBulkMark = async (conflictResolution?: 'override' | 'only_unset') => {
+    if (!instituteId || !classId || !selectedInstitute || !effectiveClassName) return;
     const studentOverrides = Object.entries(overrides)
       .filter(([, status]) => status !== 'auto')
       .map(([studentId, status]) => ({ studentId, status }));
-
-    if (!markPresent && !markAbsentForUnmarked && studentOverrides.length === 0) {
-      toast.error('Enable at least one rule or set an override before bulk marking');
-      return;
-    }
 
     setBulkLoading(true);
     try {
@@ -679,15 +666,19 @@ const ManualClassAttendance = () => {
           toast.error(`${result.summary.failed} student records failed during bulk marking`);
         }
       } else {
+        // class mode — session is required
+        const activeSessionId = selectedSessionId;
         const result = await attendanceApi.bulkMarkFromInstitute(instituteId, classId, {
           instituteName: selectedInstitute.name,
           className: effectiveClassName,
           date,
           markPresentFromInstitute: markPresent,
-          markAbsentForUnmarked,
+          // If user chose "only mark unset", only mark absent for truly unmarked students
+          markAbsentForUnmarked: conflictResolution === 'only_unset' ? false : markAbsentForUnmarked,
           markingMethod: 'manual',
           eventId: null,
-          ...(sessionId ? { sessionId } : {}),
+          ...(activeSessionId ? { sessionId: activeSessionId } : {}),
+          ...(conflictResolution === 'only_unset' && { onlyUnmarked: true }),
           ...(studentOverrides.length > 0 && { studentOverrides }),
         });
         setLastMessage(result.message);
@@ -703,6 +694,33 @@ const ManualClassAttendance = () => {
     } finally {
       setBulkLoading(false);
     }
+  };
+
+  const handleBulkMark = () => {
+    if (!instituteId || !classId || !selectedInstitute || !effectiveClassName) {
+      toast.error('Select an institute and class first');
+      return;
+    }
+    if (mode === 'class' && !selectedSessionId) {
+      toast.error('Select an attendance session before bulk marking');
+      return;
+    }
+    const studentOverrides = Object.entries(overrides)
+      .filter(([, status]) => status !== 'auto')
+      .map(([studentId, status]) => ({ studentId, status }));
+    if (!markPresent && !markAbsentForUnmarked && studentOverrides.length === 0) {
+      toast.error('Enable at least one rule or set an override before bulk marking');
+      return;
+    }
+    // Check if selected session already has any marks
+    if (mode === 'class') {
+      const hasExistingMarks = sessionStudents.some(s => s.statusCode !== null);
+      if (hasExistingMarks) {
+        setConflictDialogOpen(true);
+        return;
+      }
+    }
+    void executeBulkMark();
   };
 
   return (
@@ -753,27 +771,27 @@ const ManualClassAttendance = () => {
         </Card>
       )}
 
-      {/* Session picker — shown when class is selected */}
-      {classId && (
-        <Card className="border-border/70">
+      {/* Session picker — required before bulk marking in class mode */}
+      {classId && mode === 'class' && (
+        <Card className={cn('border-2 transition-colors', selectedSessionId ? 'border-primary/40' : 'border-amber-300/60 bg-amber-50/30')}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-primary" />
-              Select Attendance Session
+              Step 1 — Select Attendance Session
             </CardTitle>
             <CardDescription className="text-xs">
-              Choose a session to manually mark attendance for all students at once.
+              Inherited class attendance will be recorded against this session. Required before bulk marking.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             {loadingSessions ? (
               <Skeleton className="h-10 w-full" />
             ) : sessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No open sessions found for this class.</p>
+              <p className="text-sm text-muted-foreground">No open sessions found for this class. Create a session first.</p>
             ) : (
               <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Choose a session…" />
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Choose a session to link attendance to…" />
                 </SelectTrigger>
                 <SelectContent>
                   {sessions.map(s => (
@@ -788,129 +806,19 @@ const ManualClassAttendance = () => {
               </Select>
             )}
 
-            {/* Session student grid */}
-            {selectedSessionId && (
-              <div className="space-y-3">
-                {loadingSession ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-                  </div>
-                ) : sessionStudents.length > 0 ? (
-                  <>
-                    {/* Quick-set all buttons */}
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-xs text-muted-foreground font-medium">Set all:</span>
-                      <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                        onClick={() => setSessionPending(Object.fromEntries(sessionStudents.map(s => [s.studentId, 1])))}>
-                        All Present
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs border-red-300 text-red-700 hover:bg-red-50"
-                        onClick={() => setSessionPending(Object.fromEntries(sessionStudents.map(s => [s.studentId, 0])))}>
-                        All Absent
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
-                        onClick={() => setSessionPending(Object.fromEntries(sessionStudents.map(s => [s.studentId, 2])))}>
-                        All Late
-                      </Button>
-                    </div>
-
-                    {/* Summary pills */}
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { code: 1, label: 'Present', cls: 'bg-emerald-100 text-emerald-700' },
-                        { code: 0, label: 'Absent',  cls: 'bg-red-100 text-red-700' },
-                        { code: 2, label: 'Late',    cls: 'bg-amber-100 text-amber-700' },
-                      ].map(({ code, label, cls }) => {
-                        const count = Object.values(sessionPending).filter(v => v === code).length;
-                        return (
-                          <Badge key={code} className={cn('border-0', cls)}>
-                            {label}: {count}
-                          </Badge>
-                        );
-                      })}
-                      {(() => {
-                        const unmarked = sessionStudents.filter(s => sessionPending[s.studentId] === undefined).length;
-                        return unmarked > 0 ? <Badge className="border-0 bg-slate-100 text-slate-600">Not set: {unmarked}</Badge> : null;
-                      })()}
-                    </div>
-
-                    <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-                      <MuiTableContainer sx={{ maxHeight: 420 }}>
-                        <MuiTable stickyHeader size="small">
-                          <MuiTableHead>
-                            <MuiTableRow>
-                              <MuiTableCell sx={{ fontWeight: 600, width: 280 }}>Student</MuiTableCell>
-                              <MuiTableCell sx={{ fontWeight: 600 }}>Current Status</MuiTableCell>
-                              <MuiTableCell sx={{ fontWeight: 600, width: 180 }}>Mark As</MuiTableCell>
-                            </MuiTableRow>
-                          </MuiTableHead>
-                          <MuiTableBody>
-                            {sessionStudents.map(student => {
-                              const pending = sessionPending[student.studentId];
-                              const statusLabel = pending === 1 ? 'Present' : pending === 0 ? 'Absent' : pending === 2 ? 'Late' : '—';
-                              const statusCls = pending === 1 ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                                : pending === 0 ? 'border-red-200 bg-red-100 text-red-700'
-                                : pending === 2 ? 'border-amber-200 bg-amber-100 text-amber-700'
-                                : 'border-slate-200 bg-slate-100 text-slate-500';
-                              return (
-                                <MuiTableRow hover key={student.studentId}>
-                                  <MuiTableCell>
-                                    <div className="flex items-center gap-2.5">
-                                      <Avatar className="h-8 w-8 border border-border/50">
-                                        <AvatarImage src={getImageUrl(student.imageUrl || '')} alt={student.studentName} />
-                                        <AvatarFallback className="text-xs bg-sky-100 text-sky-800">{getInitials(student.studentName)}</AvatarFallback>
-                                      </Avatar>
-                                      <div>
-                                        <p className="text-sm font-medium">{student.studentName}</p>
-                                        <p className="text-xs text-muted-foreground">{student.userIdInstitute || student.studentId}</p>
-                                      </div>
-                                    </div>
-                                  </MuiTableCell>
-                                  <MuiTableCell>
-                                    <Badge className={cn('border text-xs', statusCls)}>{statusLabel}</Badge>
-                                  </MuiTableCell>
-                                  <MuiTableCell>
-                                    <div className="flex gap-1">
-                                      {[
-                                        { code: 1, label: 'P', cls: 'border-emerald-300 text-emerald-700 hover:bg-emerald-50' },
-                                        { code: 0, label: 'A', cls: 'border-red-300 text-red-700 hover:bg-red-50' },
-                                        { code: 2, label: 'L', cls: 'border-amber-300 text-amber-700 hover:bg-amber-50' },
-                                      ].map(({ code, label, cls }) => (
-                                        <Button
-                                          key={code}
-                                          size="sm"
-                                          variant="outline"
-                                          className={cn('h-7 w-8 p-0 text-xs font-bold', cls, pending === code && 'ring-2 ring-offset-1')}
-                                          onClick={() => setSessionPending(prev => ({ ...prev, [student.studentId]: code }))}
-                                        >
-                                          {label}
-                                        </Button>
-                                      ))}
-                                    </div>
-                                  </MuiTableCell>
-                                </MuiTableRow>
-                              );
-                            })}
-                          </MuiTableBody>
-                        </MuiTable>
-                      </MuiTableContainer>
-                    </Paper>
-
-                    <Button
-                      className="w-full bg-sky-600 text-white hover:bg-sky-700"
-                      disabled={bulkSessionLoading || sessionStudents.length === 0}
-                      onClick={handleSessionBulkMark}
-                    >
-                      {bulkSessionLoading
-                        ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
-                        : <><ClipboardCheck className="mr-2 h-4 w-4" />Save All ({sessionStudents.length} students)</>}
-                    </Button>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No students in this session.</p>
-                )}
-              </div>
-            )}
+            {/* Show existing marks count once session is selected */}
+            {selectedSessionId && !loadingSession && sessionStudents.length > 0 && (() => {
+              const alreadyMarked = sessionStudents.filter(s => s.statusCode !== null).length;
+              const notMarked = sessionStudents.length - alreadyMarked;
+              return (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Badge className="border-0 bg-slate-100 text-slate-600 text-xs">{sessionStudents.length} students in session</Badge>
+                  {alreadyMarked > 0 && <Badge className="border-0 bg-amber-100 text-amber-700 text-xs">{alreadyMarked} already marked</Badge>}
+                  {notMarked > 0 && <Badge className="border-0 bg-sky-100 text-sky-700 text-xs">{notMarked} not yet marked</Badge>}
+                </div>
+              );
+            })()}
+            {selectedSessionId && loadingSession && <Skeleton className="h-6 w-48" />}
           </CardContent>
         </Card>
       )}
@@ -1053,7 +961,9 @@ const ManualClassAttendance = () => {
                         <MuiTableRow>
                           <MuiTableCell sx={{ fontWeight: 600, width: 260 }}>Student</MuiTableCell>
                           <MuiTableCell sx={{ fontWeight: 600 }}>{mode === 'subject' ? 'Class Attendance' : 'Institute Attendance'}</MuiTableCell>
-                          <MuiTableCell sx={{ fontWeight: 600 }}>{mode === 'subject' ? 'Subject Attendance' : 'Class Attendance'}</MuiTableCell>
+                          <MuiTableCell sx={{ fontWeight: 600 }}>
+                            {mode === 'subject' ? 'Subject Attendance' : selectedSessionId ? 'Session Status' : 'Class Attendance'}
+                          </MuiTableCell>
                           <MuiTableCell sx={{ fontWeight: 600 }}>Preview</MuiTableCell>
                           <MuiTableCell sx={{ fontWeight: 600, width: 160 }}>Override</MuiTableCell>
                         </MuiTableRow>
@@ -1074,9 +984,13 @@ const ManualClassAttendance = () => {
                             const sourceBadge = mode === 'subject'
                               ? getClassSourceBadge((student as StudentClassStatusRecord).classAttendance)
                               : getInstituteBadge((student as StudentInstituteStatusRecord).instituteAttendance);
+                            // In class mode with a session selected, show session status in the Class Attendance column
+                            const sessionCode = sessionStatusMap.get(student.studentId);
                             const targetBadge = mode === 'subject'
                               ? getSubjectTargetBadge(student as StudentClassStatusRecord)
-                              : getClassBadge(student as StudentInstituteStatusRecord);
+                              : selectedSessionId
+                                ? getSessionStatusBadge(sessionCode)
+                                : getClassBadge(student as StudentInstituteStatusRecord);
                             const studentOverride = overrides[student.studentId];
                             const previewBadge = mode === 'subject'
                               ? getSubjectPreviewBadge(student as StudentClassStatusRecord, markPresent, markAbsentForUnmarked, studentOverride)
@@ -1084,7 +998,9 @@ const ManualClassAttendance = () => {
                             const SourceIcon = sourceBadge.icon;
                             const isAlreadyMarked = mode === 'subject'
                               ? Boolean((student as StudentClassStatusRecord).subjectAttendance)
-                              : Boolean((student as StudentInstituteStatusRecord).classAttendance);
+                              : selectedSessionId
+                                ? sessionCode !== null && sessionCode !== undefined
+                                : Boolean((student as StudentInstituteStatusRecord).classAttendance);
 
                             return (
                               <MuiTableRow hover tabIndex={-1} key={student.studentId}>
@@ -1173,9 +1089,12 @@ const ManualClassAttendance = () => {
                     const sourceBadge = mode === 'subject'
                       ? getClassSourceBadge((student as StudentClassStatusRecord).classAttendance)
                       : getInstituteBadge((student as StudentInstituteStatusRecord).instituteAttendance);
+                    const mobileSessionCode = sessionStatusMap.get(student.studentId);
                     const targetBadge = mode === 'subject'
                       ? getSubjectTargetBadge(student as StudentClassStatusRecord)
-                      : getClassBadge(student as StudentInstituteStatusRecord);
+                      : selectedSessionId
+                        ? getSessionStatusBadge(mobileSessionCode)
+                        : getClassBadge(student as StudentInstituteStatusRecord);
                     const mobileOverride = overrides[student.studentId];
                     const previewBadge = mode === 'subject'
                       ? getSubjectPreviewBadge(student as StudentClassStatusRecord, markPresent, markAbsentForUnmarked, mobileOverride)
@@ -1183,7 +1102,9 @@ const ManualClassAttendance = () => {
 
                     const isAlreadyMarkedMobile = mode === 'subject'
                       ? Boolean((student as StudentClassStatusRecord).subjectAttendance)
-                      : Boolean((student as StudentInstituteStatusRecord).classAttendance);
+                      : selectedSessionId
+                        ? mobileSessionCode !== null && mobileSessionCode !== undefined
+                        : Boolean((student as StudentInstituteStatusRecord).classAttendance);
 
                     return (
                       <Card key={student.studentId} className="border-border/70 shadow-none">
@@ -1247,62 +1168,148 @@ const ManualClassAttendance = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 bg-white/90 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Bulk Mark Controls</CardTitle>
-              <CardDescription className="text-xs">
-                {mode === 'subject'
-                  ? 'Choose what should happen when subject attendance is derived from class attendance.'
-                  : 'Choose what should be created when class attendance is derived from institute attendance.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-2">
-              <RuleRow
-                title={mode === 'subject' ? 'Mark present from class' : 'Mark present from institute'}
-                description={
-                  mode === 'subject'
-                    ? 'Students with class attendance other than absent become PRESENT in subject.'
-                    : 'Students with institute attendance other than absent become PRESENT in class.'
-                }
-                checked={markPresent}
-                onCheckedChange={setMarkPresent}
-              />
-              <RuleRow
-                title="Mark absent for unmarked"
-                description={
-                  mode === 'subject'
-                    ? 'Students with no class attendance become ABSENT in subject.'
-                    : 'Students with no institute attendance become ABSENT in class.'
-                }
-                checked={markAbsentForUnmarked}
-                onCheckedChange={setMarkAbsentForUnmarked}
-              />
+          {/* Bulk Mark Controls — only shown once session is selected (class mode) or always in subject mode */}
+          {(mode === 'subject' || selectedSessionId) && (
+            <Card className="border-border/70 bg-white/90 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  {mode === 'class' && <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Step 2</span>}
+                  Bulk Mark Controls
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {mode === 'subject'
+                    ? 'Choose what should happen when subject attendance is derived from class attendance.'
+                    : `Inherit from institute attendance → link into session "${sessions.find(s => s.id === selectedSessionId)?.name ?? selectedSessionId}"`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-2">
+                <RuleRow
+                  title={mode === 'subject' ? 'Mark present from class' : 'Mark present from institute'}
+                  description={
+                    mode === 'subject'
+                      ? 'Students with class attendance other than absent become PRESENT in subject.'
+                      : 'Students with institute attendance other than absent become PRESENT in class.'
+                  }
+                  checked={markPresent}
+                  onCheckedChange={setMarkPresent}
+                />
+                <RuleRow
+                  title="Mark absent for unmarked"
+                  description={
+                    mode === 'subject'
+                      ? 'Students with no class attendance become ABSENT in subject.'
+                      : 'Students with no institute attendance become ABSENT in class.'
+                  }
+                  checked={markAbsentForUnmarked}
+                  onCheckedChange={setMarkAbsentForUnmarked}
+                />
 
-              <Separator />
+                {/* Quick-fill: only act on session-not-marked students */}
+                {mode === 'class' && selectedSessionId && (() => {
+                  const notMarkedStudents = sessionStudents.filter(s => s.statusCode === null);
+                  const count = notMarkedStudents.length;
+                  return count > 0 ? (
+                    <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-3 space-y-2">
+                      <p className="text-xs font-semibold text-sky-700">
+                        Quick-fill — {count} not-marked student{count !== 1 ? 's' : ''} only
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Applies only to students with no current session record. Already-marked students are untouched.
+                      </p>
+                      <div className="flex gap-2 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                          disabled={bulkLoading || isNotToday}
+                          onClick={() => void executeUnmarkedOnlyMark(1)}
+                        >
+                          {bulkLoading ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <ClipboardCheck className="mr-1.5 h-3 w-3" />}
+                          Mark Unmarked as Present
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs border-rose-300 text-rose-700 hover:bg-rose-50"
+                          disabled={bulkLoading || isNotToday}
+                          onClick={() => void executeUnmarkedOnlyMark(0)}
+                        >
+                          {bulkLoading ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <ClipboardCheck className="mr-1.5 h-3 w-3" />}
+                          Mark Unmarked as Absent
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
 
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                <PreviewStat title="Will mark present" value={previewSummary.markPresent} tone="border-emerald-200 bg-emerald-50" />
-                <PreviewStat title="Will mark absent" value={previewSummary.markAbsent} tone="border-amber-200 bg-amber-50" />
-                <PreviewStat title="Skipped" value={previewSummary.skipped} tone="border-sky-200 bg-sky-50" />
-                <PreviewStat title="No action" value={previewSummary.noAction} tone="border-slate-200 bg-slate-50" />
+                <Separator />
+
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                  <PreviewStat title="Will mark present" value={previewSummary.markPresent} tone="border-emerald-200 bg-emerald-50" />
+                  <PreviewStat title="Will mark absent" value={previewSummary.markAbsent} tone="border-amber-200 bg-amber-50" />
+                  <PreviewStat title="Skipped" value={previewSummary.skipped} tone="border-sky-200 bg-sky-50" />
+                  <PreviewStat title="No action" value={previewSummary.noAction} tone="border-slate-200 bg-slate-50" />
+                </div>
+
+                <Button
+                  className="h-9 w-full bg-sky-600 text-sm text-white hover:bg-sky-700"
+                  disabled={bulkLoading || loading || isNotToday || (!markPresent && !markAbsentForUnmarked && previewSummary.overrides === 0)}
+                  onClick={handleBulkMark}
+                >
+                  {bulkLoading ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <ClipboardCheck className="mr-2 h-3.5 w-3.5" />}
+                  {mode === 'subject' ? 'Bulk Mark From Class' : 'Bulk Mark From Institute'}
+                </Button>
+
+                {lastMessage && (
+                  <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
+                    <AlertDescription>{lastMessage}</AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Conflict resolution dialog */}
+          {conflictDialogOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+              <div className="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 border border-border shadow-2xl p-6 space-y-4 mx-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-xl bg-amber-100 p-2.5 flex-shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-base text-foreground">Session has existing marks</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      This session already has attendance records. How should the incoming institute attendance be applied?
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <button
+                    className="w-full text-left px-4 py-3 rounded-xl border border-border hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                    onClick={() => { setConflictDialogOpen(false); void executeBulkMark('override'); }}
+                  >
+                    <p className="text-sm font-medium text-foreground">Override all existing marks</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Replace all current records with incoming institute attendance data</p>
+                  </button>
+                  <button
+                    className="w-full text-left px-4 py-3 rounded-xl border border-border hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors"
+                    onClick={() => { setConflictDialogOpen(false); void executeBulkMark('only_unset'); }}
+                  >
+                    <p className="text-sm font-medium text-foreground">Only mark students not yet set</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Keep existing marks, only fill in students with no current record</p>
+                  </button>
+                  <button
+                    className="w-full text-left px-4 py-3 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    onClick={() => setConflictDialogOpen(false)}
+                  >
+                    <p className="text-sm font-medium">Cancel — keep current data</p>
+                    <p className="text-xs text-red-600/70 mt-0.5">Discard incoming changes, leave session untouched</p>
+                  </button>
+                </div>
               </div>
-
-              <Button
-                className="h-9 w-full bg-sky-600 text-sm text-white hover:bg-sky-700"
-                disabled={bulkLoading || loading || isNotToday || (!markPresent && !markAbsentForUnmarked && previewSummary.overrides === 0)}
-                onClick={handleBulkMark}
-              >
-                {bulkLoading ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <ClipboardCheck className="mr-2 h-3.5 w-3.5" />}
-                {mode === 'subject' ? 'Bulk Mark From Class' : 'Bulk Mark From Institute'}
-              </Button>
-
-              {lastMessage && (
-                <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
-                  <AlertDescription>{lastMessage}</AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </div>
       </>)}
     </div>

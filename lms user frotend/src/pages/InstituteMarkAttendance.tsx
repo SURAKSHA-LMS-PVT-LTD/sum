@@ -158,15 +158,13 @@ const InstituteMarkAttendance = () => {
 
     setIsProcessing(true);
     try {
-      const addressCoordinates: AddressCoordinates | undefined = location
-        ? { latitude: location.latitude, longitude: location.longitude }
-        : undefined;
+      const addressStr = buildAddress(location) || selectedInstitute.name;
 
       const request: any = {
         instituteCardId: cardId.trim(),
         instituteId: currentInstituteId.toString(),
         instituteName: selectedInstitute.name,
-        address: addressCoordinates,
+        address: addressStr,
         location: location?.address,
         markingMethod: 'rfid/nfc',
         status: status,
@@ -208,16 +206,40 @@ const InstituteMarkAttendance = () => {
       }
     } catch (error: any) {
       console.error('Attendance marking error:', error);
-      let errorMessage = 'Failed to mark attendance';
-      if (error instanceof Error) {
-        const msg = error.message;
-        if (msg.includes('404') && msg.includes('User not found')) {
-          errorMessage = 'Invalid user id';
-        } else {
-          errorMessage = msg;
+      const raw: string = error?.message || error?.error || String(error);
+      let title = 'Marking Failed';
+      let description = 'An unexpected error occurred. Please try again.';
+
+      if (raw.includes('404') || raw.toLowerCase().includes('not found') || raw.toLowerCase().includes('user not found')) {
+        title = 'Card Not Found';
+        description = `No student is registered with card ID "${cardId.trim()}". Check the card and try again.`;
+      } else if (raw.includes('400')) {
+        // Extract "message" from JSON body if present
+        try {
+          const jsonStart = raw.indexOf('{');
+          if (jsonStart !== -1) {
+            const parsed = JSON.parse(raw.slice(jsonStart));
+            description = parsed.message || parsed.error || description;
+          } else {
+            description = raw;
+          }
+        } catch {
+          description = raw;
         }
+      } else if (raw.includes('401') || raw.includes('403')) {
+        title = 'Permission Denied';
+        description = 'You do not have permission to mark attendance here.';
+      } else if (raw.includes('409') || raw.toLowerCase().includes('already marked')) {
+        title = 'Already Marked';
+        description = 'Attendance for this card has already been recorded today.';
+      } else if (raw.toLowerCase().includes('network') || raw.toLowerCase().includes('failed to fetch')) {
+        title = 'Network Error';
+        description = 'Could not reach the server. Check your connection and try again.';
+      } else {
+        description = raw.length < 200 ? raw : 'Failed to mark attendance';
       }
-      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+
+      toast({ title, description, variant: 'destructive' });
     } finally {
       setIsProcessing(false);
     }
