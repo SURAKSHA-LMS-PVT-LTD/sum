@@ -1,5 +1,5 @@
 // src/components/notifications/NotificationBell.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Bell, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +13,9 @@ import { NotificationDetailSheet } from './NotificationDetailSheet';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationStore } from '@/stores/useNotificationStore';
 import { cn } from '@/lib/utils';
+
+// Re-fetch at most once every 30 seconds when the popover is opened repeatedly
+const CACHE_TTL_MS = 30_000;
 
 interface NotificationBellProps {
   instituteId?: string;
@@ -29,17 +32,18 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const lastFetchedAt = useRef<number>(0);
 
-  const loadRecentNotifications = useCallback(async () => {
+  const loadRecentNotifications = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastFetchedAt.current < CACHE_TTL_MS) return;
     try {
       setLoading(true);
-      const result = await notificationApiService.getMyNotifications({
-        page: 1,
-        limit: 5,
-      });
+      const result = await notificationApiService.getMyNotifications({ page: 1, limit: 5 });
       setNotifications(result.data || []);
-    } catch (error: any) {
-      console.error('Failed to load notifications:', error);
+      lastFetchedAt.current = Date.now();
+    } catch {
+      // silent — stale data is acceptable
     } finally {
       setLoading(false);
     }
@@ -47,19 +51,21 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
   useEffect(() => {
     if (open) {
-      loadRecentNotifications();
+      // Force-refresh when there are unread items (new push came in), otherwise use cache
+      loadRecentNotifications(globalUnreadCount > 0);
     }
-  }, [open, loadRecentNotifications]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMarkAsRead = async (notificationId: string) => {
+    // Optimistic update first — revert on failure is not worth the complexity here
+    setNotifications(prev =>
+      prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+    );
+    decrementUnread();
     try {
       await notificationApiService.markAsRead(notificationId);
-      setNotifications(prev =>
-        prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
-      );
-      decrementUnread();
-    } catch (error: any) {
-      console.error('Failed to mark as read:', error);
+    } catch {
+      // silent — badge count may drift by 1 until next refresh
     }
   };
 

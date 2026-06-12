@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { pushNotificationService, NotificationPayload } from '../services/pushNotificationService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,40 +55,38 @@ export const usePushNotifications = () => {
   const [showToast, setShowToast] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'default' | 'unsupported'>('default');
+  // Tracks which userId has already had its token registration kicked off in this session
+  const registeredForRef = useRef<string | null>(null);
 
-  // Check permission status on mount
+  // Check permission status on mount (read-only, no API call)
   useEffect(() => {
-    const checkPermission = async () => {
-      const status = await pushNotificationService.getPermissionStatus();
-      setPermissionStatus(status);
-    };
-    checkPermission();
+    pushNotificationService.getPermissionStatus().then(setPermissionStatus);
   }, []);
 
-  // Register push token when user is logged in
+  // Register push token when user logs in — run ONCE per userId, not on permission changes
   useEffect(() => {
     if (!user?.id) {
       setIsRegistered(false);
+      registeredForRef.current = null;
       return;
     }
+    // Already kicked off for this user — service-level dedup handles concurrent calls
+    if (registeredForRef.current === user.id) return;
+    // Skip if browser has already denied — no point prompting
+    if (permissionStatus === 'denied' || permissionStatus === 'unsupported') return;
 
-    const registerToken = async () => {
-      try {
-        const result = await pushNotificationService.registerToken(user.id);
-        if (result) {
-          setIsRegistered(true);
-          setPermissionStatus('granted');
-        }
-      } catch (error: any) {
-        if (import.meta.env.DEV) console.error('Failed to register push notifications:', error);
+    registeredForRef.current = user.id;
+    pushNotificationService.registerToken(user.id).then((result) => {
+      if (result) {
+        setIsRegistered(true);
+        setPermissionStatus('granted');
       }
-    };
-
-    // Only register if permission is granted or default (will prompt)
-    if (permissionStatus !== 'denied' && permissionStatus !== 'unsupported') {
-      registerToken();
-    }
-  }, [user?.id, permissionStatus]);
+    }).catch(() => {
+      registeredForRef.current = null; // allow retry on next mount
+    });
+  // Intentionally exclude permissionStatus — we only re-run when the userId changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Listen for foreground messages
   useEffect(() => {
@@ -137,8 +135,15 @@ export const usePushNotifications = () => {
   const requestPermission = useCallback(async () => {
     const granted = await pushNotificationService.requestPermission();
     setPermissionStatus(granted ? 'granted' : 'denied');
+    // If the user just granted permission (from settings), register immediately
+    if (granted && user?.id) {
+      registeredForRef.current = user.id; // mark as kicked off
+      pushNotificationService.registerToken(user.id).then((result) => {
+        if (result) setIsRegistered(true);
+      });
+    }
     return granted;
-  }, []);
+  }, [user?.id]);
 
   return {
     latestNotification,

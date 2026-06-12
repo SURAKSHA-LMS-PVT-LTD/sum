@@ -51,12 +51,21 @@ export interface NotificationPayload {
   };
 }
 
+const DEV = import.meta.env.DEV;
+
 class PushNotificationService {
   private fcmToken: string | null = null;
   private deviceId: string | null = null;
   private nativeListeners: (() => void)[] = [];
   private foregroundCallbacks: ((payload: NotificationPayload) => void)[] = [];
   private notificationClickCallbacks: ((payload: NotificationPayload) => void)[] = [];
+
+  // Prevent duplicate backend registration within the same session
+  private registeredUserId: string | null = null;
+  private registrationPromise: Promise<FcmTokenResponse | null> | null = null;
+
+  // Native token readiness: resolves when the registration listener fires
+  private nativeTokenResolvers: Array<(token: string) => void> = [];
 
   // Cold-start: notification tapped when app was killed.
   // The native listener fires before React mounts, so we store the URL here
@@ -75,24 +84,25 @@ class PushNotificationService {
    */
   private async initNativeListeners(): Promise<void> {
     try {
-      // Registration success
+      // Registration success — resolve any pending getToken() callers
       const registrationListener = await PushNotifications.addListener('registration', (token: Token) => {
-        console.log('📱 Native Push Registration success, token:', token.value.substring(0, 20) + '...');
         this.fcmToken = token.value;
+        this.nativeTokenResolvers.forEach(resolve => resolve(token.value));
+        this.nativeTokenResolvers = [];
       });
       this.nativeListeners.push(() => registrationListener.remove());
 
       // Registration error
       const errorListener = await PushNotifications.addListener('registrationError', (error) => {
-        console.error('📱 Native Push Registration error:', error);
+        if (DEV) console.error('Native push registration error:', error);
+        // Drain resolvers with empty string so callers don't hang
+        this.nativeTokenResolvers.forEach(resolve => resolve(''));
+        this.nativeTokenResolvers = [];
       });
       this.nativeListeners.push(() => errorListener.remove());
 
       // Foreground notification received
       const receivedListener = await PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
-        console.log('📱 Native Push notification received:', notification);
-
-        // Extract image from multiple possible sources (FCM can send in different fields)
         const imageUrl = notification.data?.image
           || notification.data?.imageUrl
           || (notification as any).largeIcon
@@ -100,12 +110,8 @@ class PushNotificationService {
           || undefined;
 
         const payload: NotificationPayload = {
-          notification: {
-            title: notification.title,
-            body: notification.body,
-            image: imageUrl
-          },
-          data: notification.data as NotificationPayload['data']
+          notification: { title: notification.title, body: notification.body, image: imageUrl },
+          data: notification.data as NotificationPayload['data'],
         };
         this.foregroundCallbacks.forEach(cb => cb(payload));
       });
@@ -113,10 +119,7 @@ class PushNotificationService {
 
       // Notification tapped/clicked
       const actionListener = await PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
-        console.log('📱 Native Push notification action performed:', action);
         const notification = action.notification;
-
-        // Extract image from multiple possible sources
         const imageUrl = notification.data?.image
           || notification.data?.imageUrl
           || (notification as any).largeIcon
@@ -124,30 +127,22 @@ class PushNotificationService {
           || undefined;
 
         const payload: NotificationPayload = {
-          notification: {
-            title: notification.title,
-            body: notification.body,
-            image: imageUrl
-          },
-          data: notification.data as NotificationPayload['data']
+          notification: { title: notification.title, body: notification.body, image: imageUrl },
+          data: notification.data as NotificationPayload['data'],
         };
 
         const targetUrl = (notification.data?.actionUrl as string | undefined) || '/notifications';
 
         if (this.notificationClickCallbacks.length > 0) {
-          // React is already mounted — navigate immediately
           this.notificationClickCallbacks.forEach(cb => cb(payload));
         } else {
           // Cold start: React not mounted yet — store for later
-          console.log('📱 Cold start notification tap — storing pending URL:', targetUrl);
           this.pendingNavigationUrl = targetUrl;
         }
       });
       this.nativeListeners.push(() => actionListener.remove());
-
-      console.log('📱 Native push notification listeners initialized');
     } catch (error: any) {
-      console.error('Failed to initialize native push listeners:', error);
+      if (DEV) console.error('Failed to initialize native push listeners:', error);
     }
   }
 
@@ -259,30 +254,22 @@ class PushNotificationService {
   async requestPermission(): Promise<boolean> {
     if (isNativePlatform) {
       try {
-        // Request permission on native
         const result = await PushNotifications.requestPermissions();
-        console.log('📱 Native permission result:', result);
-        
         if (result.receive === 'granted') {
-          // Register with APNs / FCM
           await PushNotifications.register();
           return true;
         }
         return false;
       } catch (error: any) {
-        console.error('📱 Native permission request failed:', error);
+        if (DEV) console.error('Native permission request failed:', error);
         return false;
       }
     }
 
     // Web
-    if (!('Notification' in window)) {
-      console.warn('This browser does not support notifications');
-      return false;
-    }
+    if (!('Notification' in window)) return false;
 
     const permission = await Notification.requestPermission();
-    console.log('🌐 Web notification permission:', permission);
     return permission === 'granted';
   }
 
@@ -291,66 +278,70 @@ class PushNotificationService {
    */
   async getToken(): Promise<string | null> {
     if (isNativePlatform) {
-      // For native, token is received via listener after registration
-      // Wait a bit for the registration callback
-      if (!this.fcmToken) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      return this.fcmToken;
+      // Token arrives via the 'registration' listener after PushNotifications.register().
+      // If it's already cached return immediately; otherwise wait up to 8s for the callback.
+      if (this.fcmToken) return this.fcmToken;
+      const token = await new Promise<string>((resolve) => {
+        const timer = setTimeout(() => {
+          const idx = this.nativeTokenResolvers.indexOf(resolve);
+          if (idx > -1) this.nativeTokenResolvers.splice(idx, 1);
+          resolve('');
+        }, 8000);
+        this.nativeTokenResolvers.push((t) => { clearTimeout(timer); resolve(t); });
+      });
+      return token || null;
     }
 
-    // Web - use Firebase
-    if (!messaging) {
-      console.warn('Firebase messaging not initialized');
-      return null;
-    }
+    // Web — Firebase
+    if (!messaging) return null;
 
     try {
       const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
-      
       if (currentToken) {
-        console.log('🌐 Web FCM Token obtained:', currentToken.substring(0, 20) + '...');
         this.fcmToken = currentToken;
         return currentToken;
-      } else {
-        console.warn('No FCM token available. Request permission first.');
-        return null;
       }
+      return null;
     } catch (error: any) {
-      console.error('Error getting FCM token:', error);
+      if (DEV) console.error('Error getting FCM token:', error);
       return null;
     }
   }
 
   /**
-   * Register push token with backend
-   * Call this after user logs in
+   * Register push token with backend.
+   * Idempotent — returns the cached result if called twice for the same user session.
    */
   async registerToken(userId: string): Promise<FcmTokenResponse | null> {
-    // Check if supported
-    if (!this.isSupported()) {
-      console.warn('Push notifications not supported on this platform/browser');
-      return null;
+    if (!this.isSupported()) return null;
+
+    // Already registered for this user in this session — return cached promise
+    if (this.registeredUserId === userId && this.registrationPromise) {
+      return this.registrationPromise;
     }
 
-    // Step 1: Request permission
+    // Different user (e.g. account switch) — reset
+    if (this.registeredUserId && this.registeredUserId !== userId) {
+      this.registrationPromise = null;
+    }
+
+    this.registeredUserId = userId;
+    this.registrationPromise = this._doRegisterToken(userId);
+    return this.registrationPromise;
+  }
+
+  private async _doRegisterToken(userId: string): Promise<FcmTokenResponse | null> {
     const hasPermission = await this.requestPermission();
-    if (!hasPermission) {
-      console.warn('Notification permission denied');
-      return null;
-    }
+    if (!hasPermission) return null;
 
-    // Step 2: Get token
     const token = await this.getToken();
-    if (!token) {
-      console.error('Failed to get push token');
-      return null;
-    }
+    if (!token) return null;
 
-    // Step 3: Prepare payload
     this.deviceId = this.generateDeviceId();
     const { deviceName, osVersion } = this.getDeviceInfo();
     const deviceType = this.getDeviceType();
+
+    const appVersion = __APP_BUILD_HASH__ ? __APP_BUILD_HASH__.substring(0, 8) : '1.0.0';
 
     const payload: FcmTokenPayload = {
       userId,
@@ -359,27 +350,21 @@ class PushNotificationService {
       deviceType,
       deviceName,
       osVersion,
-      appVersion: '1.0.0',
-      isActive: true
+      appVersion,
+      isActive: true,
     };
 
-    // Step 4: Send to backend
     try {
-      const response = await apiClient.post<FcmTokenResponse>(
-        '/users/fcm-tokens',
-        payload
-      );
-
-      console.log(`${isNativePlatform ? '📱' : '🌐'} Push token registered successfully:`, response);
-      
-      // Store token ID for later use (e.g., logout)
+      const response = await apiClient.post<FcmTokenResponse>('/users/fcm-tokens', payload);
       if (response?.id) {
         localStorage.setItem('fcm_token_id', response.id);
       }
-      
       return response;
     } catch (error: any) {
-      console.error('Failed to register push token:', error);
+      if (DEV) console.error('Failed to register push token:', error);
+      // Reset so next login can retry
+      this.registeredUserId = null;
+      this.registrationPromise = null;
       return null;
     }
   }
@@ -389,20 +374,17 @@ class PushNotificationService {
    */
   async unregisterToken(): Promise<boolean> {
     const tokenId = localStorage.getItem('fcm_token_id');
-    
-    if (!tokenId) {
-      console.warn('No push token ID found to unregister');
-      return false;
-    }
+    if (!tokenId) return false;
 
     try {
       await apiClient.delete(`/users/fcm-tokens/${tokenId}`);
-      console.log(`${isNativePlatform ? '📱' : '🌐'} Push token unregistered successfully`);
       this.fcmToken = null;
+      this.registeredUserId = null;
+      this.registrationPromise = null;
       localStorage.removeItem('fcm_token_id');
       return true;
     } catch (error: any) {
-      console.error('Failed to unregister push token:', error);
+      if (DEV) console.error('Failed to unregister push token:', error);
       return false;
     }
   }
@@ -422,14 +404,10 @@ class PushNotificationService {
       };
     }
 
-    // Web - use Firebase
-    if (!messaging) {
-      console.warn('Firebase messaging not initialized');
-      return () => {};
-    }
+    // Web — Firebase
+    if (!messaging) return () => {};
 
     const unsubscribe = onMessage(messaging, (payload) => {
-      console.log('🌐 Web foreground message received:', payload);
       callback(payload as NotificationPayload);
     });
 

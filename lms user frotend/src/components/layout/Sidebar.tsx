@@ -179,12 +179,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     }
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
-  const { globalUnreadCount: unreadNotifCount, refreshUnreadCount } = useNotificationStore();
-
-  // Keep sidebar badge in sync when institute selection changes
-  React.useEffect(() => {
-    refreshUnreadCount();
-  }, [selectedInstitute?.id]);
+  const { globalUnreadCount: unreadNotifCount } = useNotificationStore();
 
   // Load user avatar + institute tier in a single /me request (one API call with join)
   const [sidebarAvatarUrl, setSidebarAvatarUrl] = React.useState('');
