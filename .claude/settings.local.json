@@ -38,7 +38,9 @@
       "Bash(node patch_al27_sessions.js)",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(Get-ChildItem -Path \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms-api-suraksha-lk\\\\src\\\\migrations\" -Filter \"*recording*\" -File)",
-      "Bash(npx cap *)"
+      "Bash(npx cap *)",
+      "Bash(dir \"d:\\\\User\\\\Desktop\\\\surakshalms\\\\lms user frotend\\\\src\" -Recurse -Name)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,'=',v\\) for k,v in d.get\\('scripts',{}\\).items\\(\\) if 'migrat' in k.lower\\(\\)]\")"
     ]
   }
 }

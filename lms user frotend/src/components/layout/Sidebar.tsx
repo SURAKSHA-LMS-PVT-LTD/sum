@@ -1029,6 +1029,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         { id: FEATURE_KEYS.ORGANIZATIONS, label: 'Organizations', icon: Building2, locked: true },
         { id: FEATURE_KEYS.TRANSPORT, label: 'Transport', icon: Truck, locked: true },
       ]});
+
     }
 
     groups.push({ id: 'account', label: 'Account', icon: User, items: [

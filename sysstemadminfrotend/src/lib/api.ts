@@ -2442,4 +2442,27 @@ export const api = {
     if (params.limit) q.append("limit", String(params.limit));
     return apiRequest(`/institute-class-subject-payment-submissions/payment/${paymentId}/students?${q.toString()}`);
   },
+
+  // =============== ERROR REPORTS ===============
+
+  getErrorReports: (params: { page?: number; limit?: number; status?: string; kind?: string } = {}) => {
+    const q = new URLSearchParams();
+    q.set('page', String(params.page || 1));
+    q.set('limit', String(params.limit || 20));
+    if (params.status) q.set('status', params.status);
+    if (params.kind) q.set('kind', params.kind);
+    return apiRequest(`/admin/error-reports?${q.toString()}`);
+  },
+
+  getErrorReportById: (id: string) =>
+    apiRequest(`/admin/error-reports/${id}`),
+
+  getErrorReportStatusCounts: () =>
+    apiRequest('/admin/error-reports/status-counts'),
+
+  updateErrorReportStatus: (id: string, data: { status: string; adminNote?: string }) =>
+    apiRequest(`/admin/error-reports/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 };

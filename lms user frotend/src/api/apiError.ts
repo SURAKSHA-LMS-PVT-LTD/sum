@@ -1,9 +1,10 @@
 /**
  * Universal API Error Handling
- * 
+ *
  * All backend endpoints return errors in a consistent shape.
  * This module provides the error class, parser, and handler.
  */
+import { errorReportService, ERROR_REPORT_KINDS } from '@/services/errorReportService';
 
 // ============= Types =============
 
@@ -229,13 +230,24 @@ export function handleApiError(err: unknown, options?: HandleApiErrorOptions): s
     return userMessage;
   }
 
-  // 3. Server error (500+) — generic message + requestId
+  // 3. Server error (500+) — generic message + requestId; silently report to backend
   if (apiErr.isServerError) {
     const serverMsg = apiErr.requestId && apiErr.requestId !== 'unknown'
       ? `Something went wrong. Please try again. (Ref: ${apiErr.requestId})`
       : 'Something went wrong. Please try again later.';
     options?.onToast?.(serverMsg, 'error');
     options?.onServerError?.(apiErr.requestId);
+    // Auto-report silently — no user interaction needed
+    errorReportService.submit({
+      kind: ERROR_REPORT_KINDS.API_5XX,
+      errorMessage: apiErr.rawMessage.slice(0, 500),
+      httpStatus: apiErr.statusCode,
+      requestId: apiErr.requestId,
+      apiPath: apiErr.path,
+      pageUrl: typeof location !== 'undefined' ? location.href : '',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      appVersion: typeof __APP_BUILD_HASH__ !== 'undefined' ? __APP_BUILD_HASH__.substring(0, 8) : undefined,
+    });
     return serverMsg;
   }
 

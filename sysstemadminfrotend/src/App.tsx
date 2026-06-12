@@ -44,6 +44,7 @@ import InstituteBillingManagementPage from "./pages/InstituteBillingManagementPa
 import BillingOverviewPage from "./pages/BillingOverviewPage";
 import InstituteCreditsManagementPage from "./pages/InstituteCreditsManagementPage";
 import CollectPhysicalPaymentPage from "./pages/CollectPhysicalPaymentPage";
+import ErrorReportsPage from "./pages/ErrorReportsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -106,6 +107,7 @@ const App = () => (
             <Route path="/dashboard/billing-overview" element={<BillingOverviewPage />} />
             <Route path="/dashboard/institute-credits" element={<InstituteCreditsManagementPage />} />
             <Route path="/dashboard/collect-payment" element={<CollectPhysicalPaymentPage />} />
+            <Route path="/dashboard/error-reports" element={<ErrorReportsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

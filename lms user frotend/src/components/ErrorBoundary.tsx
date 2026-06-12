@@ -1,6 +1,7 @@
 import React from 'react';
 import { isChunkLoadError } from '@/main';
 import html2canvas from 'html2canvas';
+import { errorReportService, ERROR_REPORT_KINDS } from '@/services/errorReportService';
 
 const RELOAD_TS_KEY = '__lms_last_chunk_reload';
 
@@ -94,34 +95,6 @@ function downloadDataUrl(dataUrl: string, filename: string) {
   a.click();
 }
 
-async function sendErrorReport(opts: {
-  errorMessage: string;
-  errorStack?: string;
-  componentStack?: string;
-  screenshotDataUrl?: string | null;
-  pageUrl: string;
-  userAgent: string;
-}) {
-  // Compose an email-style mailto link as fallback (no backend endpoint yet)
-  const subject = encodeURIComponent(`[LMS Error] ${opts.errorMessage.slice(0, 80)}`);
-  const body = encodeURIComponent(
-    `Page: ${opts.pageUrl}\n` +
-    `Error: ${opts.errorMessage}\n\n` +
-    `Stack:\n${opts.errorStack ?? 'N/A'}\n\n` +
-    `Component Stack:\n${opts.componentStack ?? 'N/A'}\n\n` +
-    `Browser: ${opts.userAgent}\n` +
-    `Time: ${new Date().toISOString()}\n\n` +
-    (opts.screenshotDataUrl ? '[Screenshot attached — downloaded separately]' : '[No screenshot]')
-  );
-
-  // Download screenshot automatically if available
-  if (opts.screenshotDataUrl) {
-    downloadDataUrl(opts.screenshotDataUrl, `lms-error-${Date.now()}.jpg`);
-  }
-
-  window.open(`mailto:support@suraksha.lk?subject=${subject}&body=${body}`);
-}
-
 // ── ErrorBoundary state UI ────────────────────────────────────────────────────
 
 type ErrorBoundaryState = {
@@ -185,13 +158,17 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBo
 
   handleSendReport = async () => {
     const { error, info, screenshotDataUrl } = this.state;
-    await sendErrorReport({
-      errorMessage: error?.message ?? 'Unknown error',
+    const appVersion = typeof __APP_BUILD_HASH__ !== 'undefined' ? __APP_BUILD_HASH__.substring(0, 8) : undefined;
+    await errorReportService.submit({
+      kind: ERROR_REPORT_KINDS.REACT_BOUNDARY,
+      errorMessage: (error?.message ?? 'Unknown error').slice(0, 500),
       errorStack: error?.stack,
       componentStack: info?.componentStack ?? undefined,
-      screenshotDataUrl,
+      screenshotDataUrl: screenshotDataUrl ?? undefined,
       pageUrl: location.href,
       userAgent: navigator.userAgent,
+      appVersion,
+      platform: typeof window !== 'undefined' && (window as any).__capacitor ? 'native' : 'web',
     });
     this.setState({ reportSent: true });
   };
@@ -350,5 +327,5 @@ function ErrorIcon({ kind }: { kind: ErrorKind }) {
 }
 
 export default ErrorBoundary;
-export { classifyError, captureScreenshot, sendErrorReport };
+export { classifyError, captureScreenshot };
 export type { ErrorKind };
