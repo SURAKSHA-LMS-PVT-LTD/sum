@@ -271,60 +271,60 @@ const ServicesDrawer: React.FC<ServicesDrawerProps> = ({ open, onOpenChange }) =
 
   return (
     <Drawer open={open} onOpenChange={handleOpenChange} routeName="services-drawer">
-      <DrawerContent className="max-h-[calc(var(--visual-vh,100dvh)-10px)] rounded-t-3xl border-border/70 bg-background/95 backdrop-blur-xl">
-        <DrawerHeader className="pb-2 sticky top-0 z-20 bg-background/90 backdrop-blur-xl border-b border-border/50">
-          <DrawerTitle className="text-lg font-bold text-foreground">Services</DrawerTitle>
-        </DrawerHeader>
-        {/* Search bar */}
-        <div className="px-4 pb-3 sticky top-[60px] z-20 bg-background/90 backdrop-blur-xl border-b border-border/30">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search services..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm bg-muted/50 border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
-            />
+      <DrawerContent className="rounded-t-3xl border-border/70 bg-background/95 backdrop-blur-xl">
+        {/* Sticky header — lives outside the scroll container so it never scrolls away */}
+        <div className="shrink-0">
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="text-lg font-bold text-foreground">Services</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-3 border-b border-border/40">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 text-sm bg-muted/50 border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+              />
+            </div>
           </div>
         </div>
-        <div className="relative flex-1 min-h-0">
-          <div className="pointer-events-none absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-background/95 to-transparent z-10" />
-          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background/95 to-transparent z-10" />
-          <div className="px-4 pb-8 pt-2 space-y-5">
-            {sections.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
-                <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No services found for "{searchQuery}"</p>
-              </div>
-            ) : (
-              sections.map((section) => (
-                <div key={section.title}>
-                  <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
-                    {section.title}
-                  </h3>
-                  <div className="space-y-1.5">
-                    {section.items.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleNavigate(item.id)}
-                        className="group flex items-center gap-3 w-full p-3 rounded-2xl text-left bg-card/70 border border-border/40 hover:border-border hover:bg-card active:scale-[0.985] transition-all duration-200"
-                      >
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${item.color} text-white shadow-sm group-hover:scale-105 transition-transform`}>
-                          <item.icon className="h-[18px] w-[18px]" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-foreground">{item.label}</p>
-                          <p className="text-[11px] text-muted-foreground">{item.description}</p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
-                      </button>
-                    ))}
-                  </div>
+
+        {/* Scrollable list */}
+        <div className="px-4 pb-8 pt-3 space-y-5">
+          {sections.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No services found for "{searchQuery}"</p>
+            </div>
+          ) : (
+            sections.map((section) => (
+              <div key={section.title}>
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                  {section.title}
+                </h3>
+                <div className="space-y-1.5">
+                  {section.items.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleNavigate(item.id)}
+                      className="group flex items-center gap-3 w-full p-3 rounded-2xl text-left bg-card/70 border border-border/40 hover:border-border hover:bg-card active:scale-[0.985] transition-all duration-200"
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${item.color} text-white shadow-sm group-hover:scale-105 transition-transform`}>
+                        <item.icon className="h-[18px] w-[18px]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground">{item.label}</p>
+                        <p className="text-[11px] text-muted-foreground">{item.description}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  ))}
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+            ))
+          )}
         </div>
       </DrawerContent>
     </Drawer>

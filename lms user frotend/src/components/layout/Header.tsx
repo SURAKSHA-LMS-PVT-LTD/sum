@@ -289,7 +289,7 @@ const Header = ({ onMenuClick }: HeaderProps) => {
                   <DrawerTitle className="text-lg font-bold">Switch Class</DrawerTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">{selectedInstitute?.shortName || selectedInstitute?.name || ''}</p>
                 </DrawerHeader>
-                <div className="px-4 pb-6 overflow-y-auto">
+                <div className="px-4 pb-6">
                   <button
                     onClick={() => {
                       setClassDrawerOpen(false);

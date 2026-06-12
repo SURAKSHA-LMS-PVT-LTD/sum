@@ -72,15 +72,16 @@ const DrawerContentInner = ({ className, children, forwardedRef, routeName, ...p
         if (typeof forwardedRef === 'function') forwardedRef(node)
         else if (forwardedRef) (forwardedRef as React.MutableRefObject<typeof node>).current = node
       }}
-      style={{ maxHeight: 'calc(var(--visual-vh, 100dvh) - 32px)' }}
       className={cn(
         "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+        "overflow-hidden",
         className
       )}
+      style={{ maxHeight: 'calc(var(--visual-vh, 100dvh) - 32px)' }}
       {...props}
     >
       <div className="mx-auto mt-4 h-2 w-[100px] shrink-0 rounded-full bg-muted" />
-      <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain">
         {children}
       </div>
     </DrawerPrimitive.Content>

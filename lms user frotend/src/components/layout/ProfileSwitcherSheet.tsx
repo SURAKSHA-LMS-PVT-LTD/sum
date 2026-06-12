@@ -181,7 +181,7 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
           <DrawerTitle className="text-base font-bold text-foreground">Switch Profile</DrawerTitle>
         </DrawerHeader>
 
-        <div className="overflow-y-auto px-4 pb-10 pt-3 space-y-1">
+        <div className="px-4 pb-10 pt-3 space-y-1">
 
           {/* ── Current Role Context Banner ──────────────────────────── */}
           {selectedInstitute && (
