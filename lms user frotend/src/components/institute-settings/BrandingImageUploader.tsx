@@ -3,6 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { uploadWithSignedUrl } from '@/utils/signedUploadHelper';
+import { deleteUploadedFile } from '@/utils/imageUploadHelper';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { Upload, Trash2, Loader2, ImageIcon } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiError';
@@ -59,6 +60,8 @@ export const BrandingImageUploader: React.FC<BrandingImageUploaderProps> = ({
     setUploading(true);
     try {
       const relativePath = await uploadWithSignedUrl(file, 'institute-images');
+      // Delete the old image from storage now that the new one is confirmed
+      if (currentUrl) deleteUploadedFile(currentUrl);
       // Keep the local blob preview (already visible); notify parent with the
       // relativePath so it can persist it to the backend on save.
       onUploaded(relativePath);
@@ -75,6 +78,7 @@ export const BrandingImageUploader: React.FC<BrandingImageUploaderProps> = ({
   };
 
   const handleRemove = () => {
+    if (currentUrl) deleteUploadedFile(currentUrl);
     setPreview(null);
     onRemoved();
   };

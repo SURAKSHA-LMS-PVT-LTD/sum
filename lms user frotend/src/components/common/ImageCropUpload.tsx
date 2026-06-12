@@ -12,7 +12,7 @@ import ReactCrop, {
   makeAspectCrop,
 } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { getSignedUrl, uploadToSignedUrl, verifyAndPublish } from '@/utils/imageUploadHelper';
+import { getSignedUrl, uploadToSignedUrl, verifyAndPublish, deleteUploadedFile } from '@/utils/imageUploadHelper';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { getErrorMessage } from '@/api/apiError';
 
@@ -191,11 +191,11 @@ const ImageCropUpload: React.FC<ImageCropUploadProps> = ({
     if (!imgRef.current || !completedCrop || !selectedFile) return;
 
     setIsUploading(true);
-    
+
     try {
       // Get cropped image blob
       const croppedImageBlob = await getCroppedImg(imgRef.current, completedCrop);
-      
+
       // Step 1: Get signed URL
       const fileName = selectedFile.name.replace(/\.[^/.]+$/, "") + '.png';
       const signedUrlData = await getSignedUrl(
@@ -215,7 +215,10 @@ const ImageCropUpload: React.FC<ImageCropUploadProps> = ({
       // Step 3: Verify and publish
       await verifyAndPublish(signedUrlData.relativePath);
 
-      // Step 4: Return relative path
+      // Step 4: Delete the old file if it was a managed storage path
+      if (currentImageUrl) deleteUploadedFile(currentImageUrl);
+
+      // Step 5: Return relative path
       onImageUpdate(signedUrlData.relativePath);
       
       toast({
@@ -292,10 +295,10 @@ const ImageCropUpload: React.FC<ImageCropUploadProps> = ({
           )}
           
           {currentImageUrl && (
-            <Button 
+            <Button
               type="button"
               variant="outline"
-              onClick={() => onImageUpdate('')}
+              onClick={() => { deleteUploadedFile(currentImageUrl); onImageUpdate(''); }}
               className="w-full sm:w-auto"
             >
               Remove Image

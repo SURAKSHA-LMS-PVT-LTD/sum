@@ -156,6 +156,22 @@ export const verifyAndPublish = async (relativePath: string): Promise<void> => {
   console.log('✅ File verified and published');
 };
 
+export const deleteUploadedFile = async (relativePath: string): Promise<void> => {
+  // Only delete paths that are actual storage relative paths (not external URLs, not empty)
+  if (!relativePath || relativePath.startsWith('http://') || relativePath.startsWith('https://')) return;
+  try {
+    const token = await getAccessTokenAsync();
+    if (!token) return;
+    await fetch(`${getBaseUrl()}/upload/file`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ relativePath }),
+    });
+  } catch {
+    // Fire-and-forget: storage cleanup should never break the UI
+  }
+};
+
 // Auto-detect folder based on file type and context
 export const detectFolder = (file: File, context?: 'homework' | 'payment' | 'correction' | 'profile' | 'institute' | 'subject' | 'student' | 'id-document' | 'institute-user'): string => {
   const mimeType = file.type;

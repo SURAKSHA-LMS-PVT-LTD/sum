@@ -12,6 +12,7 @@ import ReactCrop, {
 } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { uploadWithSignedUrl } from '@/utils/signedUploadHelper';
+import { deleteUploadedFile } from '@/utils/imageUploadHelper';
 import { instituteSettingsApi, type InstituteSettingsResponse } from '@/api/instituteSettings.api';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { getImageUrl } from '@/utils/imageUrlHelper';
@@ -122,6 +123,7 @@ export const ReportBannerUploader: React.FC<ReportBannerUploaderProps> = ({
       const fileName = selectedFile.name.replace(/\.[^/.]+$/, '') + '.png';
       const croppedFile = new File([blob], fileName, { type: 'image/png' });
       const relativePath = await uploadWithSignedUrl(croppedFile, 'institute-images');
+      if (currentDisplayUrl) deleteUploadedFile(currentDisplayUrl);
       const updated = await instituteSettingsApi.updateSettings(instituteId, { [settingsField]: relativePath });
       onUpdate(updated);
       toast({ title: 'Saved', description: `${label} updated successfully.` });
@@ -136,6 +138,7 @@ export const ReportBannerUploader: React.FC<ReportBannerUploaderProps> = ({
   const handleRemove = async () => {
     setRemoving(true);
     try {
+      if (currentDisplayUrl) deleteUploadedFile(currentDisplayUrl);
       const updated = await instituteSettingsApi.updateSettings(instituteId, { [settingsField]: null });
       onUpdate(updated);
       toast({ title: 'Removed', description: `${label} removed.` });

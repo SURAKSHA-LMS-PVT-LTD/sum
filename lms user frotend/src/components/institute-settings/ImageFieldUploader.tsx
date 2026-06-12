@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { instituteSettingsApi, InstituteSettingsResponse } from '@/api/instituteSettings.api';
 import { uploadWithSignedUrl } from '@/utils/signedUploadHelper';
+import { deleteUploadedFile } from '@/utils/imageUploadHelper';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { Upload, Trash2, Loader2, ImageIcon } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiError';
@@ -37,6 +38,7 @@ export const ImageFieldUploader: React.FC<ImageFieldUploaderProps> = ({
     setUploading(true);
     try {
       const relativePath = await uploadWithSignedUrl(file, 'institute-images');
+      if (currentDisplayUrl) deleteUploadedFile(currentDisplayUrl);
       const updated = await instituteSettingsApi.updateSettings(instituteId, {
         [settingsField]: relativePath,
       });
@@ -54,6 +56,7 @@ export const ImageFieldUploader: React.FC<ImageFieldUploaderProps> = ({
   const handleDelete = async () => {
     setUploading(true);
     try {
+      if (currentDisplayUrl) deleteUploadedFile(currentDisplayUrl);
       let result: InstituteSettingsResponse;
       if (field === 'logo') result = await instituteSettingsApi.deleteLogo(instituteId);
       else if (field === 'loading-gif') result = await instituteSettingsApi.deleteLoadingGif(instituteId);

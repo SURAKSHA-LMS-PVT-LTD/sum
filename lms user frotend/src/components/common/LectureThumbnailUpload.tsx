@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Image, Upload, Link2, Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getSignedUrl, uploadToSignedUrl, verifyAndPublish } from '@/utils/imageUploadHelper';
+import { getSignedUrl, uploadToSignedUrl, verifyAndPublish, deleteUploadedFile } from '@/utils/imageUploadHelper';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import ReactCrop, {
   type Crop,
@@ -113,6 +113,8 @@ const LectureThumbnailUpload: React.FC<LectureThumbnailUploadProps> = ({
       const signed = await getSignedUrl('lecture-thumbnails', fileName, 'image/jpeg', blob.size);
       await uploadToSignedUrl(signed.uploadUrl, blob, signed.fields);
       await verifyAndPublish(signed.relativePath);
+      // Delete old thumbnail if it was a managed storage path
+      if (thumbnailUrl) deleteUploadedFile(thumbnailUrl);
       // Create a local blob URL for immediate preview (avoids CDN propagation delay)
       if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
       setLocalPreviewUrl(URL.createObjectURL(blob));
@@ -148,6 +150,7 @@ const LectureThumbnailUpload: React.FC<LectureThumbnailUploadProps> = ({
   const handleRemove = () => {
     if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
     setLocalPreviewUrl('');
+    if (thumbnailUrl) deleteUploadedFile(thumbnailUrl);
     onChange('');
   };
 

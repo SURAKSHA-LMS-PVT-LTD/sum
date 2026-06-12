@@ -10,7 +10,7 @@ import ReactCrop, {
 } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { getSignedUrl, uploadToSignedUrl, verifyAndPublish } from '@/utils/imageUploadHelper';
+import { getSignedUrl, uploadToSignedUrl, verifyAndPublish, deleteUploadedFile } from '@/utils/imageUploadHelper';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 
 interface SubjectImageUploadProps {
@@ -215,6 +215,9 @@ const SubjectImageUpload: React.FC<SubjectImageUploadProps> = ({ value, onChange
 
       await verifyAndPublish(signedUrlData.relativePath);
 
+      // Delete old image if it was a managed storage path
+      if (value) deleteUploadedFile(value);
+
       setPreviewUrl(getImageUrl(signedUrlData.publicUrl));
       onChange(signedUrlData.publicUrl);
       
@@ -248,6 +251,7 @@ const SubjectImageUpload: React.FC<SubjectImageUploadProps> = ({ value, onChange
   };
 
   const handleRemove = () => {
+    if (value) deleteUploadedFile(value);
     setPreviewUrl('');
     setPendingBlob(null);
     if (fileInputRef.current) {
