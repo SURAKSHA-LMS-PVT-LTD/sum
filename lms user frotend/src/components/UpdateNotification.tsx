@@ -25,20 +25,12 @@ type State = 'booting' | 'idle' | 'reloading' | 'major';
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=lk.suraksha.lms';
 
 // How long to wait for the boot check before letting the user through (offline safety valve)
-const BOOT_CHECK_TIMEOUT_MS = 6_000;
+const BOOT_CHECK_TIMEOUT_MS = 3_000;
 
 function forceRefreshToLatestBuild() {
-  if (Capacitor.isNativePlatform()) {
-    // Native WebView: append cache-buster so the WebView re-fetches from the
-    // remote server URL (lms.suraksha.lk) instead of serving a cached page.
-    const url = new URL(window.location.href);
-    url.searchParams.set('_app_update', Date.now().toString());
-    window.location.replace(url.toString());
-  } else {
-    // Web browser: a plain hard-reload is enough — the browser will re-fetch
-    // index.html and pick up the new hashed bundle URLs from S3.
-    window.location.reload();
-  }
+  // Both native (local bundle) and web: a plain reload fetches the latest
+  // index.html and picks up new hashed bundle URLs.
+  window.location.reload();
 }
 
 const UpdateNotification: React.FC = () => {
@@ -122,10 +114,10 @@ const UpdateNotification: React.FC = () => {
   // ── Booting: brief blocking overlay while the version check runs ───────────
   if (state === 'booting') {
     return (
-      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white">
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-[#1976D2] border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm">Starting…</p>
+          <div className="w-10 h-10 border-4 border-muted border-t-primary rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">Starting…</p>
         </div>
       </div>
     );
@@ -134,11 +126,11 @@ const UpdateNotification: React.FC = () => {
   // ── Patch: silent "Updating app..." banner ──────────────────────────────────
   if (state === 'reloading') {
     return (
-      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/30 backdrop-blur-sm">
-        <div className="bg-white rounded-2xl shadow-2xl px-8 py-6 flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-[#1976D2] border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-800 font-semibold text-sm">Updating app…</p>
-          <p className="text-gray-400 text-xs">Loading latest version</p>
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="bg-card rounded-2xl shadow-2xl px-8 py-6 flex flex-col items-center gap-3 border border-border">
+          <div className="w-10 h-10 border-4 border-muted border-t-primary rounded-full animate-spin" />
+          <p className="text-foreground font-semibold text-sm">Updating app…</p>
+          <p className="text-muted-foreground text-xs">Loading latest version</p>
         </div>
       </div>
     );
@@ -147,11 +139,10 @@ const UpdateNotification: React.FC = () => {
   // ── Major: blocking Play Store prompt ───────────────────────────────────────
   if (state === 'major' && majorInfo) {
     return (
-      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#0f172a]/80 backdrop-blur-sm p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-5 text-center">
-          {/* Icon */}
-          <div className="w-16 h-16 rounded-full bg-[#E3F2FD] flex items-center justify-center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1976D2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+        <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-5 text-center border border-border">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
@@ -159,9 +150,9 @@ const UpdateNotification: React.FC = () => {
           </div>
 
           <div>
-            <h2 className="text-gray-900 font-bold text-lg mb-1">Update Required</h2>
-            <p className="text-gray-500 text-sm">
-              Version <span className="font-semibold text-[#1976D2]">{majorInfo.newSemver}</span> is
+            <h2 className="text-foreground font-bold text-lg mb-1">Update Required</h2>
+            <p className="text-muted-foreground text-sm">
+              Version <span className="font-semibold text-primary">{majorInfo.newSemver}</span> is
               available and requires a Play Store update to continue.
             </p>
           </div>
@@ -170,13 +161,13 @@ const UpdateNotification: React.FC = () => {
             href={PLAY_STORE_URL}
             target="_blank"
             rel="noreferrer"
-            className="w-full bg-[#1976D2] hover:bg-[#1565C0] text-white font-semibold py-3 px-6 rounded-xl text-sm transition-colors text-center block no-underline"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-xl text-sm transition-colors text-center block no-underline"
           >
             Update on Play Store
           </a>
 
-          <p className="text-gray-400 text-xs">
-            You must update to keep using Suraksha LMS.
+          <p className="text-muted-foreground text-xs">
+            You must update to keep using the app.
           </p>
         </div>
       </div>

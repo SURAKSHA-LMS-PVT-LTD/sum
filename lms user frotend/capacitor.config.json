@@ -21,8 +21,7 @@
   },
   "server": {
     "androidScheme": "https",
-    "url": "https://lms.suraksha.lk",
     "cleartext": false,
-    "allowNavigation": ["lms.suraksha.lk", "*.suraksha.lk"]
+    "allowNavigation": ["lms.suraksha.lk", "*.suraksha.lk", "storage.googleapis.com", "nominatim.openstreetmap.org"]
   }
 }

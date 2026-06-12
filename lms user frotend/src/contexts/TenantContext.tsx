@@ -87,11 +87,13 @@ function saveCachedBranding(key: string, data: TenantBranding): void {
   }
 }
 
-/** Apply favicon and title from a branding object immediately to the DOM. */
+/** Apply branding to the DOM: favicon, title, and SEO meta tags. */
 function applyBrandingToDom(data: TenantBranding): void {
+  const title = data.customAppName ?? data.name ?? '';
+
   if (data.faviconUrl) {
     const resolvedFavicon = getImageUrl(data.faviconUrl);
-    document.querySelectorAll("link[rel~='icon'], link[rel~='shortcut']").forEach((el) => {
+    document.querySelectorAll("link[rel~='icon'], link[rel~='shortcut'], link[rel='apple-touch-icon']").forEach((el) => {
       (el as HTMLLinkElement).href = resolvedFavicon;
     });
     if (!document.querySelector("link[rel~='icon']")) {
@@ -101,9 +103,25 @@ function applyBrandingToDom(data: TenantBranding): void {
       document.head.appendChild(link);
     }
   }
-  if (data.customAppName) {
-    document.title = data.customAppName;
+
+  if (title) {
+    document.title = title;
+    const appleMeta = document.getElementById('apple-web-app-title-meta');
+    if (appleMeta) appleMeta.setAttribute('content', title);
   }
+
+  // Update SEO meta so JS-rendering crawlers see institute content, not Suraksha's.
+  const setMeta = (selector: string, value: string) => {
+    const el = document.querySelector(selector);
+    if (el) el.setAttribute('content', value);
+  };
+  if (title) {
+    setMeta('meta[property="og:title"]', title);
+    setMeta('meta[name="twitter:title"]', title);
+  }
+  // Canonical URL — point to current origin
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) canonical.setAttribute('href', window.location.origin + '/');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -258,73 +276,53 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 // ═══════════════════════════════════════════════════════════════════
 
 const TenantLoadingScreen: React.FC<{ branding: TenantBranding | null }> = ({ branding }) => {
-  // Prefer the login GIF/image from loginBackgroundUrl when it's IMAGE type,
-  // fall back to loginLogoUrl, then logoUrl.
+  const isDark = document.documentElement.classList.contains('dark');
+
+  // Only use branding assets when we actually have cached branding — never show Suraksha assets.
   const gifUrl = branding?.loginBackgroundType === 'IMAGE' && branding.loginBackgroundUrl
     ? getImageUrl(branding.loginBackgroundUrl)
     : null;
-  const logoUrl = branding
-    ? getImageUrl(branding.loginLogoUrl ?? branding.logoUrl ?? '')
+  const logoUrl = branding?.loginLogoUrl ?? branding?.logoUrl
+    ? getImageUrl(branding.loginLogoUrl ?? branding!.logoUrl ?? '')
     : null;
   const appName = branding?.customAppName ?? branding?.name ?? '';
 
+  // Derive spinner and background from institute primary color when available,
+  // otherwise use a neutral theme-aware colour — never hardcode Suraksha blue.
+  const primary = branding?.primaryColorCode ?? null;
+  const bg = isDark ? '#0f1117' : '#f8fafc';
+  const spinnerTrack = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+  const spinnerFill = primary ?? (isDark ? '#94a3b8' : '#64748b');
+  const textColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)';
+
   if (gifUrl) {
     return (
-      <div
-        style={{
-          position: 'fixed', inset: 0,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          background: '#0f172a',
-          zIndex: 9999,
-          gap: 16,
-        }}
-      >
+      <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: bg, zIndex: 9999, gap: 16 }}>
         <img
           src={gifUrl}
           alt={appName}
           style={{ maxWidth: 260, maxHeight: 200, objectFit: 'contain', borderRadius: 12 }}
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
         />
-        {appName && (
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: 500, margin: 0 }}>{appName}</p>
-        )}
+        {appName && <p style={{ color: textColor, fontSize: 14, fontWeight: 500, margin: 0 }}>{appName}</p>}
+        <style>{`@keyframes _tspin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        background: '#0f172a',
-        zIndex: 9999,
-        gap: 16,
-      }}
-    >
+    <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: bg, zIndex: 9999, gap: 16 }}>
       {logoUrl && (
         <img
           src={logoUrl}
           alt={appName}
-          style={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 12 }}
+          style={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 12, marginBottom: 4 }}
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
         />
       )}
-      <div
-        style={{
-          width: 40, height: 40,
-          borderRadius: '50%',
-          border: '3px solid rgba(255,255,255,0.15)',
-          borderTopColor: '#60a5fa',
-          animation: 'spin 0.8s linear infinite',
-        }}
-      />
-      {appName && (
-        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 500, margin: 0 }}>{appName}</p>
-      )}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${spinnerTrack}`, borderTopColor: spinnerFill, animation: '_tspin 0.8s linear infinite' }} />
+      {appName && <p style={{ color: textColor, fontSize: 13, fontWeight: 500, margin: 0 }}>{appName}</p>}
+      <style>{`@keyframes _tspin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };

@@ -19,7 +19,12 @@ const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // Poll every 5 minutes
 const CURRENT_HASH = typeof __APP_BUILD_HASH__ !== 'undefined' ? __APP_BUILD_HASH__ : '__DEV__';
 const CURRENT_MAJOR = typeof __APP_MAJOR__ !== 'undefined' ? __APP_MAJOR__ : 1;
 
-const VERSION_URL = '/version.json';
+// On native (local bundle), version.json is served from the bundled assets at
+// capacitor://localhost. The bundled version.json reflects the installed APK build,
+// so the remote check must point to the live deployment server to detect updates.
+const VERSION_URL = Capacitor.isNativePlatform()
+  ? 'https://lms.suraksha.lk/version.json'
+  : '/version.json';
 
 let checkIntervalId: ReturnType<typeof setInterval> | null = null;
 let startupTimeoutId: ReturnType<typeof setTimeout> | null = null;

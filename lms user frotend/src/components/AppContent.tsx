@@ -893,8 +893,6 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <Appearance />;
         case 'institute-profile':
           return <InstituteProfile />;
-        case 'institute-settings':
-          return <InstituteSettingsPage />;
         case 'organizations':
           return <FeatureGatedPage featureKey="organizations" component={<Organizations />} />;
         case 'institute-payments':
@@ -1138,8 +1136,6 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <Appearance />;
         case 'institute-profile':
           return <InstituteProfile />;
-        case 'institute-settings':
-          return <InstituteSettingsPage />;
         case 'institute-billing':
           return <FeatureGatedPage featureKey="institute-billing" component={<InstituteBillingPage />} />;
         case 'institute-credits':
@@ -1236,8 +1232,6 @@ const AppContent = ({ initialPage }: AppContentProps) => {
           return <Appearance />;
         case 'institute-profile':
           return <InstituteProfile />;
-        case 'institute-settings':
-          return <InstituteSettingsPage />;
         case 'collect-physical-payment':
           return <FeatureGatedPage featureKey="collect-physical-payment" component={<CollectPhysicalPayment />} />;
         case 'settings':

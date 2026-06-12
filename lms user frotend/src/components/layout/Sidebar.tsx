@@ -490,7 +490,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         selectedInstitute
           ? { id: 'institute-profile', label: 'My Profile', icon: User, alwaysShow: true }
           : { id: 'profile', label: 'My Profile', icon: User, alwaysShow: true },
-        ...(selectedInstitute && !selectedClass ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
         { id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true },
       ]});
 
@@ -590,7 +589,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         selectedInstitute
           ? { id: 'institute-profile', label: 'My Profile', icon: User, alwaysShow: true }
           : { id: 'profile', label: 'My Profile', icon: User, alwaysShow: true },
-        ...(selectedInstitute && !selectedClass ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
         { id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true },
       ]});
 
@@ -894,7 +892,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       groups.push({ id: 'account', label: 'Account', icon: User, items: [
         { id: 'profile', label: 'My Profile', icon: User, alwaysShow: true },
         ...(selectedInstitute && !selectedClass ? [{ id: 'institute-profile', label: 'Institute Profile', icon: Building2, alwaysShow: true }] : []),
-        ...(selectedInstitute && !selectedClass ? [{ id: 'institute-settings', label: 'Institute Settings', icon: Settings, alwaysShow: true }] : []),
         { id: 'settings', label: 'Settings', icon: Settings, alwaysShow: true },
       ]});
 

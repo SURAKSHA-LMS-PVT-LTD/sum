@@ -11,15 +11,20 @@ interface AppLoadingScreenProps {
 const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ message = 'Loading...', iconUrl }) => {
   const tenant = useContext(TenantContext);
   const branding = tenant?.branding ?? null;
+  const isTenant = tenant?.isTenantLogin ?? false;
 
-  // Prefer the institute's login GIF/image (loginBackgroundUrl when type=IMAGE)
-  // for a branded animated loading screen, then fall back to logo, then app default.
+  // Institute GIF splash (if configured)
   const gifUrl = branding?.loginBackgroundType === 'IMAGE' && branding.loginBackgroundUrl
     ? getImageUrl(branding.loginBackgroundUrl)
     : null;
+
+  // On tenant domains only show the institute's own logo.
+  // Never show Suraksha's app icon on a custom domain / subdomain.
   const brandingLogo = branding ? getImageUrl(branding.loginLogoUrl ?? branding.logoUrl ?? '') : null;
   const effectiveIcon = iconUrl ?? brandingLogo;
-  const resolvedIcon = effectiveIcon || appIcon;
+  // On tenant domains: no logo at all until branding is available (effectiveIcon may be null).
+  // On Suraksha domain: fall back to the app icon.
+  const resolvedIcon = effectiveIcon || (isTenant ? null : appIcon);
 
   if (gifUrl) {
     return (
@@ -41,14 +46,19 @@ const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ message = 'Loading.
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
       <div className="text-center space-y-5">
-        <div className="relative mx-auto w-20 h-20">
-          <img
-            src={resolvedIcon}
-            alt="App Logo"
-            className="relative w-20 h-20 rounded-2xl shadow-lg object-contain"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).src = appIcon; }}
-          />
-        </div>
+        {resolvedIcon && (
+          <div className="relative mx-auto w-20 h-20">
+            <img
+              src={resolvedIcon}
+              alt="App Logo"
+              className="relative w-20 h-20 rounded-2xl shadow-lg object-contain"
+              onError={(e) => {
+                if (!isTenant) (e.currentTarget as HTMLImageElement).src = appIcon;
+                else (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+        )}
 
         <div className="w-48 h-1 bg-muted rounded-full overflow-hidden mx-auto">
           <div

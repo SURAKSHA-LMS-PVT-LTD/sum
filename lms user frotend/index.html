@@ -152,6 +152,34 @@
             return;
           }
 
+          // Tenant domain: blank all Suraksha-specific SEO meta immediately so crawlers
+          // never see Suraksha content on custom domains, even before React hydrates.
+          function blankSurakshaMeta() {
+            var metasToBlank = ['description', 'keywords', 'author'];
+            for (var m = 0; m < metasToBlank.length; m++) {
+              var el = document.querySelector('meta[name="' + metasToBlank[m] + '"]');
+              if (el) el.setAttribute('content', '');
+            }
+            var ogMetas = ['og:title', 'og:description', 'og:site_name', 'og:image', 'og:url'];
+            for (var o = 0; o < ogMetas.length; o++) {
+              var og = document.querySelector('meta[property="' + ogMetas[o] + '"]');
+              if (og) og.setAttribute('content', '');
+            }
+            var twMetas = ['twitter:title', 'twitter:description', 'twitter:image'];
+            for (var t = 0; t < twMetas.length; t++) {
+              var tw = document.querySelector('meta[name="' + twMetas[t] + '"]');
+              if (tw) tw.setAttribute('content', '');
+            }
+            // Blank canonical — will be set correctly by React
+            var canonical = document.querySelector('link[rel="canonical"]');
+            if (canonical) canonical.setAttribute('href', window.location.origin + '/');
+            // Remove JSON-LD — Suraksha structured data must not appear on custom domains
+            var jsonld = document.querySelector('script[type="application/ld+json"]');
+            if (jsonld) jsonld.parentNode && jsonld.parentNode.removeChild(jsonld);
+          }
+
+          blankSurakshaMeta();
+
           var raw = localStorage.getItem(cacheKey);
           if (!raw) {
             document.title = '';
@@ -165,6 +193,11 @@
           if (resolvedTitle) {
             document.title = resolvedTitle;
             if (appleTitleMeta) appleTitleMeta.setAttribute('content', resolvedTitle);
+            // Also update OG title from cache
+            var ogTitleEl = document.querySelector('meta[property="og:title"]');
+            if (ogTitleEl) ogTitleEl.setAttribute('content', resolvedTitle);
+            var twTitleEl = document.querySelector('meta[name="twitter:title"]');
+            if (twTitleEl) twTitleEl.setAttribute('content', resolvedTitle);
           } else {
             document.title = '';
             if (appleTitleMeta) appleTitleMeta.setAttribute('content', '');
@@ -187,6 +220,14 @@
   </head>
 
   <body style="margin:0">
+    <!-- Pre-paint background: matches the CSS --background variable in light/dark modes
+         so there is never a white/blue flash before the app bundle finishes painting. -->
+    <script>
+      (function() {
+        var isDark = document.documentElement.classList.contains('dark');
+        document.body.style.background = isDark ? 'hsl(222,20%,10%)' : 'hsl(210,20%,98%)';
+      })();
+    </script>
     <div id="google_translate_element" style="position:absolute;top:-9999px;left:-9999px;visibility:hidden;"></div>
     <div id="root" class="notranslate"></div>
     <div id="portal-root"></div>
