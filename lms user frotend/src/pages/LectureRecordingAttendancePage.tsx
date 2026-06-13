@@ -27,6 +27,17 @@ interface Student {
   email?: string;
 }
 
+/** Safe avatar initials: filters empty segments from split so double/leading spaces never produce undefined characters. */
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 export default function LectureRecordingAttendancePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -40,16 +51,24 @@ export default function LectureRecordingAttendancePage() {
   const [classLectures, setClassLectures] = useState<Lecture[]>([]);
   const [subjectLectures, setSubjectLectures] = useState<Lecture[]>([]);
   const [loadingLectures, setLoadingLectures] = useState(false);
-  const [includeSubject, setIncludeSubject] = useState(
-    () => searchParams.get('incSubj') === '1' && !!currentSubjectId
-  );
+
+  // includeSubject is initialised in a useEffect (not useState initialiser) so it
+  // correctly reacts when currentSubjectId becomes available after auth resolves.
+  const [includeSubject, setIncludeSubject] = useState(false);
+  useEffect(() => {
+    if (currentSubjectId) {
+      setIncludeSubject(searchParams.get('incSubj') === '1');
+    }
+    // Only run once when currentSubjectId first becomes available
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSubjectId]);
 
   // Selected IDs in URL
   const selectedIds = (searchParams.get('ids') || '').split(',').filter(Boolean);
   const setSelectedIds = (ids: string[]) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
-      if (ids.length) next.set('ids', ids.join(',')); else next.delete('ids');
+      if (ids.length) next.set('ids', [...new Set(ids)].join(',')); else next.delete('ids');
       return next;
     }, { replace: true });
   };
@@ -78,7 +97,9 @@ export default function LectureRecordingAttendancePage() {
           instituteId: currentInstituteId, classId: currentClassId, subjectId: currentSubjectId,
         });
         const arr: Lecture[] = (res as any)?.data ?? [];
-        setSubjectLectures(arr.filter(l => l.recAttendanceEnabled));
+        // Only keep lectures NOT already in classLectures to prevent duplicates
+        const classIds = new Set(clsArr.map(l => l.id));
+        setSubjectLectures(arr.filter(l => l.recAttendanceEnabled && !classIds.has(l.id)));
       } else {
         setSubjectLectures([]);
       }
@@ -91,7 +112,7 @@ export default function LectureRecordingAttendancePage() {
 
   useEffect(() => { fetchLectures(); }, [fetchLectures]);
 
-  // Load students using the same API as the /students page
+  // Load students
   const fetchStudents = useCallback(async () => {
     if (!currentInstituteId || !currentClassId) return;
     setLoadingStudents(true);
@@ -125,12 +146,18 @@ export default function LectureRecordingAttendancePage() {
 
   useEffect(() => { if (step === 'students') fetchStudents(); }, [step, fetchStudents]);
 
+  // allLectures is already deduplicated at fetch time (subjectLectures excludes class IDs)
   const allLectures = [...classLectures, ...subjectLectures];
   const selectedLectures = allLectures.filter(l => selectedIds.includes(l.id));
   const filteredStudents = students.filter(s => (s.name || '').toLowerCase().includes(studentSearch.toLowerCase()));
 
   const toggleLecture = (id: string) =>
     setSelectedIds(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]);
+
+  const handleSelectAll = () => {
+    // Use Set to guarantee no duplicate IDs even if data ever changes
+    setSelectedIds([...new Set(allLectures.map(l => l.id))]);
+  };
 
   const goToStudent = (studentId: string) => {
     const url = buildSidebarUrl('lecture-recording-student', {
@@ -164,8 +191,8 @@ export default function LectureRecordingAttendancePage() {
 
   return (
     <PageContainer maxWidth="full" className="h-full">
-      {/* Page Header */}
-      <div className="flex items-center gap-3 mb-6">
+      {/* Page Header — wraps on small screens */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         <Button
           variant="outline"
           size="icon"
@@ -180,7 +207,7 @@ export default function LectureRecordingAttendancePage() {
               <Video className="h-4 w-4 text-purple-500" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg font-bold tracking-tight leading-none">Recording Session Attendance</h1>
+              <h1 className="text-base sm:text-lg font-bold tracking-tight leading-none">Recording Session Attendance</h1>
               <p className="text-xs text-muted-foreground mt-0.5 truncate">
                 {selectedClass.name}{selectedSubject ? ` · ${selectedSubject.name}` : ''} · {selectedInstitute.name}
               </p>
@@ -188,7 +215,7 @@ export default function LectureRecordingAttendancePage() {
           </div>
         </div>
 
-        {/* Subject toggle */}
+        {/* Subject toggle — moves to its own row on very small screens */}
         {canManage && currentSubjectId && (
           <label className="flex items-center gap-2 text-xs cursor-pointer select-none bg-muted/60 hover:bg-muted px-3 py-2 rounded-xl border border-border/40 transition-colors shrink-0">
             <Checkbox
@@ -208,41 +235,43 @@ export default function LectureRecordingAttendancePage() {
         )}
       </div>
 
-      {/* Progress Steps */}
-      <div className="flex items-center gap-0 mb-6">
-        {[
-          { key: 'select', label: 'Select Lectures', icon: Video, num: 1 },
-          { key: 'students', label: 'Select Student', icon: Users, num: 2 },
-          { key: 'activity', label: 'View Activity', icon: CheckCircle2, num: 3 },
-        ].map((s, i, arr) => {
-          const isActive = s.key === step;
-          const isDone = (step === 'students' && s.key === 'select') || ((step as string) === 'activity' && s.key !== 'activity');
-          return (
-            <React.Fragment key={s.key}>
-              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
-                isActive ? 'bg-primary text-primary-foreground shadow-sm' :
-                isDone ? 'bg-primary/10 text-primary' : 'bg-muted/50 text-muted-foreground'
-              }`}>
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                  isActive ? 'bg-primary-foreground/20' : isDone ? 'bg-primary/20' : 'bg-background/50'
+      {/* Progress Steps — overflow-x-auto so they never clip on small screens */}
+      <div className="overflow-x-auto -mx-1 px-1 pb-1 mb-6">
+        <div className="flex items-center gap-0 min-w-max">
+          {[
+            { key: 'select', label: 'Select Lectures', icon: Video, num: 1 },
+            { key: 'students', label: 'Select Student', icon: Users, num: 2 },
+            { key: 'activity', label: 'View Activity', icon: CheckCircle2, num: 3 },
+          ].map((s, i, arr) => {
+            const isActive = s.key === step;
+            const isDone = (step === 'students' && s.key === 'select') || ((step as string) === 'activity' && s.key !== 'activity');
+            return (
+              <React.Fragment key={s.key}>
+                <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+                  isActive ? 'bg-primary text-primary-foreground shadow-sm' :
+                  isDone ? 'bg-primary/10 text-primary' : 'bg-muted/50 text-muted-foreground'
                 }`}>
-                  {isDone ? <CheckCircle2 className="h-3 w-3" /> : s.num}
+                  <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                    isActive ? 'bg-primary-foreground/20' : isDone ? 'bg-primary/20' : 'bg-background/50'
+                  }`}>
+                    {isDone ? <CheckCircle2 className="h-3 w-3" /> : s.num}
+                  </div>
+                  <span className="text-xs font-medium whitespace-nowrap">{s.label}</span>
                 </div>
-                <span className="text-xs font-medium hidden sm:block">{s.label}</span>
-              </div>
-              {i < arr.length - 1 && (
-                <div className={`h-px w-6 shrink-0 ${isDone ? 'bg-primary/40' : 'bg-border'}`} />
-              )}
-            </React.Fragment>
-          );
-        })}
+                {i < arr.length - 1 && (
+                  <div className={`h-px w-6 shrink-0 ${isDone ? 'bg-primary/40' : 'bg-border'}`} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
       </div>
 
       {/* STEP 1 — Select Lectures */}
       {step === 'select' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* Lecture List */}
-          <div className="lg:col-span-2">
+          <div className="md:col-span-2">
             <Card className="border-border/60">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
                 <div>
@@ -253,7 +282,7 @@ export default function LectureRecordingAttendancePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setSelectedIds(allLectures.map(l => l.id))}
+                    onClick={handleSelectAll}
                     className="text-[11px] text-primary hover:underline font-medium"
                   >
                     Select All
@@ -276,7 +305,8 @@ export default function LectureRecordingAttendancePage() {
                   </Button>
                 </div>
               </div>
-              <CardContent className="p-3 space-y-1 max-h-[calc(100vh-360px)] overflow-y-auto">
+              {/* Scroll area: use a safe mobile height that accounts for stacked mobile elements */}
+              <CardContent className="p-3 space-y-1 max-h-[50vh] md:max-h-[calc(100vh-360px)] overflow-y-auto">
                 {loadingLectures ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <Skeleton key={i} className="h-14 w-full rounded-xl" />
@@ -379,9 +409,9 @@ export default function LectureRecordingAttendancePage() {
 
       {/* STEP 2 — Select Student */}
       {step === 'students' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* Student List */}
-          <div className="lg:col-span-2">
+          <div className="md:col-span-2">
             <Card className="border-border/60">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
                 <div>
@@ -415,7 +445,8 @@ export default function LectureRecordingAttendancePage() {
                 </div>
               </div>
 
-              <CardContent className="p-3 max-h-[calc(100vh-380px)] overflow-y-auto space-y-1">
+              {/* Scroll area: safe mobile height */}
+              <CardContent className="p-3 max-h-[50vh] md:max-h-[calc(100vh-380px)] overflow-y-auto space-y-1">
                 {loadingStudents ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="flex items-center gap-3 p-3">
@@ -442,7 +473,7 @@ export default function LectureRecordingAttendancePage() {
                   </div>
                 ) : (
                   filteredStudents.map(student => {
-                    const initials = student.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+                    const initials = getInitials(student.name);
                     return (
                       <button
                         key={student.id}

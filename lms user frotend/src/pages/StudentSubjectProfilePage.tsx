@@ -60,16 +60,17 @@ const StudentSubjectProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { instituteId } = useParams<{ instituteId: string }>();
   const location = useLocation();
-  const classIdMatch = location.pathname.match(/\/class\/([^\/]+)/);
+  const classIdMatch = location.pathname.match(/\/class\/([^/]+)/);
   const classId = classIdMatch ? classIdMatch[1] : undefined;
-  const subjectIdMatch = location.pathname.match(/\/subject\/([^\/]+)/);
+  const subjectIdMatch = location.pathname.match(/\/subject\/([^/]+)/);
   const subjectId = subjectIdMatch ? subjectIdMatch[1] : undefined;
-  const studentIdMatch = location.pathname.match(/\/student\/([^\/]+)\/profile/);
+  const studentIdMatch = location.pathname.match(/\/student\/([^/]+)\/profile/);
   const studentId = studentIdMatch ? studentIdMatch[1] : undefined;
   const { selectedInstitute, selectedClass, selectedSubject } = useAuth();
 
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [loadingStudent, setLoadingStudent] = useState(true);
+  const [studentError, setStudentError] = useState<string | null>(null);
 
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['details']));
   const toggleSection = (id: string) => setOpenSections(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -83,6 +84,7 @@ const StudentSubjectProfilePage: React.FC = () => {
   const loadStudent = useCallback(async () => {
     if (!instituteId || !studentId) return;
     setLoadingStudent(true);
+    setStudentError(null);
     try {
       // Use class-profile aggregate endpoint if classId is available — returns full student object
       if (classId) {
@@ -134,7 +136,9 @@ const StudentSubjectProfilePage: React.FC = () => {
         mother: u?.mother ?? s?.mother ?? prev?.mother,
         guardian: u?.guardian ?? s?.guardian ?? prev?.guardian,
       }));
-    } catch {
+    } catch (e: any) {
+      // BUG-16: surface the error so the UI shows a retry instead of a blank page
+      setStudentError(e?.message || 'Failed to load student profile.');
     } finally {
       setLoadingStudent(false);
     }
@@ -186,6 +190,8 @@ const StudentSubjectProfilePage: React.FC = () => {
   const [imagePreviewOpen, setImagePreviewOpen] = React.useState<{url:string;title:string}|null>(null);
 
   if (loadingStudent) return <PageContainer><div className="flex justify-center py-32"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></PageContainer>;
+  // BUG-16: show error state instead of blank page when loadStudent fails
+  if (studentError) return <PageContainer><div className="flex flex-col items-center justify-center py-32 gap-4 text-center"><AlertCircle className="h-10 w-10 text-destructive/50" /><p className="text-sm text-muted-foreground">{studentError}</p><Button variant="outline" onClick={loadStudent}><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Retry</Button></div></PageContainer>;
 
   return (
     <PageContainer maxWidth="full">
@@ -310,22 +316,23 @@ const StudentSubjectProfilePage: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  {a.live?.sessions?.length > 0 && (
+                  {/* BUG-17: null-guard on sessions array before accessing length/map */}
+                  {(a.live?.sessions?.length ?? 0) > 0 && (
                     <div className="text-[10px] text-muted-foreground">
-                      <strong>Live Joins:</strong> {a.live.sessions.map((s: any, i: number) => (
+                      <strong>Live Joins:</strong> {(a.live?.sessions ?? []).map((s: any, i: number) => (
                         <span key={i} className="ml-1">
-                          {new Date(s.joinTime).toLocaleTimeString()} - {s.leaveTime ? new Date(s.leaveTime).toLocaleTimeString() : '...'}
-                          {i < a.live.sessions.length - 1 ? ',' : ''}
+                          {s.joinTime ? new Date(s.joinTime).toLocaleTimeString() : '?'} - {s.leaveTime ? new Date(s.leaveTime).toLocaleTimeString() : '...'}
+                          {i < (a.live?.sessions?.length ?? 0) - 1 ? ',' : ''}
                         </span>
                       ))}
                     </div>
                   )}
-                  {a.recording?.sessions?.length > 0 && (
+                  {(a.recording?.sessions?.length ?? 0) > 0 && (
                     <div className="text-[10px] text-muted-foreground mt-1">
-                      <strong>Rec Sessions ({a.recording.sessionCount}):</strong> {a.recording.sessions.map((s: any, i: number) => (
+                      <strong>Rec Sessions ({a.recording?.sessionCount ?? 0}):</strong> {(a.recording?.sessions ?? []).map((s: any, i: number) => (
                         <span key={i} className="ml-1">
-                          {new Date(s.startTime).toLocaleTimeString()} ({Math.floor(s.watchedSeconds / 60)}m)
-                          {i < a.recording.sessions.length - 1 ? ',' : ''}
+                          {s.startTime ? new Date(s.startTime).toLocaleTimeString() : '?'} ({Math.floor((s.watchedSeconds ?? 0) / 60)}m)
+                          {i < (a.recording?.sessions?.length ?? 0) - 1 ? ',' : ''}
                         </span>
                       ))}
                     </div>
@@ -386,16 +393,17 @@ const StudentSubjectProfilePage: React.FC = () => {
                       </div>
                       {/* First / last visit */}
                       <div className="flex gap-3 text-[10px] text-muted-foreground">
-                        <span>First: <span className="font-medium text-foreground">{new Date(a.watching.firstWatchedAt).toLocaleString()}</span></span>
-                        {a.watching.sessionCount > 1 && (
+                        {a.watching.firstWatchedAt && <span>First: <span className="font-medium text-foreground">{new Date(a.watching.firstWatchedAt).toLocaleString()}</span></span>}
+                        {(a.watching.sessionCount ?? 0) > 1 && a.watching.lastWatchedAt && (
                           <span>Last: <span className="font-medium text-foreground">{new Date(a.watching.lastWatchedAt).toLocaleString()}</span></span>
                         )}
                       </div>
                       {/* Per-visit breakdown */}
-                      {a.watching.sessions.length > 0 && (
+                      {/* BUG-17: null-guard on sessions before length check */}
+                      {(a.watching.sessions?.length ?? 0) > 0 && (
                         <div className="mt-0.5 space-y-1">
                           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Visit History</p>
-                          {a.watching.sessions.map((s: any) => (
+                          {(a.watching.sessions ?? []).map((s: any) => (
                             <div key={s.sessionId} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] bg-background/60 rounded-lg px-2 py-1.5 border border-border/40">
                               <span className="font-semibold text-muted-foreground">#{s.visitNumber}</span>
                               <span className="text-foreground">{new Date(s.startTime).toLocaleString()}</span>

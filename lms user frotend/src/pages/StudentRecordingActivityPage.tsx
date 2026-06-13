@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { lectureTrackingApi, RecordingSessionRow, RecordingActivityRow } from '@/api/lectureTracking.api';
@@ -26,6 +26,8 @@ export default function StudentRecordingActivityPage() {
   const [sessions, setSessions] = useState<Record<string, RecordingSessionRow[]>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // BUG-02: loadingRef tracks in-flight requests to prevent stale-closure races
+  const loadingRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!lectureIds.length || !currentInstituteId) return;
@@ -33,6 +35,7 @@ export default function StudentRecordingActivityPage() {
       const results: Lecture[] = [];
       for (const id of lectureIds) {
         try {
+          // BUG-07: include currentClassId and currentSubjectId in dep array via this effect
           const l = await lectureApi.getLectureById(id, false, { instituteId: currentInstituteId, classId: currentClassId, subjectId: currentSubjectId });
           results.push(l);
         } catch { /* skip */ }
@@ -40,21 +43,25 @@ export default function StudentRecordingActivityPage() {
       setLectures(results);
     };
     fetchAll();
-  }, [lectureIds.join(','), currentInstituteId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lectureIds.join(','), currentInstituteId, currentClassId, currentSubjectId]);
 
   const loadSessions = useCallback(async (lectureId: string) => {
-    if (sessions[lectureId] || loading[lectureId]) return;
+    // BUG-02: use ref to guard against stale closure reading old `loading` state
+    if (loadingRef.current[lectureId]) return;
+    loadingRef.current = { ...loadingRef.current, [lectureId]: true };
     setLoading(p => ({ ...p, [lectureId]: true }));
     try {
-      const rows = await lectureTrackingApi.getRecordingActivityReport(lectureId);
-      const studentSessions = rows.filter(r => r.userId === studentId);
+      // BUG-01: use per-student endpoint instead of fetching all students and filtering
+      const studentSessions = await lectureTrackingApi.getStudentRecordingSessions(lectureId, studentId);
       setSessions(p => ({ ...p, [lectureId]: studentSessions }));
     } catch {
       setSessions(p => ({ ...p, [lectureId]: [] }));
     } finally {
+      loadingRef.current = { ...loadingRef.current, [lectureId]: false };
       setLoading(p => ({ ...p, [lectureId]: false }));
     }
-  }, [studentId, sessions, loading]);
+  }, [studentId]);
 
   const toggleLecture = (lectureId: string) => {
     const isExp = !!expanded[lectureId];
@@ -398,6 +405,7 @@ function ActivityHeatmap({ activities }: { activities: RecordingActivityRow[] })
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtSec(s: number): string {
+  if (!Number.isFinite(s) || s < 0) return '0:00';
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = Math.floor(s % 60);

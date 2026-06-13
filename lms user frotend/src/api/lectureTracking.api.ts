@@ -363,6 +363,14 @@ class LectureTrackingApi {
       true,
     );
   }
+
+  getStudentRecordingSessions(lectureId: string, studentId: string): Promise<RecordingSessionRow[]> {
+    return request<RecordingSessionRow[]>(
+      `/lecture-tracking/reports/${lectureId}/recording?studentId=${encodeURIComponent(studentId)}`,
+      {},
+      true,
+    );
+  }
 }
 
 export const lectureTrackingApi = new LectureTrackingApi();

@@ -118,24 +118,32 @@ class SubjectRecordingsApi {
 
   // ─── Tracking ────────────────────────────────────────────────────────────
 
+  // BUG-17: type return as unknown[] instead of any[] to avoid implicit any spread
   async getStudentActivities(
     studentId: string,
     instituteId: string,
     classId: string,
     subjectId?: string,
     forceRefresh = false,
-  ): Promise<any[]> {
-    const params: any = { instituteId, classId };
+  ): Promise<unknown[]> {
+    const params: Record<string, string> = { instituteId, classId };
     if (subjectId) params.subjectId = subjectId;
-    return enhancedCachedClient.get<any[]>(
+    return enhancedCachedClient.get<unknown[]>(
       `/subject-recording-tracking/student/${studentId}/activities`,
       params,
       { ttl: 30000, forceRefresh },
     );
   }
 
-  async validateAccess(urlId: string): Promise<any> {
-    return apiClient.get(`/subject-recording-tracking/recording/access/${urlId}`);
+  // BUG-10: validateAccess must use the unauthenticated request helper (OptionalJwtAuthGuard on backend).
+  // Using apiClient (which always sends auth headers and throws on 401) breaks access for guests/public.
+  // Use lectureTrackingApi.validateSubjectRecordingAccess instead — it correctly handles optional auth.
+  // This method is kept for backwards compatibility but delegates to the correct implementation.
+  async validateAccess(urlId: string): Promise<unknown> {
+    // Do NOT use apiClient here — the endpoint uses OptionalJwtAuthGuard and must work without auth.
+    // Callers in ViewRecordingPage already use lectureTrackingApi.validateSubjectRecordingAccess directly.
+    const { lectureTrackingApi: trackingApi } = await import('./lectureTracking.api');
+    return trackingApi.validateSubjectRecordingAccess(urlId);
   }
 }
 

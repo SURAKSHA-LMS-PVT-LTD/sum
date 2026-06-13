@@ -184,6 +184,7 @@ export default function ViewRecordingPage() {
 
   // Session
   const [starting, setStarting] = useState(false);
+  const startingRef = useRef(false); // BUG-03: guard against double session start
   const sessionIdRef = useRef<string | null>(null);
   const activitiesRef = useRef<HeartbeatActivity[]>([]);
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -201,6 +202,8 @@ export default function ViewRecordingPage() {
   // Player refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const ytPlayerRef = useRef<any>(null);
+  // BUG-04: stable ref so unmount effect always calls the latest endSession
+  const endSessionRef = useRef<(useBeacon?: boolean) => void>(() => { });
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [descExpanded, setDescExpanded] = useState(false);
@@ -289,10 +292,10 @@ export default function ViewRecordingPage() {
           return;
         }
 
-        // Direct link to ?tab=playing — show join panel immediately then auto-start
+        // Direct link to ?tab=playing — set phase to join; auto-start is handled
+        // by a dedicated effect below so it always reads the current user value.
         if (requestedTab === 'playing') {
           setPhase('join');
-          void handleWatch(!user); // auto-start; guest if no user
           return;
         }
 
@@ -305,6 +308,24 @@ export default function ViewRecordingPage() {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlId, user?.id, isSubjectRecording]);
+
+  // Auto-start as soon as phase reaches 'join' and info is loaded:
+  //   - logged-in users: start immediately using their account (no confirmation step)
+  //   - ?tab=playing without a user: start as guest immediately
+  // Separated from the validate effect so `user` is always current, never a stale closure.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (phase !== 'join' || !info) return;
+    if (autoStartedRef.current) return;
+    // For logged-in users: always auto-start with their account.
+    // For guests arriving via ?tab=playing: auto-start as guest.
+    // For guests arriving normally (no ?tab=playing): let them fill the form.
+    const isPlayingTab = searchParams.get('tab') === 'playing';
+    if (!user && !isPlayingTab) return; // unauthenticated normal visit — show form
+    autoStartedRef.current = true;
+    void handleWatch(!user);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, info, user]);
 
   // ── Activity helpers ─────────────────────────────────────────────────────
 
@@ -319,7 +340,7 @@ export default function ViewRecordingPage() {
     if (navigator.sendBeacon) {
       navigator.sendBeacon(`${base}${path}`, new Blob([body], { type: 'application/json' }));
     }
-  }, [isSubjectRecording, getBaseUrl]);
+  }, [isSubjectRecording]); // BUG-05: getBaseUrl is a stable module export, not a dep
 
   const flushActivities = useCallback(async (beacon = false) => {
     const sid = sessionIdRef.current;
@@ -341,7 +362,7 @@ export default function ViewRecordingPage() {
       activitiesRef.current.unshift(...raw);
       setUnsynced(true);
     }
-  }, [isSubjectRecording, sendBeacon, getBaseUrl]);
+  }, [isSubjectRecording, sendBeacon]); // BUG-05: getBaseUrl is a stable module export
 
   const manualSync = useCallback(async () => {
     if (syncing) return;
@@ -420,9 +441,10 @@ export default function ViewRecordingPage() {
     if (flushTimerRef.current) { clearInterval(flushTimerRef.current); flushTimerRef.current = null; }
     const sid = sessionIdRef.current;
     if (!sid) return;
-    // Use sendBeacon for page-close so the request survives unmount
     void flushActivities(useBeacon);
     sessionIdRef.current = null;
+    // BUG-19: clear watchRanges on session end
+    setWatchRanges([]);
     const base = (getBaseUrl() ?? '').replace(/\/$/, '');
     const path = isSubjectRecording
       ? '/subject-recording-tracking/session/end'
@@ -436,7 +458,10 @@ export default function ViewRecordingPage() {
         : lectureTrackingApi.endRecordingSession.bind(lectureTrackingApi);
       endFn(sid, positionRef.current).catch(() => { });
     }
-  }, [flushActivities, isSubjectRecording]);
+  }, [flushActivities, isSubjectRecording]); // BUG-05: getBaseUrl is stable
+
+  // BUG-04: keep ref always pointing to latest endSession — unmount effect captures ref, not closure
+  useEffect(() => { endSessionRef.current = endSession; }, [endSession]);
 
   // Page-close: use sendBeacon (survives tab close / navigation away)
   useEffect(() => {
@@ -446,8 +471,8 @@ export default function ViewRecordingPage() {
     return () => window.removeEventListener('pagehide', handleUnload);
   }, [phase, endSession]);
 
-  // Component unmount: normal async end
-  useEffect(() => () => { endSession(false); }, [endSession]);
+  // BUG-04: unmount effect uses ref so it always calls latest endSession regardless of closure age
+  useEffect(() => () => { endSessionRef.current(false); }, []);
 
   useEffect(() => {
     if (phase !== 'welcome' || !info?.welcomeMessageEnabled) {
@@ -475,7 +500,8 @@ export default function ViewRecordingPage() {
       // Only cancel if this effect is cleaning up due to phase change (not re-render)
       // We do NOT cancel here — let speech finish naturally or until skipWelcome is called
     };
-  }, [phase]); // intentionally only phase — avoids double-fire on info/welcomeMessage changes
+  // BUG-13: include welcomeMessage so voice uses the latest formatted text
+  }, [phase, welcomeMessage]);
 
   useEffect(() => {
     if (phase !== 'welcome') {
@@ -550,6 +576,9 @@ export default function ViewRecordingPage() {
 
   const handleWatch = async (asGuest = false) => {
     if (!info) return;
+    // BUG-03: guard against double session start (e.g. fast double-click or auto-start race)
+    if (startingRef.current || sessionIdRef.current) return;
+    startingRef.current = true;
     setStarting(true);
     try {
       const guestPayload = asGuest ? {
@@ -570,19 +599,10 @@ export default function ViewRecordingPage() {
           });
       sessionIdRef.current = result.sessionId;
 
-      // Pre-fill watched ranges from prior session
-      if (result.watchedRanges?.length) {
-        setWatchRanges(result.watchedRanges);
-      }
-
       // Store last position — seek once the player fires its ready/canplay event
       resumePositionRef.current = result.lastPosition ?? 0;
 
-      syncTab('playing');
-
       // Periodic heartbeat + flush every FLUSH_INTERVAL_MS
-      // queueActivity auto-flushes on threshold; this ensures periodic delivery
-      // even when the queue stays below threshold (e.g. slow-watching sessions).
       flushTimerRef.current = setInterval(() => {
         const vid = videoRef.current;
         if (vid && !vid.paused) {
@@ -593,15 +613,21 @@ export default function ViewRecordingPage() {
           if (ytRate !== speedRef.current) speedRef.current = ytRate;
           queueActivity('HEARTBEAT', Math.floor(ytPlayerRef.current.getCurrentTime?.() ?? 0));
         } else {
-          // Not playing — just flush any queued events without adding a heartbeat
           void flushActivities();
         }
       }, FLUSH_INTERVAL_MS);
 
+      // BUG-19: clear stale ranges then pre-fill from prior session
+      setWatchRanges(result.watchedRanges?.length ? result.watchedRanges : []);
+
+      // BUG-12: setPhase before syncTab — phase and URL stay in sync
       setPhase('playing');
+      syncTab('playing');
     } catch (e: any) {
+      startingRef.current = false;
       setError(e?.message ?? 'Failed to start session.');
     } finally {
+      startingRef.current = false;
       setStarting(false);
     }
   };
@@ -850,8 +876,10 @@ export default function ViewRecordingPage() {
         </header>
 
         {/* Body */}
+        {/* BUG-18: on mobile the sidebar stacks below the video — give video a min-height so
+            native controls are never hidden behind the sidebar */}
         <div className="flex-1 flex flex-col sm:flex-row overflow-hidden min-h-0">
-          <div className="flex-1 p-2 sm:p-3 min-h-0 relative">
+          <div className={`flex-1 p-2 sm:p-3 min-h-0 relative ${sidebarOpen ? 'min-h-[30vh]' : ''} sm:min-h-0`}>
             <div className="w-full h-full relative rounded-lg overflow-hidden bg-black flex items-center justify-center">
               {info.platform === 'SYSTEM' && info.recordingUrl && (
                 <video
@@ -1221,18 +1249,33 @@ export default function ViewRecordingPage() {
             {/* Access granted — ready to watch */}
             {phase === 'join' && info && (
               <div className="space-y-5">
-                {user && (
-                  <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-50 border-2 border-emerald-200 text-emerald-800 text-sm">
-                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <span>Access verified — ready to watch.</span>
-                  </div>
-                )}
-
                 {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{error}</p>}
 
+                {/* Logged-in user: show their account and auto-start (no button needed) */}
                 {user && !useOtherAccount ? (
-                  <ConfirmIdentity user={user} busy={starting} error=""
-                    onConfirm={() => startWatch(false)} onSwitch={() => { setUseOtherAccount(true); setJoinMode('institute'); }} watchMode />
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-blue-50 border-2 border-blue-200">
+                      {user.imageUrl ? (
+                        <img src={getImageUrl(user.imageUrl)} alt="" className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-blue-200" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                          {(user.nameWithInitials?.[0] || user.name?.[0] || 'U').toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-slate-800 truncate">{user.nameWithInitials || user.name || user.email}</p>
+                        <p className="text-sm text-blue-600 font-medium">Signed in · Starting session…</p>
+                      </div>
+                      <svg className="w-5 h-5 animate-spin text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    </div>
+                    <button onClick={() => { setUseOtherAccount(true); setJoinMode('institute'); }}
+                      className="w-full py-2.5 rounded-2xl border-2 border-slate-200 text-slate-500 font-medium text-sm hover:bg-slate-50 transition">
+                      Not me — use a different account
+                    </button>
+                  </div>
                 ) : (
                   <div className="space-y-5">
                     {/* 3-Tab Join Switcher */}

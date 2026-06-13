@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import VideoPlayer from './VideoPlayer';
 
@@ -34,10 +34,8 @@ function getYouTubeEmbedUrl(url: string): string | null {
 
 function getDriveEmbedUrl(url: string): string | null {
   try {
-    // https://drive.google.com/file/d/FILE_ID/view  →  /preview
     const match = url.match(/\/file\/d\/([^/]+)/);
     if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
-    // already an embed/preview url
     if (url.includes('drive.google.com') && url.includes('preview')) return url;
   } catch {}
   return null;
@@ -56,7 +54,12 @@ const VideoPreviewDialog: React.FC<VideoPreviewDialogProps> = ({
   initialSpeed = 1,
 }) => {
   const dialogOpen = isOpen ?? open ?? false;
+
+  // liveSpeed only tracks real speed for native video — reset when dialog opens
   const [liveSpeed, setLiveSpeed] = useState(initialSpeed);
+  useEffect(() => {
+    if (dialogOpen) setLiveSpeed(initialSpeed);
+  }, [dialogOpen, initialSpeed]);
 
   const handleOpenChange = (v: boolean) => {
     onOpenChange?.(v);
@@ -88,10 +91,23 @@ const VideoPreviewDialog: React.FC<VideoPreviewDialogProps> = ({
         <DialogHeader>
           <div className="flex items-center gap-2 pr-6">
             <DialogTitle className="text-sm sm:text-base leading-snug flex-1">{title}</DialogTitle>
-            {/* Live speed badge — always visible so student knows their current speed */}
-            <span className={`shrink-0 px-2 py-0.5 rounded-full text-white text-xs font-bold ${speedBadgeColor}`}>
-              {liveSpeed}x
-            </span>
+
+            {/* Speed badge — only shown for native video, not for embeds */}
+            {!isEmbed ? (
+              <span
+                className={`shrink-0 px-2 py-0.5 rounded-full text-white text-xs font-bold ${speedBadgeColor}`}
+                title={`Current playback speed: ${liveSpeed}x`}
+              >
+                {liveSpeed}x
+              </span>
+            ) : (
+              <span
+                className="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border/50"
+                title="Speed control is not available for YouTube/Drive embeds"
+              >
+                embed
+              </span>
+            )}
           </div>
         </DialogHeader>
 
@@ -119,10 +135,10 @@ const VideoPreviewDialog: React.FC<VideoPreviewDialogProps> = ({
           )}
         </div>
 
-        {/* Speed note for embed players (YouTube/Drive don't report speed back) */}
+        {/* Clear notice for embed players — no misleading speed badge */}
         {isEmbed && (
           <p className="text-[10px] text-muted-foreground text-center -mt-1">
-            Speed changes inside YouTube/Drive players are not tracked automatically.
+            Speed control is managed inside the YouTube / Drive player — changes are not tracked here.
           </p>
         )}
       </DialogContent>

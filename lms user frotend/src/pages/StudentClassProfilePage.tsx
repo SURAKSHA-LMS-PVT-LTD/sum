@@ -105,9 +105,9 @@ const StudentClassProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { instituteId } = useParams<{ instituteId: string }>();
   const location = useLocation();
-  const classIdMatch = location.pathname.match(/\/class\/([^\/]+)/);
+  const classIdMatch = location.pathname.match(/\/class\/([^/]+)/);
   const classId = classIdMatch ? classIdMatch[1] : undefined;
-  const studentIdMatch = location.pathname.match(/\/student\/([^\/]+)\/profile/);
+  const studentIdMatch = location.pathname.match(/\/student\/([^/]+)\/profile/);
   const studentId = studentIdMatch ? studentIdMatch[1] : undefined;
   const { selectedInstitute, selectedClass } = useAuth();
   const { subjectsLabel } = useInstituteLabels();
@@ -225,9 +225,11 @@ const StudentClassProfilePage: React.FC = () => {
     if (!instituteId || !classId || !studentId) return;
     setLoadingPayments(true); setPaymentsError(null);
     try {
+      // BUG-11: fetch payment definitions without student submission limit,
+      // and student submissions separately — different natural limits
       const [paymentsRes, subsRes] = await Promise.all([
         classPaymentsApi.getClassPayments(instituteId, classId, 1, paymentsLimit),
-        classPaymentsApi.getStudentClassSubmissions(instituteId, classId, studentId, { limit: paymentsLimit }),
+        classPaymentsApi.getStudentClassSubmissions(instituteId, classId, studentId, { limit: 200 }),
       ]);
       const allPayments = paymentsRes?.data ?? [];
       const subs = subsRes?.data ?? [];
@@ -243,7 +245,8 @@ const StudentClassProfilePage: React.FC = () => {
       setPaymentsLoaded(true);
     } catch (e: any) { setPaymentsError(e?.message || 'Failed to load payment data.'); }
     finally { setLoadingPayments(false); }
-  }, [instituteId, classId, studentId, paymentsLoaded]);
+  // BUG-06: paymentsLoaded removed — it was causing infinite re-fetch loop
+  }, [instituteId, classId, studentId, paymentsLimit]);
 
   const loadActivities = useCallback(async () => {
     if (!instituteId || !classId || !studentId) return;
@@ -275,11 +278,14 @@ const StudentClassProfilePage: React.FC = () => {
     finally { setLoadingSubjects(false); }
   }, [instituteId, classId, subjectsLoaded]);
 
-  // ── Categorize attendance by markingMethod ────────────────────────────────
+  // BUG-15: use exhaustive enum values instead of fragile includes() substring matching
+  const LIVE_METHODS = new Set(['LIVE_LECTURE_ATTENDANCE', 'LIVE']);
+  const RECORDING_METHODS = new Set(['RECORDING_ATTENDANCE', 'RECORDING']);
+
   const categorizeAttendance = () => {
-    const live = attendance.filter(r => r.markingMethod === 'LIVE_LECTURE_ATTENDANCE' || r.markingMethod?.includes('LIVE'));
-    const recording = attendance.filter(r => r.markingMethod === 'RECORDING_ATTENDANCE' || r.markingMethod?.includes('RECORDING'));
-    const manual = attendance.filter(r => !r.markingMethod || r.markingMethod === 'MANUAL' || (!r.markingMethod?.includes('LIVE') && !r.markingMethod?.includes('RECORDING')));
+    const live = attendance.filter(r => r.markingMethod && LIVE_METHODS.has(r.markingMethod));
+    const recording = attendance.filter(r => r.markingMethod && RECORDING_METHODS.has(r.markingMethod));
+    const manual = attendance.filter(r => !r.markingMethod || r.markingMethod === 'MANUAL' || (!LIVE_METHODS.has(r.markingMethod!) && !RECORDING_METHODS.has(r.markingMethod!)));
     return { live, recording, manual };
   };
 
@@ -289,7 +295,8 @@ const StudentClassProfilePage: React.FC = () => {
     if (openSections.has('activities') && !activitiesLoaded) loadActivities();
   }, [openSections, paymentsLoaded, subjectsLoaded, activitiesLoaded, loadPayments, loadSubjects, loadActivities]);
 
-  useEffect(() => { if (paymentsLoaded) loadPayments(); }, [paymentsLimit]);
+  // BUG-14: include loadPayments in dep array so limit change uses the current closure
+  useEffect(() => { if (paymentsLoaded) loadPayments(); }, [paymentsLimit, loadPayments]);
 
   const instName = selectedInstitute?.name ?? `Institute ${instituteId}`;
   const className = selectedClass?.name ?? `Class ${classId ?? ''}`;

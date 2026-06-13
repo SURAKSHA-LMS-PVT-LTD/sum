@@ -540,7 +540,7 @@ const SubjectRecordingsPage: React.FC = () => {
     setIsDeleting(true);
     try {
       await subjectRecordingsApi.remove(deleteDialog.item.id);
-      toast({ title: 'Recording deactivated' });
+      toast({ title: 'Recording deleted' }); // BUG-21: was "Recording deactivated" — misleading
       setDeleteDialog({ open: false, item: null });
       load(true);
     } catch (e: any) {
