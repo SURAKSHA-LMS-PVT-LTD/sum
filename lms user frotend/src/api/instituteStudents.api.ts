@@ -147,12 +147,10 @@ class InstituteStudentsApi {
       queryParams.append('parent', String(params.parent));
     }
 
-    console.log('Fetching students for institute:', instituteId, 'class:', classId);
-
     const attendanceUrl = getAttendanceUrl();
     const endpoint = `${attendanceUrl}/institute-users/institute/${instituteId}/users/STUDENT/class/${classId}?${queryParams}`;
     const headers = await getApiHeadersAsync();
-    
+
     const response = await fetch(endpoint, { headers });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -176,8 +174,6 @@ class InstituteStudentsApi {
     if (params.parent !== undefined) {
       queryParams.append('parent', String(params.parent));
     }
-
-    console.log('Fetching students for institute:', instituteId, 'class:', classId, 'subject:', subjectId);
 
     const attendanceUrl = getAttendanceUrl();
     const endpoint = `${attendanceUrl}/institute-users/institute/${instituteId}/users/STUDENT/class/${classId}/subject/${subjectId}?${queryParams}`;
@@ -210,8 +206,6 @@ class InstituteStudentsApi {
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
 
-    console.log('Fetching institute student attendance for institute:', instituteId, 'with params:', Object.fromEntries(queryParams));
-
     const attendanceUrl = getAttendanceUrl();
     const endpoint = `${attendanceUrl}/api/attendance/institute/${instituteId}?${queryParams.toString()}`;
     const headers = await getApiHeadersAsync();
@@ -241,8 +235,6 @@ class InstituteStudentsApi {
     if (params.markingMethod) queryParams.append('markingMethod', params.markingMethod);
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
-
-    console.log('Fetching class student attendance for institute:', instituteId, 'class:', classId, 'with params:', Object.fromEntries(queryParams));
 
     const attendanceUrl = getAttendanceUrl();
     const endpoint = `${attendanceUrl}/api/attendance/institute/${instituteId}/class/${classId}?${queryParams.toString()}`;
@@ -274,8 +266,6 @@ class InstituteStudentsApi {
     if (params.markingMethod) queryParams.append('markingMethod', params.markingMethod);
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
-
-    console.log('Fetching subject student attendance for institute:', instituteId, 'class:', classId, 'subject:', subjectId, 'with params:', Object.fromEntries(queryParams));
 
     const attendanceUrl = getAttendanceUrl();
     const endpoint = `${attendanceUrl}/api/attendance/institute/${instituteId}/class/${classId}/subject/${subjectId}?${queryParams.toString()}`;

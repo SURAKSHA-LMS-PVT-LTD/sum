@@ -58,10 +58,7 @@ export const studentAttendanceApi = {
     queryParams.append('limit', (params.limit || 50).toString());
 
     const endpoint = `/api/attendance/institute/${params.instituteId}?${queryParams.toString()}`;
-    
-    console.log('=== INSTITUTE ATTENDANCE API CALL ===');
-    console.log('Endpoint:', endpoint);
-    
+
     return enhancedCachedClient.get<StudentAttendanceResponse>(endpoint, undefined, {
       forceRefresh,
       ttl: 10,
@@ -86,10 +83,7 @@ export const studentAttendanceApi = {
     queryParams.append('limit', (params.limit || 50).toString());
 
     const endpoint = `/api/attendance/institute/${params.instituteId}/class/${params.classId}?${queryParams.toString()}`;
-    
-    console.log('=== CLASS ATTENDANCE API CALL ===');
-    console.log('Endpoint:', endpoint);
-    
+
     return enhancedCachedClient.get<StudentAttendanceResponse>(endpoint, undefined, {
       forceRefresh,
       ttl: 10,
@@ -115,10 +109,7 @@ export const studentAttendanceApi = {
     queryParams.append('limit', (params.limit || 50).toString());
 
     const endpoint = `/api/attendance/institute/${params.instituteId}/class/${params.classId}/subject/${params.subjectId}?${queryParams.toString()}`;
-    
-    console.log('=== SUBJECT ATTENDANCE API CALL ===');
-    console.log('Endpoint:', endpoint);
-    
+
     return enhancedCachedClient.get<StudentAttendanceResponse>(endpoint, undefined, {
       forceRefresh,
       ttl: 10,

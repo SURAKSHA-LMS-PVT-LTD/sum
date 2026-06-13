@@ -84,9 +84,6 @@ export const myAttendanceHistoryApi = {
 
     const endpoint = `/api/attendance/my-history?${queryParams.toString()}`;
 
-    console.log('=== MY ATTENDANCE HISTORY API CALL ===');
-    console.log('Endpoint:', endpoint);
-
     return enhancedCachedClient.get<MyAttendanceHistoryResponse>(endpoint, undefined, {
       forceRefresh,
       ttl: 10,

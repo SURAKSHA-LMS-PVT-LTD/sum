@@ -169,7 +169,6 @@ class HomeworkReferencesApi {
    * POST /homework-references/upload/generate-url
    */
   async generateUploadUrl(data: S3UploadUrlRequest): Promise<S3UploadUrlResponse> {
-    console.log('🔗 Generating S3 upload URL:', data);
     const result = await apiClient.post<{ success: boolean; data: S3UploadUrlResponse }>(`${this.basePath}/upload/generate-url`, data);
     return (result as any).data ?? result;
   }
@@ -178,8 +177,6 @@ class HomeworkReferencesApi {
    * Step 2: Upload file to S3 using signed URL
    */
   async uploadToS3(uploadUrl: string, file: File, fields?: Record<string, string>): Promise<void> {
-    console.log('⬆️ Uploading file to S3:', file.name);
-    
     if (fields && Object.keys(fields).length > 0) {
       // POST with form data (presigned POST)
       const formData = new FormData();
@@ -210,8 +207,6 @@ class HomeworkReferencesApi {
         throw new Error('Failed to upload file to S3');
       }
     }
-    
-    console.log('✅ File uploaded to S3 successfully');
   }
 
   /**
@@ -219,7 +214,6 @@ class HomeworkReferencesApi {
    * POST /homework-references/upload/confirm
    */
   async confirmS3Upload(data: S3ConfirmUploadData): Promise<HomeworkReference> {
-    console.log('✅ Confirming S3 upload:', data);
     const result = await apiClient.post<{ success: boolean; data: HomeworkReference }>(`${this.basePath}/upload/confirm`, data);
     return (result as any).data ?? result;
   }
@@ -235,8 +229,6 @@ class HomeworkReferencesApi {
     description?: string,
     onProgress?: (progress: number) => void
   ): Promise<HomeworkReference> {
-    console.log('📤 Starting S3 upload workflow:', { homeworkId, fileName: file.name, referenceType });
-
     // Step 1: Generate upload URL
     onProgress?.(10);
     const { uploadUrl, relativePath, fields } = await this.generateUploadUrl({
@@ -265,7 +257,6 @@ class HomeworkReferencesApi {
     });
 
     onProgress?.(100);
-    console.log('✅ S3 upload workflow completed:', reference);
     return reference;
   }
 
@@ -276,7 +267,6 @@ class HomeworkReferencesApi {
    * POST /homework-references/google-drive
    */
   async createFromGoogleDrive(data: GoogleDriveReferenceData): Promise<HomeworkReference> {
-    console.log('📁 Creating reference from Google Drive:', data);
     const result = await apiClient.post<{ success: boolean; data: HomeworkReference }>(`${this.basePath}/google-drive`, data);
     return (result as any).data ?? result;
   }
@@ -288,7 +278,6 @@ class HomeworkReferencesApi {
    * POST /homework-references/link
    */
   async createFromLink(data: LinkReferenceData): Promise<HomeworkReference> {
-    console.log('🔗 Creating reference from link:', data);
     const result = await apiClient.post<{ success: boolean; data: HomeworkReference }>(`${this.basePath}/link`, data);
     return (result as any).data ?? result;
   }
@@ -304,7 +293,6 @@ class HomeworkReferencesApi {
     description: string;
     displayOrder: number;
   }>): Promise<HomeworkReference> {
-    console.log('✏️ Updating reference:', id, data);
     return apiClient.patch<HomeworkReference>(`${this.basePath}/${id}`, data);
   }
 
@@ -313,7 +301,6 @@ class HomeworkReferencesApi {
    * PATCH /homework-references/homework/{homeworkId}/reorder
    */
   async reorderReferences(homeworkId: string, referenceIds: string[]): Promise<void> {
-    console.log('🔀 Reordering references:', { homeworkId, referenceIds });
     return apiClient.patch<void>(`${this.basePath}/homework/${homeworkId}/reorder`, { referenceIds });
   }
 
@@ -324,7 +311,6 @@ class HomeworkReferencesApi {
    * DELETE /homework-references/{id}
    */
   async deleteReference(id: string): Promise<void> {
-    console.log('🗑️ Soft deleting reference:', id);
     return apiClient.delete<void>(`${this.basePath}/${id}`);
   }
 
@@ -333,7 +319,6 @@ class HomeworkReferencesApi {
    * DELETE /homework-references/{id}/permanent
    */
   async permanentDeleteReference(id: string): Promise<void> {
-    console.log('🗑️ Permanently deleting reference:', id);
     return apiClient.delete<void>(`${this.basePath}/${id}/permanent`);
   }
 
@@ -342,7 +327,6 @@ class HomeworkReferencesApi {
    * PATCH /homework-references/{id}/restore
    */
   async restoreReference(id: string): Promise<HomeworkReference> {
-    console.log('♻️ Restoring reference:', id);
     return apiClient.patch<HomeworkReference>(`${this.basePath}/${id}/restore`, {});
   }
 
@@ -350,7 +334,6 @@ class HomeworkReferencesApi {
    * Bulk soft delete references
    */
   async bulkDeleteReferences(ids: string[]): Promise<void> {
-    console.log('🗑️ Bulk deleting references:', ids);
     return apiClient.post<void>(`${this.basePath}/bulk-delete`, { ids });
   }
 }

@@ -349,7 +349,7 @@ export async function fullInstituteCreationFlow(
     try {
       await assignUserAsAdmin(institute.id, assignMethod.type, assignMethod.value);
     } catch (err) {
-      console.warn('Auto-admin assignment failed (institute created):', err);
+      console.error('Auto-admin assignment failed (institute created):', err);
     }
   }
 

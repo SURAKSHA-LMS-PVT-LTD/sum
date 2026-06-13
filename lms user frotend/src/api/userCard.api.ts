@@ -217,7 +217,6 @@ class UserCardApi {
    * Browse available cards
    */
   async getCards(params?: CardsQueryParams, forceRefresh = false): Promise<PaginatedCardsResponse> {
-    console.log('🎴 Fetching available cards:', params);
     return enhancedCachedClient.get<PaginatedCardsResponse>(
       '/user-card/cards',
       params,
@@ -233,7 +232,6 @@ class UserCardApi {
    * Create a new card order (supports parent ordering for child)
    */
   async createOrder(data: CreateOrderRequest, forUserId?: string): Promise<UserIdCardOrder> {
-    console.log('📝 Creating card order:', data, forUserId ? `for user ${forUserId}` : '');
     const url = forUserId ? `/user-card/orders?forUserId=${encodeURIComponent(forUserId)}` : '/user-card/orders';
     return apiClient.post<UserIdCardOrder>(url, data);
   }
@@ -242,7 +240,6 @@ class UserCardApi {
    * Get signed upload URL for payment slip (Cloud Storage)
    */
   async getPaymentSlipUploadUrl(orderId: number, data: SignedUploadUrlRequest): Promise<SignedUploadUrlResponse> {
-    console.log('📤 Getting signed upload URL:', orderId, data);
     return apiClient.post<SignedUploadUrlResponse>(`/user-card/orders/${orderId}/payment-slip/upload-url`, data);
   }
 
@@ -250,7 +247,6 @@ class UserCardApi {
    * Submit payment for an order (Cloud Storage)
    */
   async submitPayment(orderId: number, data: SubmitPaymentRequest): Promise<CardPayment> {
-    console.log('💳 Submitting payment for order:', orderId, data);
     return apiClient.post<CardPayment>(`/user-card/orders/${orderId}/payment`, data);
   }
 
@@ -258,7 +254,6 @@ class UserCardApi {
    * Submit payment via Google Drive
    */
   async submitDrivePayment(orderId: number, data: SubmitDrivePaymentRequest): Promise<CardPayment> {
-    console.log('💳 Submitting Drive payment for order:', orderId, data);
     return apiClient.post<CardPayment>(`/user-card/orders/${orderId}/payment/drive`, data);
   }
 
@@ -266,7 +261,6 @@ class UserCardApi {
    * Get my orders (supports parent viewing child's orders)
    */
   async getMyOrders(params?: OrdersQueryParams, forceRefresh = false, forUserId?: string): Promise<PaginatedOrdersResponse> {
-    console.log('📋 Fetching orders:', params, forUserId ? `for user ${forUserId}` : '');
     const queryParams = forUserId ? { ...params, forUserId } : params;
     return enhancedCachedClient.get<PaginatedOrdersResponse>(
       '/user-card/orders',
@@ -283,7 +277,6 @@ class UserCardApi {
    * Get order details
    */
   async getOrderDetails(orderId: number, forceRefresh = false): Promise<UserIdCardOrder> {
-    console.log('📄 Fetching order details:', orderId);
     return enhancedCachedClient.get<UserIdCardOrder>(
       `/user-card/orders/${orderId}`,
       undefined,
@@ -299,7 +292,6 @@ class UserCardApi {
    * Get my active & deactivated cards (supports parent viewing child's cards)
    */
   async getMyCards(params?: MyCardsQueryParams, forceRefresh = false, forUserId?: string): Promise<PaginatedOrdersResponse> {
-    console.log('💳 Fetching cards:', params, forUserId ? `for user ${forUserId}` : '');
     const queryParams = forUserId ? { ...params, forUserId } : params;
     return enhancedCachedClient.get<PaginatedOrdersResponse>(
       '/user-card/my-cards',
@@ -316,7 +308,6 @@ class UserCardApi {
    * Update my card status (report lost/damaged/deactivate)
    */
   async updateMyCardStatus(orderId: number, data: UpdateCardStatusRequest): Promise<UserIdCardOrder> {
-    console.log('🔄 Updating card status:', orderId, data);
     return apiClient.patch<UserIdCardOrder>(`/user-card/my-cards/${orderId}/status`, data);
   }
 
@@ -324,7 +315,6 @@ class UserCardApi {
    * Cancel a pending order
    */
   async cancelOrder(orderId: number): Promise<UserIdCardOrder> {
-    console.log('❌ Cancelling order:', orderId);
     return apiClient.patch<UserIdCardOrder>(`/user-card/orders/${orderId}/cancel`, {
       orderStatus: OrderStatus.CANCELLED
     });
