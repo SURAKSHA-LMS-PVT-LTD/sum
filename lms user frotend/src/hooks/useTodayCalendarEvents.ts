@@ -104,7 +104,7 @@ export function useTodayCalendarEvents(
         setInfo({ ...parsed, loading: false, error: null });
       } catch (err: any) {
         if (cancelled) return;
-        console.warn('Failed to fetch calendar:', err);
+        console.error('Failed to fetch calendar:', err);
         setInfo(prev => ({
           ...prev,
           loading: false,

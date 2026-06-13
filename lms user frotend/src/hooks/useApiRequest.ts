@@ -23,7 +23,6 @@ export const useApiRequest = <T extends any[], R>(
       
       // Prevent duplicate requests
       if (preventDuplicates && pendingRequestRef.current && requestKeyRef.current === requestKey) {
-        console.log('Preventing duplicate API request');
         return pendingRequestRef.current;
       }
 

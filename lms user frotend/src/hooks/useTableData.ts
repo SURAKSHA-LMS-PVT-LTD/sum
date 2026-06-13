@@ -81,8 +81,6 @@ export const useTableData = <T = any>(config: TableDataConfig): UseTableDataRetu
     
     try {
       const params = buildParams();
-      console.log(`📥 Loading data from ${config.endpoint}:`, params);
-      
       const result = await cachedApiClient.get(
         config.endpoint, 
         params, 
@@ -99,12 +97,9 @@ export const useTableData = <T = any>(config: TableDataConfig): UseTableDataRetu
 
       // Discard stale responses - only use the latest request's result
       if (currentRequestId !== requestIdRef.current) {
-        console.log(`🚫 Discarding stale response for ${config.endpoint} (request ${currentRequestId}, latest ${requestIdRef.current})`);
         return;
       }
 
-      console.log('✅ Table data loaded successfully:', result);
-      
       // Handle various API response formats
       let data, total;
       if (result?.data?.submissions) {

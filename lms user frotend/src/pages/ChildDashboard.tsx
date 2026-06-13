@@ -18,13 +18,11 @@ const ChildDashboard = () => {
     // If we have a child ID but no selected child yet, 
     // useRouteContext will load it. Just wait.
     if (childId && !selectedChild) {
-      console.log('ChildDashboard: Waiting for child context to load...');
       return;
     }
 
     // If child is selected and viewing as parent, redirect to institute selection
     if (selectedChild && isViewingAsParent) {
-      console.log('ChildDashboard: Redirecting to child institute selection');
       navigate(`/child/${childId}/select-institute`, { replace: true });
     }
   }, [childId, selectedChild, isViewingAsParent, navigate]);

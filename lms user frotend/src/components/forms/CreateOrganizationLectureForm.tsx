@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { organizationApi } from '@/api/organization.api';
-import { getBaseUrl2 } from '@/contexts/utils/auth.api';
+import { getBaseUrl2, getOrgAccessTokenAsync } from '@/contexts/utils/auth.api';
 
 interface CreateOrganizationLectureFormProps {
   courseId: string;
@@ -144,10 +144,11 @@ const CreateOrganizationLectureForm = ({ courseId, organizationId, onSuccess, on
         fd.append('documents', file, file.name);
       });
 
+      const orgToken = await getOrgAccessTokenAsync();
       const response = await fetch(`${baseUrl2}/organization/api/v1/lectures/with-documents/${formData.causeId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('org_access_token')}`
+          'Authorization': `Bearer ${orgToken ?? ''}`
         },
         body: fd,
       });

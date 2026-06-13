@@ -71,8 +71,6 @@ const CreateExamResults = () => {
   // Parse URL params manually since useParams doesn't work with catch-all routes
   const { instituteId, classId, subjectId, examId } = parseUrlParams(location.pathname);
   
-  console.log('CreateExamResults - Parsed URL params:', { instituteId, classId, subjectId, examId });
-
   const [exam, setExam] = useState<any>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [results, setResults] = useState<Record<string, StudentResult>>({});
@@ -87,7 +85,6 @@ const CreateExamResults = () => {
 
   const loadData = async () => {
     if (!examId || !instituteId || !classId || !subjectId) {
-      console.log('Missing URL params:', { examId, instituteId, classId, subjectId });
       return;
     }
 

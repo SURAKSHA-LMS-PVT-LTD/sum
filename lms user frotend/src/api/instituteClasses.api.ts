@@ -208,7 +208,6 @@ export const instituteClassesApi = {
 
   // Get by institute with enhanced caching
   getByInstitute: async (instituteId: string, params?: ClassQueryParams & { page?: number; limit?: number }, forceRefresh = false): Promise<InstituteClass[]> => {
-    console.log('🚀 API call to getByInstitute with instituteId:', instituteId, 'page:', params?.page || 1, 'limit:', params?.limit || 50);
     const page = params?.page || 1;
     const limit = params?.limit || 50;
     const result = await enhancedCachedClient.get<InstituteClass[]>(`/institute-classes/institute/${instituteId}?page=${page}&limit=${limit}`, undefined, {
@@ -220,14 +219,11 @@ export const instituteClassesApi = {
       classId: params?.classId,
       role: params?.role
     });
-    console.log(' Full API response:', result);
-    console.log(' Response data:', result);
     return result || [];
   },
 
   // Get by institute and teacher with enhanced caching
   getByInstituteAndTeacher: async (instituteId: string, teacherId: string, params?: ClassQueryParams & { page?: number; limit?: number }, forceRefresh = false): Promise<TeacherClassesResponse> => {
-    console.log('🚀 API call to getByInstituteAndTeacher with:', { instituteId, teacherId, page: params?.page || 1, limit: params?.limit || 50 });
     const page = params?.page || 1;
     const limit = params?.limit || 50;
     const result = await enhancedCachedClient.get<TeacherClassesResponse>(`/institute-classes/${instituteId}/teacher/${teacherId}?page=${page}&limit=${limit}`, undefined, {
@@ -239,7 +235,6 @@ export const instituteClassesApi = {
       classId: params?.classId,
       role: params?.role
     });
-    console.log('📡 Teacher classes response:', result);
     return result;
   },
 

@@ -304,6 +304,7 @@ class EnhancedCachedApiClient {
             }
           } catch {}
           this.setRateLimited(retryAfter, endpoint);
+          window.dispatchEvent(new CustomEvent('api:rate-limited', { detail: { retryAfter } }));
           throw parseApiError(429, errorText, url.toString());
         }
 

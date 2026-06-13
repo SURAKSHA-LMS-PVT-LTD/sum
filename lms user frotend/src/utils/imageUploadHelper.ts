@@ -86,7 +86,6 @@ export const uploadToSignedUrl = async (
         throw new Error(`S3 upload failed (${response.status}): ${errorText || response.statusText}`);
       }
       
-      console.log('✅ File uploaded successfully to S3');
     } else {
       // PUT upload (GCS or S3 presigned PUT URL)
       const isGCS = uploadUrl.includes('storage.googleapis.com') || uploadUrl.includes('storage.cloud.google.com');
@@ -97,7 +96,6 @@ export const uploadToSignedUrl = async (
       if (isGCS) {
         headers['x-goog-content-length-range'] = `0,${5 * 1024 * 1024}`;
       }
-      console.log(`📤 Using ${isGCS ? 'GCS' : 'S3'} PUT method`);
       const response = await fetch(uploadUrl, {
         method: 'PUT',
         headers,
@@ -113,7 +111,6 @@ export const uploadToSignedUrl = async (
         throw new Error(`GCS upload failed (${response.status}): ${errorText || response.statusText}`);
       }
       
-      console.log('✅ File uploaded successfully to GCS');
     }
   } catch (error: any) {
     console.error('❌ Upload failed:', error);
@@ -136,8 +133,6 @@ export const verifyAndPublish = async (relativePath: string): Promise<void> => {
     'Authorization': `Bearer ${token}`,
   };
   
-  console.log('📤 Verifying and publishing:', { relativePath, authMethod: token ? 'JWT' : 'API Key' });
-  
   const response = await fetch(`${getBaseUrl()}/upload/verify-and-publish`, {
     method: 'POST',
     headers,
@@ -153,7 +148,6 @@ export const verifyAndPublish = async (relativePath: string): Promise<void> => {
     throw new Error(`Failed to verify and publish: ${response.status}`);
   }
   
-  console.log('✅ File verified and published');
 };
 
 export const deleteUploadedFile = async (relativePath: string): Promise<void> => {

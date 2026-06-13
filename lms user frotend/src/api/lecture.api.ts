@@ -1,4 +1,3 @@
-import { cachedApiClient } from './cachedClient';
 import { enhancedCachedClient } from './enhancedCachedClient';
 import { ApiResponse } from './client';
 
@@ -112,7 +111,6 @@ export interface LectureQueryParams {
 
 class LectureApi {
   async getLectures(params?: LectureQueryParams, forceRefresh = false): Promise<ApiResponse<Lecture[]>> {
-    console.log('📚 Fetching lectures with secure caching:', params, { forceRefresh });
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiParams } = params ?? {};
     return enhancedCachedClient.get<ApiResponse<Lecture[]>>('/institute-class-subject-lectures', Object.keys(apiParams).length > 0 ? apiParams : undefined, {
@@ -128,7 +126,6 @@ class LectureApi {
   }
 
   async getInstituteLectures(params?: LectureQueryParams, forceRefresh = false): Promise<ApiResponse<Lecture[]>> {
-    console.log('📚 Fetching institute lectures with secure caching:', params, { forceRefresh });
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiParams } = params ?? {};
     return enhancedCachedClient.get<ApiResponse<Lecture[]>>('/institute-lectures', Object.keys(apiParams).length > 0 ? apiParams : undefined, {
@@ -142,7 +139,6 @@ class LectureApi {
   }
 
   async getLectureById(id: string, forceRefresh = false, context?: { instituteId?: string; classId?: string; subjectId?: string; userId?: string }): Promise<Lecture> {
-    console.log('📄 Fetching lecture by ID with secure caching:', id, { forceRefresh, context });
     return enhancedCachedClient.get<Lecture>(`/institute-class-subject-lectures/${id}`, undefined, {
       forceRefresh,
       ttl: 10,
@@ -153,7 +149,6 @@ class LectureApi {
 
   async createLecture(data: LectureCreateData, isInstituteLecture: boolean = false): Promise<Lecture> {
     const endpoint = isInstituteLecture ? '/institute-lectures' : '/institute-class-subject-lectures';
-    console.log('✏️ Creating lecture (will invalidate cache):', endpoint, data);
     return enhancedCachedClient.post<Lecture>(endpoint, data, {
       instituteId: data.instituteId,
       classId: data.classId,
@@ -162,30 +157,25 @@ class LectureApi {
   }
 
   async createInstituteLecture(data: LectureCreateData): Promise<Lecture> {
-    console.log('✏️ Creating institute lecture (will invalidate cache):', data);
     return enhancedCachedClient.post<Lecture>('/institute-lectures', data, {
       instituteId: data.instituteId
     });
   }
 
   async updateInstituteLecture(id: string, data: Partial<LectureCreateData>, context?: { instituteId?: string }): Promise<Lecture> {
-    console.log('📝 Updating institute lecture (will invalidate cache):', id, data);
     return enhancedCachedClient.patch<Lecture>(`/institute-lectures/${id}`, data, context);
   }
 
   async updateLecture(id: string, data: Partial<LectureCreateData>, context?: { instituteId?: string; classId?: string; subjectId?: string }): Promise<Lecture> {
-    console.log('📝 Updating lecture (will invalidate cache):', id, data);
     return enhancedCachedClient.patch<Lecture>(`/institute-class-subject-lectures/${id}`, data, context);
   }
 
   async deleteLecture(id: string, context?: { instituteId?: string; classId?: string; subjectId?: string }): Promise<void> {
-    console.log('🗑️ Soft-deactivating lecture (will invalidate cache):', id);
     // Backend DELETE /:id is SUPERADMIN-only. Use PATCH to deactivate instead.
     await enhancedCachedClient.patch<any>(`/institute-class-subject-lectures/${id}`, { isActive: false }, context);
   }
 
   async deleteInstituteLecturePermanent(id: string, context?: { instituteId?: string }): Promise<any> {
-    console.log('🗑️ Permanently deleting institute lecture (will invalidate cache):', id);
     return enhancedCachedClient.delete<any>(`/institute-lectures/${id}/permanent`, context);
   }
 

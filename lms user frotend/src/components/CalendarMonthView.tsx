@@ -330,7 +330,7 @@ const CalendarMonthView = () => {
         if (detailEvents.length > 0) setDayEvents(detailEvents);
       }
     } catch (err) {
-      console.warn('Failed to load events:', err);
+      console.error('Failed to load events:', err);
     } finally {
       setLoadingEvents(false);
     }

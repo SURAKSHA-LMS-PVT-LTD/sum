@@ -11,7 +11,6 @@ const ActivateAccount: React.FC = () => {
     <FirstLogin
       onBack={() => navigate('/')}
       onComplete={(user) => {
-        console.log('First login completed:', user);
         navigate('/select-institute', { replace: true });
       }}
     />

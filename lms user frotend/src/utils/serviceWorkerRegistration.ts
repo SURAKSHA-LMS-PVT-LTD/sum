@@ -22,17 +22,17 @@ const isFirebaseConfigured = !!(
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   // Don't register service worker on native platforms - they use native push
   if (Capacitor.isNativePlatform()) {
-    console.log('Native platform detected - skipping web service worker registration');
+    if (import.meta.env.DEV) console.log('Native platform detected - skipping web service worker registration');
     return null;
   }
 
   if (!('serviceWorker' in navigator)) {
-    console.warn('Service Worker not supported in this browser');
+    if (import.meta.env.DEV) console.warn('Service Worker not supported in this browser');
     return null;
   }
 
   if (!isFirebaseConfigured) {
-    console.warn('Firebase not configured - skipping service worker registration for push notifications');
+    if (import.meta.env.DEV) console.warn('Firebase not configured - skipping service worker registration for push notifications');
     return null;
   }
 
@@ -73,7 +73,7 @@ export async function unregisterServiceWorker(): Promise<boolean> {
   try {
     const registration = await navigator.serviceWorker.ready;
     const result = await registration.unregister();
-    console.log('Service Worker unregistered:', result);
+    if (import.meta.env.DEV) console.log('Service Worker unregistered:', result);
     return result;
   } catch (error: any) {
     console.error('Service Worker unregistration failed:', error);

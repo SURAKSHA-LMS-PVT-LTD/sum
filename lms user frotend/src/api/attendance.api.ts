@@ -12,6 +12,7 @@ import { attendanceApiClient } from './attendanceClient';
 import { getAttendanceUrl, getApiHeadersAsync, getBaseUrl, getCredentialsMode } from '@/contexts/utils/auth.api';
 import { parseApiError } from '@/api/apiError';
 import { attendanceDuplicateChecker } from '@/utils/attendanceDuplicateCheck';
+import { tokenStorageService } from '@/services/tokenStorageService';
 import type {
   AttendanceStatus,
   MarkingMethod,
@@ -93,7 +94,8 @@ const markAttendanceApi = {
    * POST /api/attendance/mark
    */
   async markSingle(payload: MarkAttendancePayload): Promise<MarkAttendanceResponse> {
-    const userId = localStorage.getItem('userId') || 'unknown';
+    const userData = await tokenStorageService.getUserData<{ id?: string }>();
+    const userId = userData?.id ?? 'unknown';
     const method = (payload.markingMethod || 'manual') as 'manual' | 'qr' | 'barcode' | 'rfid/nfc';
 
     const isDuplicate = attendanceDuplicateChecker.isDuplicate({
@@ -142,7 +144,8 @@ const markAttendanceApi = {
    * POST /api/attendance/mark-by-card
    */
   async markByCard(payload: MarkByCardPayload): Promise<MarkByCardResponse> {
-    const userId = localStorage.getItem('userId') || 'unknown';
+    const userData = await tokenStorageService.getUserData<{ id?: string }>();
+    const userId = userData?.id ?? 'unknown';
     const method = payload.markingMethod as 'manual' | 'qr' | 'barcode' | 'rfid/nfc';
 
     const isDuplicate = attendanceDuplicateChecker.isDuplicate({
@@ -190,7 +193,8 @@ const markAttendanceApi = {
    * POST /api/attendance/mark-by-institute-card
    */
   async markByInstituteCard(payload: MarkByInstituteCardPayload): Promise<MarkByInstituteCardResponse> {
-    const userId = localStorage.getItem('userId') || 'unknown';
+    const userData = await tokenStorageService.getUserData<{ id?: string }>();
+    const userId = userData?.id ?? 'unknown';
     const method = (payload.markingMethod || 'rfid/nfc') as 'manual' | 'qr' | 'barcode' | 'rfid/nfc';
 
     const isDuplicate = attendanceDuplicateChecker.isDuplicate({

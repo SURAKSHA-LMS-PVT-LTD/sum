@@ -126,8 +126,6 @@ class HomeworkApi {
    * - Returns homework with references and submissionCount
    */
   async getHomework(params?: HomeworkQueryParams, forceRefresh = false): Promise<ApiResponse<Homework[]>> {
-    console.log('📚 Fetching homework with secure caching:', params, { forceRefresh });
-    
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiParams } = params ?? {};
     
@@ -156,8 +154,6 @@ class HomeworkApi {
     params?: Omit<HomeworkQueryParams, 'classId' | 'subjectId' | 'includeReferences' | 'includeSubmissions'>,
     forceRefresh = false
   ): Promise<ApiResponse<Homework[]>> {
-    console.log('📚 Fetching student homework (complete view):', { classId, subjectId });
-    
     return this.getHomework({
       ...params,
       classId,
@@ -176,8 +172,6 @@ class HomeworkApi {
     params?: Omit<HomeworkQueryParams, 'classId' | 'subjectId' | 'includeSubmissions'>,
     forceRefresh = false
   ): Promise<ApiResponse<Homework[]>> {
-    console.log('📚 Fetching teacher homework (no submissions):', { classId, subjectId });
-    
     return this.getHomework({
       ...params,
       classId,
@@ -200,7 +194,6 @@ class HomeworkApi {
       userId?: string 
     }
   ): Promise<Homework> {
-    console.log('📄 Fetching homework by ID with secure caching:', id, { forceRefresh, context });
     return enhancedCachedClient.get<Homework>(
       `${this.basePath}/${id}`, 
       undefined, 
@@ -217,7 +210,6 @@ class HomeworkApi {
    * Create homework (Teacher/Admin)
    */
   async createHomework(data: HomeworkCreateData): Promise<Homework> {
-    console.log('✏️ Creating homework (will invalidate cache):', data);
     return enhancedCachedClient.post<Homework>(
       this.basePath, 
       data,
@@ -233,7 +225,6 @@ class HomeworkApi {
    * Update homework (Teacher who created / Admin)
    */
   async updateHomework(id: string, data: HomeworkUpdateData, context?: { instituteId?: string; classId?: string; subjectId?: string }): Promise<Homework> {
-    console.log('📝 Updating homework (will invalidate cache):', id, data);
     return enhancedCachedClient.patch<Homework>(
       `${this.basePath}/${id}`, 
       data,
@@ -245,7 +236,6 @@ class HomeworkApi {
    * Delete homework (Soft delete - Teacher who created / Admin)
    */
   async deleteHomework(id: string, context?: { instituteId?: string; classId?: string; subjectId?: string }): Promise<void> {
-    console.log('🗑️ Deleting homework (will invalidate cache):', id);
     return enhancedCachedClient.delete<void>(
       `${this.basePath}/${id}`,
       context

@@ -2,22 +2,20 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
 import { Settings, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { getBaseUrl } from '@/contexts/utils/auth.api';
 
 const SetupGuide = () => {
-  const { toast } = useToast();
   const { navigateToPage } = useAppNavigation();
-  
+
   const setupSteps = [
     {
       id: 'api-config',
       title: 'Configure API Base URL',
       description: 'Set your backend API endpoint to connect to your server',
       action: 'Go to Settings',
-      status: localStorage.getItem('baseUrl') ? 'completed' : 'pending',
+      status: getBaseUrl() ? 'completed' : 'pending',
       route: 'settings'
     },
     {
@@ -37,19 +35,6 @@ const SetupGuide = () => {
       route: 'attendance'
     }
   ];
-
-  const quickSetupPort3000 = () => {
-    const url = 'http://localhost:3000';
-    localStorage.setItem('baseUrl', url);
-    
-    toast({
-      title: "Quick Setup Complete",
-      description: "API base URL configured for localhost:3000",
-    });
-    
-    // Force page refresh to update status
-    window.location.reload();
-  };
 
   const handleStepAction = (route: string) => {
     navigateToPage(route);
@@ -82,16 +67,6 @@ const SetupGuide = () => {
         </p>
       </div>
 
-      {/* Quick Setup Alert */}
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription className="flex items-center justify-between">
-          <span>Quick setup for local development (localhost:3000)</span>
-          <Button onClick={quickSetupPort3000} size="sm" variant="outline">
-            Quick Setup
-          </Button>
-        </AlertDescription>
-      </Alert>
 
       {/* Setup Steps */}
       <div className="space-y-4">
@@ -140,15 +115,15 @@ const SetupGuide = () => {
             <div className="space-y-2">
               <div className="text-sm font-medium">API Base URL</div>
               <div className="text-sm text-muted-foreground">
-                {localStorage.getItem('baseUrl') || 'Not configured'}
+                {getBaseUrl() || 'Not configured'}
               </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium">Selected Institute</div>
               <div className="text-sm text-muted-foreground">
-                {localStorage.getItem('selectedInstitute') ? 
-                  JSON.parse(localStorage.getItem('selectedInstitute') || '{}').name || 'Selected' : 
-                  'Not selected'
+                {localStorage.getItem('selectedInstitute') ?
+                  (() => { try { return JSON.parse(localStorage.getItem('selectedInstitute') || '{}').name || 'Selected'; } catch { return 'Selected'; } })()
+                  : 'Not selected'
                 }
               </div>
             </div>

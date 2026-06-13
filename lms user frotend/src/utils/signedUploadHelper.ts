@@ -158,7 +158,7 @@ export async function uploadWithSignedUrl(
     }
 
     const signedUrlData: SignedUrlResponse = await signedUrlResponse.json();
-    const { uploadUrl, relativePath, fields, publicUrl } = signedUrlData;
+    const { uploadUrl, relativePath, fields } = signedUrlData;
 
     // Step 2: Upload file — support both presigned PUT (S3/GCS) and presigned POST (S3 multipart)
     onProgress?.('Uploading file...', 50);
@@ -198,8 +198,6 @@ export async function uploadWithSignedUrl(
       throw new Error('Upload failed. Please try again.');
     }
     
-    console.log('✅ File uploaded to S3 successfully');
-
     // Step 3: Verify and make file public
     onProgress?.('Verifying upload...', 80);
 
@@ -219,8 +217,7 @@ export async function uploadWithSignedUrl(
       throw new Error(verifyError.message || 'Failed to verify upload');
     }
 
-    const verifyData = await verifyResponse.json();
-    console.log('✅ File verified and published:', verifyData.publicUrl || publicUrl);
+    await verifyResponse.json();
 
     onProgress?.('Upload complete!', 100);
 

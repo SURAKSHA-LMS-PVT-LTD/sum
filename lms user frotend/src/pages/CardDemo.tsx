@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 const CardDemo: React.FC = () => {
   const navigate = useNavigate();
 
-  const handleCardClick = (cardType: string) => {
-    console.log(`${cardType} card clicked!`);
+  const handleCardClick = (_cardType: string) => {
   };
 
   return (

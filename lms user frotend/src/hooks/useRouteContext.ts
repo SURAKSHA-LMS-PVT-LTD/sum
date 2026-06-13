@@ -159,7 +159,7 @@ export const useRouteContext = () => {
           // If the expected URL with current context IS an institute URL,
           // useContextUrlSync will redirect there — so don't clear selections
           if (expectedUrl.startsWith('/institute/')) {
-            console.log('🔗 Skipping institute clear — useContextUrlSync will redirect to:', expectedUrl);
+            if (import.meta.env.DEV) console.log('🔗 Skipping institute clear — useContextUrlSync will redirect to:', expectedUrl);
             return;
           }
           
@@ -216,7 +216,7 @@ export const useRouteContext = () => {
 
     // Safety timeout: never block the UI for more than 8 seconds
     const safetyTimeout = setTimeout(() => {
-      console.warn('⚠️ Context validation timeout — unblocking UI');
+      if (import.meta.env.DEV) console.warn('⚠️ Context validation timeout — unblocking UI');
       setIsValidating(false);
     }, 8000);
     
@@ -251,10 +251,10 @@ export const useRouteContext = () => {
             const child = children.find((c: any) => c.id?.toString() === urlChildIdLocal || c.userId?.toString() === urlChildIdLocal);
             
             if (child) {
-              console.log('✅ Found child data:', child);
+              if (import.meta.env.DEV) console.log('✅ Found child data:', child);
               setSelectedChild(child, true); // Enable viewAsParent mode
             } else {
-              console.log('⚠️ Child not found in parent\'s children list');
+              if (import.meta.env.DEV) console.log('⚠️ Child not found in parent\'s children list');
             }
           } catch (error: any) {
             console.error('Error loading child data:', error);
@@ -277,7 +277,7 @@ export const useRouteContext = () => {
         if (user?.institutes?.length > 0) {
           const institute = user.institutes.find(inst => inst.id?.toString() === urlInstituteIdLocal);
           if (institute) {
-            console.log('🏢 Found institute in user.institutes:', institute.name);
+            if (import.meta.env.DEV) console.log('🏢 Found institute in user.institutes:', institute.name);
             setSelectedInstitute(institute);
             instituteFound = true;
             if (!urlClassIdLocal) setSelectedClass(null);
@@ -288,7 +288,7 @@ export const useRouteContext = () => {
         // If not found in user.institutes, fetch from API
         if (!instituteFound) {
           fetchInProgressRef.current[fetchKey] = true;
-          console.log('🔍 Institute not in user.institutes, fetching from API...', urlInstituteIdLocal);
+          if (import.meta.env.DEV) console.log('🔍 Institute not in user.institutes, fetching from API...', urlInstituteIdLocal);
           
           try {
             // First, ensure user institutes are loaded (they might not be loaded yet)
@@ -298,13 +298,13 @@ export const useRouteContext = () => {
             const institute = institutes?.find(inst => inst.id?.toString() === urlInstituteIdLocal);
             
             if (institute) {
-              console.log('✅ Institute loaded from API:', institute.name);
+              if (import.meta.env.DEV) console.log('✅ Institute loaded from API:', institute.name);
               setSelectedInstitute(institute);
               if (!urlClassIdLocal) setSelectedClass(null);
               if (!urlSubjectIdLocal) setSelectedSubject(null);
             } else {
               // Institute not found - user doesn't have access
-              console.warn('⚠️ User does not have access to institute:', urlInstituteIdLocal);
+              if (import.meta.env.DEV) console.warn('⚠️ User does not have access to institute:', urlInstituteIdLocal);
               toast.error('You do not have access to this institute');
               navigate('/select-institute', { replace: true });
               fetchInProgressRef.current[fetchKey] = false;
@@ -359,7 +359,7 @@ export const useRouteContext = () => {
             }
           })
           .catch((error) => {
-            console.warn('Error loading class from institute-classes:', error);
+            if (import.meta.env.DEV) console.warn('Error loading class from institute-classes:', error);
           })
           .finally(() => {
             fetchInProgressRef.current[fetchKey] = false;
@@ -395,7 +395,7 @@ export const useRouteContext = () => {
             }
           })
           .catch((error) => {
-            console.warn('Error loading subject from class subjects:', error);
+            if (import.meta.env.DEV) console.warn('Error loading subject from class subjects:', error);
           })
           .finally(() => {
             fetchInProgressRef.current[fetchKey] = false;

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { getBaseUrl2, getApiHeaders } from '@/contexts/utils/auth.api';
+import { getBaseUrl2, getApiHeaders, getOrgAccessTokenAsync } from '@/contexts/utils/auth.api';
 import { parseApiError } from '@/api/apiError';
 import { enhancedCachedClient } from './enhancedCachedClient';
 import { CACHE_TTL } from '@/config/cacheTTL';
@@ -270,12 +270,12 @@ class OrganizationSpecificApiClient {
     return getBaseUrl2();
   }
 
-  private getHeaders(): Record<string, string> {
+  private async getHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
 
-    const token = localStorage.getItem('org_access_token');
+    const token = await getOrgAccessTokenAsync();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -311,7 +311,7 @@ class OrganizationSpecificApiClient {
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: this.getHeaders()
+      headers: await this.getHeaders()
     });
 
     return this.handleResponse<T>(response);
@@ -323,7 +323,7 @@ class OrganizationSpecificApiClient {
     
     const response = await fetch(url, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined
     });
 
@@ -333,10 +333,10 @@ class OrganizationSpecificApiClient {
   async put<T = any>(endpoint: string, data?: any): Promise<T> {
     const baseUrl = this.getBaseUrl2();
     const url = `${baseUrl}${endpoint}`;
-    
+
     const response = await fetch(url, {
       method: 'PUT',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined
     });
 
@@ -351,10 +351,10 @@ class OrganizationSpecificApiClient {
   async patch<T = any>(endpoint: string, data?: any): Promise<T> {
     const baseUrl = this.getBaseUrl2();
     const url = `${baseUrl}${endpoint}`;
-    
+
     const response = await fetch(url, {
       method: 'PATCH',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined
     });
 
@@ -364,10 +364,10 @@ class OrganizationSpecificApiClient {
   async delete<T = any>(endpoint: string, data?: any): Promise<T> {
     const baseUrl = this.getBaseUrl2();
     const url = `${baseUrl}${endpoint}`;
-    
+
     const response = await fetch(url, {
       method: 'DELETE',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined
     });
 
@@ -385,7 +385,7 @@ class OrganizationSpecificApiClient {
     
     const response = await fetch(url, {
       method: 'DELETE',
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: JSON.stringify(data)
     });
 

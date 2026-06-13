@@ -27,11 +27,10 @@ export function useAuthAutoRefresh(enabled: boolean) {
     refreshInFlightRef.current = true;
 
     try {
-      console.log(`🔁 Auto-refreshing token (${reason})...`);
       await refreshAccessToken();
     } catch (e) {
       // refreshAccessToken already handles clearing + dispatching auth:refresh-failed
-      console.warn('⚠️ Auto token refresh failed:', e);
+      console.error('⚠️ Auto token refresh failed:', e);
     } finally {
       refreshInFlightRef.current = false;
     }

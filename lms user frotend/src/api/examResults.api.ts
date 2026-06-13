@@ -55,7 +55,6 @@ export interface ExamResultsResponse {
 
 class ExamResultsApi {
   async getExamResults(params?: ExamResultsQueryParams, forceRefresh = false): Promise<ExamResultsResponse> {
-    console.log('Fetching exam results:', params, { forceRefresh });
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiParams } = params ?? {};
     return enhancedCachedClient.get<ExamResultsResponse>('/institute-class-subject-resaults', Object.keys(apiParams).length > 0 ? apiParams : undefined, {
@@ -106,7 +105,6 @@ class ExamResultsApi {
   }
 
   async createBulkResults(data: BulkResultsCreateData): Promise<ExamResult[]> {
-    console.log('Creating bulk exam results:', data);
     return enhancedCachedClient.post<ExamResult[]>('/institute-class-subject-resaults/bulk', data, {
       instituteId: data.instituteId,
       classId: data.classId,

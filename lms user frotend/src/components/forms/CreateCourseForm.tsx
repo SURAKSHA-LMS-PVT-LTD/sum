@@ -17,7 +17,7 @@ import { uploadWithSignedUrl } from '@/utils/signedUploadHelper';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getBaseUrl2 } from '@/contexts/utils/auth.api';
+import { getBaseUrl2, getOrgAccessTokenAsync } from '@/contexts/utils/auth.api';
 
 const createCourseSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100, 'Title must be less than 100 characters'),
@@ -115,10 +115,11 @@ const CreateCourseForm = ({ onSuccess, onCancel }: CreateCourseFormProps) => {
         courseData.imageUrl = imageRelativePath;
       }
 
+      const orgToken = await getOrgAccessTokenAsync();
       const response = await fetch(`${baseUrl2}/organization/api/v1/causes`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('org_access_token')}`,
+          'Authorization': `Bearer ${orgToken ?? ''}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(courseData),

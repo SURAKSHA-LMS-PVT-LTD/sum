@@ -100,8 +100,6 @@ class HomeworkSubmissionsApi {
     message: string;
     data?: HomeworkSubmission;
   }> {
-    console.log('📤 Submitting homework:', { homeworkId, fileUrl, submissionData });
-    
     try {
       const response = await apiClient.post(
         `${this.basePath}/${homeworkId}/submit`,
@@ -111,7 +109,6 @@ class HomeworkSubmissionsApi {
           remarks: submissionData?.remarks
         }
       );
-      console.log('✅ Homework submission successful:', response);
       return {
         success: true,
         message: 'Homework submitted successfully',
@@ -136,8 +133,6 @@ class HomeworkSubmissionsApi {
     message: string;
     data?: HomeworkSubmission;
   }> {
-    console.log('📁 Submitting homework via Google Drive:', { homeworkId: data.homeworkId, fileName: data.fileName });
-    
     try {
       const response = await apiClient.post(
         `${this.altBasePath}/submit-google-drive`,
@@ -149,7 +144,6 @@ class HomeworkSubmissionsApi {
           mimeType: data.mimeType
         }
       );
-      console.log('✅ Google Drive submission successful:', response);
       return {
         success: true,
         message: 'Homework submitted successfully via Google Drive',
@@ -169,7 +163,6 @@ class HomeworkSubmissionsApi {
    * GET /institute-class-subject-homework-submissions/{homeworkId}/my-submissions
    */
   async getMySubmissions(homeworkId: string, forceRefresh = false): Promise<ApiResponse<HomeworkSubmission[]>> {
-    console.log('📋 Fetching my submissions for homework:', homeworkId);
     return enhancedCachedClient.get<ApiResponse<HomeworkSubmission[]>>(
       `${this.basePath}/${homeworkId}/my-submissions`,
       undefined,
@@ -190,9 +183,8 @@ class HomeworkSubmissionsApi {
     data: { fileUrl?: string; remarks?: string },
     context?: SubmissionQueryParams
   ): Promise<HomeworkSubmission> {
-    console.log('📝 Updating my submission:', id, data);
     return enhancedCachedClient.patch<HomeworkSubmission>(
-      `${this.altBasePath}/${id}`, 
+      `${this.altBasePath}/${id}`,
       data,
       {
         userId: context?.userId,
@@ -208,7 +200,6 @@ class HomeworkSubmissionsApi {
    * DELETE /institute-class-subject-homeworks-submissions/{id}
    */
   async deleteMySubmission(id: string, context?: SubmissionQueryParams): Promise<void> {
-    console.log('🗑️ Deleting my submission:', id);
     return enhancedCachedClient.delete<void>(
       `${this.altBasePath}/${id}`,
       {
@@ -231,7 +222,6 @@ class HomeworkSubmissionsApi {
     params?: Omit<SubmissionQueryParams, 'homeworkId'>,
     forceRefresh = false
   ): Promise<ApiResponse<HomeworkSubmission[]>> {
-    console.log('📋 Fetching all submissions for homework:', homeworkId, params);
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiParams } = params ?? {};
     return enhancedCachedClient.get<ApiResponse<HomeworkSubmission[]>>(
@@ -261,7 +251,6 @@ class HomeworkSubmissionsApi {
     params?: Omit<SubmissionQueryParams, 'instituteId' | 'classId' | 'subjectId'>,
     forceRefresh = false
   ): Promise<ApiResponse<HomeworkSubmission[]>> {
-    console.log('📋 Fetching submissions by class/subject:', { instituteId, classId, subjectId });
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiParams } = params ?? {};
     return enhancedCachedClient.get<ApiResponse<HomeworkSubmission[]>>(
@@ -285,7 +274,6 @@ class HomeworkSubmissionsApi {
    * GET /institute-class-subject-homework-submissions/{submissionId}/details
    */
   async getSubmissionDetails(submissionId: string, forceRefresh = false): Promise<HomeworkSubmission> {
-    console.log('📄 Fetching submission details:', submissionId);
     return enhancedCachedClient.get<HomeworkSubmission>(
       `${this.basePath}/${submissionId}/details`,
       undefined,
@@ -306,7 +294,6 @@ class HomeworkSubmissionsApi {
     params?: Omit<SubmissionQueryParams, 'studentId'>,
     forceRefresh = false
   ): Promise<ApiResponse<HomeworkSubmission[]>> {
-    console.log('📋 Fetching submissions for student:', studentId);
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiParams } = params ?? {};
     return enhancedCachedClient.get<ApiResponse<HomeworkSubmission[]>>(
@@ -329,7 +316,6 @@ class HomeworkSubmissionsApi {
    * Delete any submission (Teacher/Admin)
    */
   async deleteSubmission(id: string, context?: SubmissionQueryParams): Promise<void> {
-    console.log('🗑️ Deleting submission:', id);
     return enhancedCachedClient.delete<void>(
       `${this.altBasePath}/${id}`,
       {
@@ -352,7 +338,6 @@ class HomeworkSubmissionsApi {
     submissionId: string, 
     correctionFileUrl: string
   ): Promise<{ teacherCorrectionFileUrl: string }> {
-    console.log('📎 Uploading correction file:', submissionId);
     return apiClient.post(
       `${this.basePath}/${submissionId}/correction-file`,
       { correctionFileUrl }
@@ -368,7 +353,6 @@ class HomeworkSubmissionsApi {
     driveFileId: string,
     accessToken: string
   ): Promise<{ teacherCorrectionFileUrl: string }> {
-    console.log('📎 Uploading correction file via Drive:', submissionId, driveFileId);
     return apiClient.post(
       `${this.basePath}/${submissionId}/correction-file-drive`,
       { driveFileId, accessToken }
@@ -383,7 +367,6 @@ class HomeworkSubmissionsApi {
     submissionId: string, 
     data: ReviewSubmissionData
   ): Promise<HomeworkSubmission> {
-    console.log('✏️ Reviewing submission:', submissionId, data);
     return apiClient.patch(
       `${this.basePath}/${submissionId}/review`,
       data
@@ -399,7 +382,6 @@ class HomeworkSubmissionsApi {
     submissionId: string, 
     data: ReviewSubmissionData & { correctionFileUrl: string }
   ): Promise<HomeworkSubmission> {
-    console.log('✏️ Reviewing submission with correction:', submissionId);
     const { correctionFileUrl, ...reviewData } = data;
     // Step 1: Upload correction file
     if (correctionFileUrl) {
@@ -421,7 +403,6 @@ class HomeworkSubmissionsApi {
    * Instead, clear it by POSTing an empty correctionFileUrl.
    */
   async deleteCorrectionFile(submissionId: string): Promise<void> {
-    console.log('🗑️ Clearing correction file:', submissionId);
     await apiClient.post(`${this.basePath}/${submissionId}/correction-file`, { correctionFileUrl: '' });
   }
 
@@ -433,7 +414,6 @@ class HomeworkSubmissionsApi {
     submissionId: string, 
     correctionFileUrl: string
   ): Promise<{ teacherCorrectionFileUrl: string }> {
-    console.log('📝 Updating correction file:', submissionId);
     return apiClient.post(
       `${this.basePath}/${submissionId}/correction-file`,
       { correctionFileUrl }
@@ -443,7 +423,6 @@ class HomeworkSubmissionsApi {
   // =================== LEGACY METHODS (backward compatibility) ===================
 
   async getSubmissions(params?: SubmissionQueryParams, forceRefresh = false): Promise<ApiResponse<HomeworkSubmission[]>> {
-    console.log('📋 Fetching homework submissions (legacy):', params, { forceRefresh });
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiParams } = params ?? {};
     return enhancedCachedClient.get<ApiResponse<HomeworkSubmission[]>>(
@@ -474,7 +453,6 @@ class HomeworkSubmissionsApi {
     }, 
     params?: SubmissionQueryParams
   ): Promise<HomeworkSubmission> {
-    console.log('📤 Creating homework submission (legacy):', data);
     return enhancedCachedClient.post<HomeworkSubmission>(
       this.altBasePath, 
       data, 
@@ -489,7 +467,6 @@ class HomeworkSubmissionsApi {
   }
 
   async getSubmissionById(id: string, params?: SubmissionQueryParams, forceRefresh = false): Promise<HomeworkSubmission> {
-    console.log('📄 Fetching homework submission by ID:', id, { forceRefresh });
     return enhancedCachedClient.get<HomeworkSubmission>(
       `${this.altBasePath}/${id}`, 
       undefined, 
@@ -514,7 +491,6 @@ class HomeworkSubmissionsApi {
     remarks?: string;
     isActive: boolean;
   }>, params?: SubmissionQueryParams): Promise<HomeworkSubmission> {
-    console.log('📝 Updating homework submission (legacy):', id, data);
     return enhancedCachedClient.patch<HomeworkSubmission>(
       `${this.altBasePath}/${id}`, 
       data, 
@@ -542,7 +518,6 @@ class HomeworkSubmissionsApi {
     params?: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC'; userId?: string; role?: string },
     forceRefresh = false
   ): Promise<{ data: HomeworkSubmission[]; meta: any }> {
-    console.log('📋 Fetching student homework submissions (legacy):', { instituteId, classId, subjectId, studentId, params, forceRefresh });
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiQueryParams } = params ?? {};
     const queryParams = {

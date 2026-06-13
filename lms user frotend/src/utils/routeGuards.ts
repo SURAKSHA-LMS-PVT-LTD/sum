@@ -251,26 +251,19 @@ export const useSessionValidation = (intervalMs: number = 60000) => {
 
 /**
  * Rate Limit Detection Hook
+ * Listens for the 'api:rate-limited' event dispatched by the API client
+ * when it receives a 429 response.
  */
 export const useRateLimitDetection = () => {
   useEffect(() => {
-    const originalFetch = window.fetch;
-    
-    window.fetch = async (...args) => {
-      const response = await originalFetch(...args);
-      
-      if (response.status === 429) {
-        window.dispatchEvent(new CustomEvent('api:rate-limited', {
-          detail: { retryAfter: response.headers.get('Retry-After') },
-        }));
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (import.meta.env.DEV) {
+        console.error('[rate-limit] 429 received, retry-after:', detail?.retryAfter);
       }
-      
-      return response;
     };
-    
-    return () => {
-      window.fetch = originalFetch;
-    };
+    window.addEventListener('api:rate-limited', handler);
+    return () => window.removeEventListener('api:rate-limited', handler);
   }, []);
 };
 

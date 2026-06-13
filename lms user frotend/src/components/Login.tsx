@@ -191,22 +191,13 @@ const Login = ({
     toast
   } = useToast();
 
-  // Store URL changes immediately to localStorage
   const handleBaseUrlChange = (newUrl: string) => {
     setBaseUrl(newUrl);
-    if (newUrl.startsWith('http')) {
-      localStorage.setItem('baseUrl', newUrl);
-    }
   };
   const handleAttendanceUrlChange = (newUrl: string) => {
     setAttendanceUrl(newUrl);
-    if (newUrl.startsWith('http')) {
-      localStorage.setItem('attendanceUrl', newUrl);
-    }
   };
-  const getCurrentAttendanceUrl = () => {
-    return localStorage.getItem('attendanceUrl') || attendanceUrl;
-  };
+  const getCurrentAttendanceUrl = () => attendanceUrl;
   const getApiHeaders = () => ({
     'Content-Type': 'application/json'
   });

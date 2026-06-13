@@ -7,8 +7,6 @@ export const useClassSelection = () => {
   const { setSelectedClass } = useAuth();
 
   const selectClass = useCallback((classData: any) => {
-    console.log('Class selection - preventing automatic API calls');
-    
     // Only update the selected class state, no additional API calls
     setSelectedClass({
       id: classData.id,

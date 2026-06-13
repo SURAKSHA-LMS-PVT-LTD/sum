@@ -398,7 +398,6 @@ export class FileUploader {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`Upload attempt ${attempt}/${maxRetries}`);
         return await this.uploadFile(file, folder, onProgress);
       } catch (error: any) {
         console.error(`Attempt ${attempt} failed:`, error);

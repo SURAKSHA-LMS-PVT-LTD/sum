@@ -44,7 +44,7 @@ export const getApiHeadersAsync = async (): Promise<Record<string, string>> => {
       // Don't send a malformed token — the server will return 401,
       // which triggers the normal handle401Error → refreshAccessToken flow.
       // No side effects here; clearing storage from a headers function is too risky.
-      console.warn('[auth] Skipping malformed access token — 401 refresh flow will handle recovery');
+      if (import.meta.env.DEV) console.warn('[auth] Skipping malformed access token — 401 refresh flow will handle recovery');
     }
   }
   return headers;

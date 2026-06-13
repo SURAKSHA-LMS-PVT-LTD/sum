@@ -128,10 +128,12 @@ class AttendanceDuplicateChecker {
 
     if (duplicate) {
       const timeSince = Math.round((now - duplicate.timestamp) / 1000);
-      console.warn('🚫 DUPLICATE ATTENDANCE DETECTED!');
-      console.warn('Last marked:', timeSince, 'seconds ago');
-      console.warn('Duplicate Record:', duplicate);
-      console.warn('Current Attempt:', params);
+      if (import.meta.env.DEV) {
+        console.warn('🚫 DUPLICATE ATTENDANCE DETECTED!');
+        console.warn('Last marked:', timeSince, 'seconds ago');
+        console.warn('Duplicate Record:', duplicate);
+        console.warn('Current Attempt:', params);
+      }
       return true;
     }
 
@@ -170,10 +172,6 @@ class AttendanceDuplicateChecker {
 
     // Save to storage
     this.saveToStorage();
-
-    console.log('✅ Attendance recorded locally');
-    console.log('📋 Recent Records:', this.records.length);
-    console.log('Latest:', record);
   }
 
   /**
@@ -189,7 +187,6 @@ class AttendanceDuplicateChecker {
   clearAll(): void {
     this.records = [];
     localStorage.removeItem(STORAGE_KEY);
-    console.log('🗑️ All attendance records cleared');
   }
 
   /**
@@ -198,7 +195,6 @@ class AttendanceDuplicateChecker {
   clearForUser(userId: string): void {
     this.records = this.records.filter(record => record.userId !== userId);
     this.saveToStorage();
-    console.log('🗑️ Attendance records cleared for user:', userId);
   }
 }
 

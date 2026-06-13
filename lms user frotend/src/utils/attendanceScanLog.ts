@@ -105,7 +105,6 @@ class AttendanceScanLogStore {
   private resetCleanupTimer(): void {
     this.cancelCleanupTimer();
     this.cleanupTimer = setTimeout(() => {
-      console.log('🧹 Auto-clearing attendance scan log after 15 min inactivity');
       this.clear();
     }, CLEANUP_DELAY_MS);
   }

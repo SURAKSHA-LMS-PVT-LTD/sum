@@ -213,8 +213,7 @@ const CreatePayment = () => {
       }
 
       const result = await response.json();
-      console.log('Payment creation response:', result);
-      
+
       setSuccessData(result);
       setShowSuccess(true);
       

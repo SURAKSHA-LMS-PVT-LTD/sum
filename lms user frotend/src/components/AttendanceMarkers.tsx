@@ -72,19 +72,15 @@ const AttendanceMarkers = () => {
   ];
 
   const handleAddMarker = () => {
-    console.log('Add new attendance marker');
   };
 
-  const handleEditMarker = (marker: any) => {
-    console.log('Edit attendance marker:', marker);
+  const handleEditMarker = (_marker: any) => {
   };
 
-  const handleDeleteMarker = (marker: any) => {
-    console.log('Delete attendance marker:', marker);
+  const handleDeleteMarker = (_marker: any) => {
   };
 
-  const handleViewMarker = (marker: any) => {
-    console.log('View attendance marker details:', marker);
+  const handleViewMarker = (_marker: any) => {
   };
 
   const userRole = useInstituteRole();

@@ -139,7 +139,6 @@ export async function fetchMultiWindowWithSummary(
         windowCount++;
       }
     } catch (e) {
-      console.warn('Window fetch failed:', fmt(windowStart), '-', fmt(windowEnd), e);
     }
 
     windowStart.setDate(windowStart.getDate() + 5);

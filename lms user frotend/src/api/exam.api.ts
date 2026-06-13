@@ -64,7 +64,6 @@ export interface ExamQueryParams {
 
 class ExamApi {
   async getExams(params?: ExamQueryParams, forceRefresh = false): Promise<ApiResponse<Exam[]>> {
-    console.log('📝 Fetching exams with secure caching:', params, { forceRefresh });
     // Separate cache context fields from actual API query params
     const { userId, role, ...apiParams } = params ?? {};
     return enhancedCachedClient.get<ApiResponse<Exam[]>>('/institute-class-subject-exams', Object.keys(apiParams).length > 0 ? apiParams : undefined, {
@@ -80,7 +79,6 @@ class ExamApi {
   }
 
   async getExamById(id: string, forceRefresh = false, context?: { instituteId?: string; classId?: string; subjectId?: string; userId?: string }): Promise<Exam> {
-    console.log('📄 Fetching exam by ID with secure caching:', id, { forceRefresh, context });
     return enhancedCachedClient.get<Exam>(`/institute-class-subject-exams/${id}`, undefined, {
       forceRefresh,
       ttl: 30,
@@ -90,7 +88,6 @@ class ExamApi {
   }
 
   async createExam(data: ExamCreateData): Promise<Exam> {
-    console.log('✏️ Creating exam (will invalidate cache):', data);
     return enhancedCachedClient.post<Exam>('/institute-class-subject-exams', data, {
       instituteId: data.instituteId,
       classId: data.classId,
@@ -99,7 +96,6 @@ class ExamApi {
   }
 
   async updateExam(id: string, data: Partial<ExamCreateData>): Promise<Exam> {
-    console.log('📝 Updating exam (will invalidate cache):', id, data);
     return enhancedCachedClient.patch<Exam>(`/institute-class-subject-exams/${id}`, data, {
       instituteId: data.instituteId,
       classId: data.classId,
@@ -108,7 +104,6 @@ class ExamApi {
   }
 
   async deleteExam(id: string, context?: { instituteId?: string; classId?: string; subjectId?: string }): Promise<void> {
-    console.log('🗑️ Deleting exam (will invalidate cache):', id);
     return enhancedCachedClient.delete<void>(`/institute-class-subject-exams/${id}`, context);
   }
 

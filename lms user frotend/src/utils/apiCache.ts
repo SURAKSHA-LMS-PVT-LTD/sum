@@ -48,27 +48,27 @@ class ApiCacheManager {
       if (this.isIndexedDBSupported()) {
         await this.initIndexedDB();
         this.storageType = 'indexeddb';
-        console.log('ApiCache: Using IndexedDB storage');
+        if (import.meta.env.DEV) console.log('ApiCache: Using IndexedDB storage');
         return;
       }
     } catch (error: any) {
-      console.warn('IndexedDB initialization failed:', error);
+      if (import.meta.env.DEV) console.warn('IndexedDB initialization failed:', error);
     }
 
     try {
       // Fallback to localStorage
       if (this.isLocalStorageSupported()) {
         this.storageType = 'localstorage';
-        console.log('ApiCache: Using localStorage storage');
+        if (import.meta.env.DEV) console.log('ApiCache: Using localStorage storage');
         return;
       }
     } catch (error: any) {
-      console.warn('localStorage not available:', error);
+      if (import.meta.env.DEV) console.warn('localStorage not available:', error);
     }
 
     // Final fallback to memory
     this.storageType = 'memory';
-    console.log('ApiCache: Using memory storage (data will not persist)');
+    if (import.meta.env.DEV) console.log('ApiCache: Using memory storage (data will not persist)');
   }
 
   private isIndexedDBSupported(): boolean {
@@ -119,11 +119,11 @@ class ApiCacheManager {
       subjectId: options.subjectId
     }) : '';
     const cacheKey = `${this.CACHE_PREFIX}${endpoint}_${paramString}_${contextString}`;
-    console.log('🔑 Generated cache key:', { 
-      endpoint, 
-      params, 
-      context: options, 
-      cacheKey 
+    if (import.meta.env.DEV) console.log('🔑 Generated cache key:', {
+      endpoint,
+      params,
+      context: options,
+      cacheKey
     });
     return cacheKey;
   }
@@ -167,16 +167,16 @@ class ApiCacheManager {
           break;
       }
       
-      console.log(`✅ Cache SET for ${endpoint}:`, { 
-        userId: options?.userId, 
+      if (import.meta.env.DEV) console.log(`✅ Cache SET for ${endpoint}:`, {
+        userId: options?.userId,
         role: options?.role,
-        dataLength: Array.isArray(data) ? data.length : 1, 
+        dataLength: Array.isArray(data) ? data.length : 1,
         storageType: this.storageType,
         ttl: `${effectiveTTL} minutes`,
         expiresAt: new Date(Date.now() + effectiveTTL * 60 * 1000).toLocaleTimeString()
       });
     } catch (error: any) {
-      console.warn('Failed to set cache:', error);
+      if (import.meta.env.DEV) console.warn('Failed to set cache:', error);
     }
   }
 
@@ -189,14 +189,14 @@ class ApiCacheManager {
       const { ttl = autoTTL, forceRefresh = false } = options;
       
       if (forceRefresh) {
-        console.log(`⚠️ Force refresh requested for ${endpoint}`);
+        if (import.meta.env.DEV) console.log(`⚠️ Force refresh requested for ${endpoint}`);
         return null;
       }
 
       const cacheKey = this.generateCacheKey(endpoint, params, options);
-      console.log(`🔍 ApiCache.getCache() called:`, { 
-        endpoint, 
-        cacheKey, 
+      if (import.meta.env.DEV) console.log(`🔍 ApiCache.getCache() called:`, {
+        endpoint,
+        cacheKey,
         storageType: this.storageType,
         userId: options?.userId,
         role: options?.role,
@@ -218,7 +218,7 @@ class ApiCacheManager {
       }
       
       if (!entry) {
-        console.log(`❌ ApiCache: No cache entry found for ${endpoint}`, {
+        if (import.meta.env.DEV) console.log(`❌ ApiCache: No cache entry found for ${endpoint}`, {
           cacheKey,
           userId: options?.userId,
           role: options?.role,
@@ -226,9 +226,9 @@ class ApiCacheManager {
         });
         return null;
       }
-      
+
       if (this.isExpired(entry, ttl)) {
-        console.log(`⏰ ApiCache: Cache expired for ${endpoint}`, {
+        if (import.meta.env.DEV) console.log(`⏰ ApiCache: Cache expired for ${endpoint}`, {
           age: (Date.now() - entry.timestamp) / 1000 / 60,
           ttl
         });
@@ -236,9 +236,9 @@ class ApiCacheManager {
         return null;
       }
 
-      console.log(`✅ ApiCache: Cache HIT for ${endpoint}:`, { 
-        cacheKey, 
-        dataLength: Array.isArray(entry.data) ? entry.data.length : 1, 
+      if (import.meta.env.DEV) console.log(`✅ ApiCache: Cache HIT for ${endpoint}:`, {
+        cacheKey,
+        dataLength: Array.isArray(entry.data) ? entry.data.length : 1,
         storageType: this.storageType,
         age: `${((Date.now() - entry.timestamp) / 1000 / 60).toFixed(1)} minutes`,
         ttl: `${ttl} minutes`,
@@ -246,7 +246,7 @@ class ApiCacheManager {
       });
       return entry.data;
     } catch (error: any) {
-      console.warn('Failed to get cache:', error);
+      if (import.meta.env.DEV) console.warn('Failed to get cache:', error);
       return null;
     }
   }
@@ -306,9 +306,9 @@ class ApiCacheManager {
           break;
       }
       
-      console.log(`Cache cleared for ${endpoint}`);
+      if (import.meta.env.DEV) console.log(`Cache cleared for ${endpoint}`);
     } catch (error: any) {
-      console.warn('Failed to clear cache:', error);
+      if (import.meta.env.DEV) console.warn('Failed to clear cache:', error);
     }
   }
 
@@ -356,9 +356,9 @@ class ApiCacheManager {
           break;
       }
 
-      console.log(`🔒 Cleared ${keysToRemove.length} cache entries for user ${userId}`);
+      if (import.meta.env.DEV) console.log(`🔒 Cleared ${keysToRemove.length} cache entries for user ${userId}`);
     } catch (error: any) {
-      console.warn('Failed to clear user cache:', error);
+      if (import.meta.env.DEV) console.warn('Failed to clear user cache:', error);
     }
   }
 
@@ -382,7 +382,7 @@ class ApiCacheManager {
           }
           cursor.continue();
         } else {
-          console.log(`🔒 Deleted ${deletedCount} IndexedDB entries for user ${userId}`);
+          if (import.meta.env.DEV) console.log(`🔒 Deleted ${deletedCount} IndexedDB entries for user ${userId}`);
           resolve();
         }
       };
@@ -418,9 +418,9 @@ class ApiCacheManager {
           break;
       }
 
-      console.log(`Cleared all ${clearedCount} cache entries`);
+      if (import.meta.env.DEV) console.log(`Cleared all ${clearedCount} cache entries`);
     } catch (error: any) {
-      console.warn('Failed to clear all cache:', error);
+      if (import.meta.env.DEV) console.warn('Failed to clear all cache:', error);
     }
   }
 
@@ -477,7 +477,7 @@ class ApiCacheManager {
           break;
       }
     } catch (error: any) {
-      console.warn('Failed to get cache stats:', error);
+      if (import.meta.env.DEV) console.warn('Failed to get cache stats:', error);
     }
 
     return { totalEntries, totalSize, storageType: this.storageType };
@@ -531,9 +531,9 @@ class ApiCacheManager {
           break;
       }
       
-      console.log(`🧹 Cleared ${clearedCount} expired cache entries`);
+      if (import.meta.env.DEV) console.log(`🧹 Cleared ${clearedCount} expired cache entries`);
     } catch (error: any) {
-      console.warn('Failed to clear expired entries:', error);
+      if (import.meta.env.DEV) console.warn('Failed to clear expired entries:', error);
     }
     
     return clearedCount;
@@ -614,11 +614,11 @@ class ApiCacheManager {
     setInterval(async () => {
       const clearedCount = await this.clearExpiredEntries();
       if (clearedCount > 0) {
-        console.log(`🧹 Periodic maintenance: Removed ${clearedCount} expired cache entries`);
+        if (import.meta.env.DEV) console.log(`🧹 Periodic maintenance: Removed ${clearedCount} expired cache entries`);
       }
     }, 5 * 60 * 1000); // 5 minutes
-    
-    console.log('🔧 Periodic cache maintenance started (runs every 5 minutes)');
+
+    if (import.meta.env.DEV) console.log('🔧 Periodic cache maintenance started (runs every 5 minutes)');
   }
 }
 

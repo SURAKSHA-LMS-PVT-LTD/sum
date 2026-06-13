@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { X, Save, Video, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getBaseUrl2 } from '@/contexts/utils/auth.api';
+import { getBaseUrl2, getOrgAccessTokenAsync } from '@/contexts/utils/auth.api';
 import { uploadWithSignedUrl } from '@/utils/signedUploadHelper';
 
 interface UpdateOrganizationLectureFormProps {
@@ -110,10 +110,11 @@ const UpdateOrganizationLectureForm = ({ lecture, onClose, onSuccess }: UpdateOr
       if (formData.recordingUrl) updateData.recordingUrl = formData.recordingUrl;
       if (documentPaths.length > 0) updateData.documentUrls = documentPaths;
 
+      const orgToken = await getOrgAccessTokenAsync();
       const response = await fetch(`${baseUrl2}/organization/api/v1/lectures/${lecture.lectureId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('org_access_token')}`,
+          'Authorization': `Bearer ${orgToken ?? ''}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(updateData),

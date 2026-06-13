@@ -26,7 +26,6 @@ export const useApiDebounce = (options: UseApiDebounceOptions = {}) => {
           // Check for duplicate requests
           if (preventDuplicates && requestKey) {
             if (pendingRequestsRef.current.has(requestKey)) {
-              console.log(`Preventing duplicate request: ${requestKey}`);
               return reject(new Error('Duplicate request prevented'));
             }
           }

@@ -52,7 +52,7 @@ class MobilePermissionService {
     if (lastPromptTime) {
       const timeSinceLastPrompt = Date.now() - parseInt(lastPromptTime, 10);
       if (timeSinceLastPrompt < this.PROMPT_COOLDOWN_MS) {
-        console.log('📱 Permission prompt on cooldown, skipping');
+        if (import.meta.env.DEV) console.log('📱 Permission prompt on cooldown, skipping');
         return false;
       }
     }
@@ -85,7 +85,7 @@ class MobilePermissionService {
         result.notifications = 'prompt';
       }
     } catch (e) {
-      console.warn('Failed to check notification permission:', e);
+      console.error('Failed to check notification permission:', e);
     }
 
     try {
@@ -99,7 +99,7 @@ class MobilePermissionService {
         result.camera = 'prompt';
       }
     } catch (e) {
-      console.warn('Failed to check camera permission:', e);
+      console.error('Failed to check camera permission:', e);
     }
 
     try {
@@ -113,7 +113,7 @@ class MobilePermissionService {
         result.location = 'prompt';
       }
     } catch (e) {
-      console.warn('Failed to check location permission:', e);
+      console.error('Failed to check location permission:', e);
     }
 
     return result;
@@ -131,33 +131,33 @@ class MobilePermissionService {
     };
 
     if (!this.isNativePlatform()) {
-      console.log('📱 Not on native platform, skipping permission requests');
+      if (import.meta.env.DEV) console.log('📱 Not on native platform, skipping permission requests');
       return result;
     }
 
     this.hasPromptedThisSession = true;
     localStorage.setItem(this.PERMISSION_PROMPT_KEY, Date.now().toString());
 
-    console.log('📱 Requesting mobile permissions...');
+    if (import.meta.env.DEV) console.log('📱 Requesting mobile permissions...');
 
     // Request notification permission and register token
     try {
       const notifResult = await PushNotifications.requestPermissions();
-      console.log('📱 Notification permission result:', notifResult);
-      
+      if (import.meta.env.DEV) console.log('📱 Notification permission result:', notifResult);
+
       if (notifResult.receive === 'granted') {
         result.notifications = true;
         // Register for push notifications
         await PushNotifications.register();
-        console.log('✅ Push notifications registered');
-        
+        if (import.meta.env.DEV) console.log('✅ Push notifications registered');
+
         // Register FCM token with backend if userId provided
         if (userId) {
           try {
             await pushNotificationService.registerToken(userId);
-            console.log('✅ FCM token registered with backend');
+            if (import.meta.env.DEV) console.log('✅ FCM token registered with backend');
           } catch (e) {
-            console.warn('Failed to register FCM token:', e);
+            console.error('Failed to register FCM token:', e);
           }
         }
       }
@@ -168,11 +168,11 @@ class MobilePermissionService {
     // Request camera permission
     try {
       const cameraResult = await Camera.requestPermissions({ permissions: ['camera'] });
-      console.log('📱 Camera permission result:', cameraResult);
-      
+      if (import.meta.env.DEV) console.log('📱 Camera permission result:', cameraResult);
+
       if (cameraResult.camera === 'granted') {
         result.camera = true;
-        console.log('✅ Camera permission granted');
+        if (import.meta.env.DEV) console.log('✅ Camera permission granted');
       }
     } catch (e) {
       console.error('❌ Failed to request camera permission:', e);
@@ -182,17 +182,17 @@ class MobilePermissionService {
     try {
       const { Geolocation } = await import('@capacitor/geolocation');
       const locResult = await Geolocation.requestPermissions();
-      console.log('📱 Location permission result:', locResult);
-      
+      if (import.meta.env.DEV) console.log('📱 Location permission result:', locResult);
+
       if (locResult.location === 'granted') {
         result.location = true;
-        console.log('✅ Location permission granted');
+        if (import.meta.env.DEV) console.log('✅ Location permission granted');
       }
     } catch (e) {
       console.error('❌ Failed to request location permission:', e);
     }
 
-    console.log('📱 Permission request results:', result);
+    if (import.meta.env.DEV) console.log('📱 Permission request results:', result);
     return result;
   }
 

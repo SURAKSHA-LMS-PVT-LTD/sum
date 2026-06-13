@@ -68,7 +68,7 @@ const EnrollOrganizationDialog = ({
       }
       
       // Log the full error for debugging
-      console.log('Full error details:', {
+      console.error('Full error details:', {
         error,
         message: errorMessage,
         organizationType,
