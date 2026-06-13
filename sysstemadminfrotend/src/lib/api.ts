@@ -2220,6 +2220,37 @@ export const api = {
   resetMonthlyPayments: () =>
     apiRequest("/payment/reset-monthly", { method: "POST" }),
 
+  // =============== PACKAGE DEFINITIONS ===============
+
+  getPackageDefinitions: () =>
+    apiRequest("/package-definitions"),
+
+  createPackageDefinition: (data: {
+    subscriptionPlan: string;
+    name: string;
+    description?: string;
+    features?: string[];
+    price: number;
+    validityDays?: number;
+    imageUrl?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+  }) => apiRequest("/package-definitions", { method: "POST", body: JSON.stringify(data) }),
+
+  updatePackageDefinition: (id: string, data: {
+    name?: string;
+    description?: string;
+    features?: string[];
+    price?: number;
+    validityDays?: number;
+    imageUrl?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+  }) => apiRequest(`/package-definitions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  deletePackageDefinition: (id: string) =>
+    apiRequest(`/package-definitions/${id}`, { method: "DELETE" }),
+
   // =============== INSTITUTE PAYMENT SUBMISSIONS ===============
 
   getInstitutePaymentSubmissions: (instituteId: string, paymentId: string, params: {

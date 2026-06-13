@@ -16,7 +16,7 @@ import { AccessControl } from '@/utils/permissions';
 import ProfileImageUpload from '@/components/ProfileImageUpload';
 import { apiClient } from '@/api/client';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Phone, MapPin, Calendar, Shield, Lock, Eye, EyeOff, Camera, Briefcase, GraduationCap, CreditCard, Languages, Monitor, Smartphone, Tablet, LogOut, ShieldAlert, RefreshCw, Link2, Trash2, ChevronRight, Building2 } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Shield, Lock, Eye, EyeOff, Camera, Briefcase, GraduationCap, CreditCard, Languages, Monitor, Smartphone, Tablet, LogOut, ShieldAlert, RefreshCw, Link2, Trash2, ChevronRight, Building2, Package } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getActiveSessions, revokeSession, revokeAllSessions, getApiHeadersAsync, getCredentialsMode } from '@/contexts/utils/auth.api';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
@@ -30,6 +30,8 @@ import UpdateEmailDialog from '@/components/profile/UpdateEmailDialog';
 import UpgradeUserTypeDialog from '@/components/profile/UpgradeUserTypeDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import InstituteActivation from '@/components/InstituteActivation';
+import ChangePlanModal from '@/components/profile/ChangePlanModal';
+
 interface UserData {
   id: string;
   nameWithInitials: string;
@@ -58,6 +60,7 @@ interface UserData {
   workPhone: string;
   educationLevel: string;
   subscriptionPlan: string;
+  paymentExpiresAt: string;
   language: string;
 }
 
@@ -86,7 +89,7 @@ const Profile = () => {
     nic: '', birthCertificateNo: '', addressLine1: '', addressLine2: '', city: '',
     district: '', province: '', postalCode: '', country: '', joinDate: '',
     occupation: '', workplace: '', workPhone: '', educationLevel: '',
-    subscriptionPlan: '', language: ''
+    subscriptionPlan: '', paymentExpiresAt: '', language: ''
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '', newPassword: '', confirmNewPassword: ''
@@ -106,6 +109,7 @@ const Profile = () => {
   const [revokingAll, setRevokingAll] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [showActivation, setShowActivation] = useState(false);
+  const [changePlanOpen, setChangePlanOpen] = useState(false);
 
   const loadSessions = async () => {
     setSessionsLoading(true);
@@ -254,7 +258,9 @@ const Profile = () => {
           updatedAt: d.updatedAt || '', occupation: d.occupation || '',
           workplace: d.workplace || '', workPhone: d.workPhone || '',
           educationLevel: d.educationLevel || '',
-          subscriptionPlan: d.subscriptionPlan || '', language: d.language || ''
+          subscriptionPlan: d.subscriptionPlan || '',
+          paymentExpiresAt: d.paymentExpiresAt || '',
+          language: d.language || ''
         };
         setUserData(ud);
         setFormData({
@@ -268,7 +274,9 @@ const Profile = () => {
           joinDate: ud.createdAt ? new Date(ud.createdAt).toLocaleDateString() : '',
           occupation: ud.occupation, workplace: ud.workplace,
           workPhone: ud.workPhone, educationLevel: ud.educationLevel,
-          subscriptionPlan: ud.subscriptionPlan, language: ud.language
+          subscriptionPlan: ud.subscriptionPlan,
+          paymentExpiresAt: ud.paymentExpiresAt,
+          language: ud.language
         });
       }
     } catch (error: any) {
@@ -428,9 +436,19 @@ const Profile = () => {
         );
       case 'account':
         return (
-          <Card><CardContent className="p-4 space-y-0">
+          <Card><CardContent className="p-4 space-y-2">
             <InfoRow icon={CreditCard} label="Plan" value={formData.subscriptionPlan || 'FREE'} />
+            {formData.paymentExpiresAt && (
+              <InfoRow label="Plan Expires" value={new Date(formData.paymentExpiresAt).toLocaleDateString()} />
+            )}
             <InfoRow icon={Languages} label="Language" value={langDisplay} />
+            {!isChildView && (
+              <div className="pt-2">
+                <Button size="sm" variant="outline" onClick={() => setChangePlanOpen(true)} className="w-full">
+                  <Package className="h-4 w-4 mr-2" /> Change Plan
+                </Button>
+              </div>
+            )}
           </CardContent></Card>
         );
       default:
@@ -930,7 +948,17 @@ const Profile = () => {
               </AccordionTrigger>
               <AccordionContent>
                 <InfoRow icon={CreditCard} label="Plan" value={formData.subscriptionPlan || 'FREE'} />
+                {formData.paymentExpiresAt && (
+                  <InfoRow label="Plan Expires" value={new Date(formData.paymentExpiresAt).toLocaleDateString()} />
+                )}
                 <InfoRow icon={Languages} label="Language" value={langDisplay} />
+                {!isChildView && (
+                  <div className="pt-3 pb-1">
+                    <Button size="sm" variant="outline" onClick={() => setChangePlanOpen(true)}>
+                      <Package className="h-4 w-4 mr-2" /> Change Plan
+                    </Button>
+                  </div>
+                )}
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -961,6 +989,15 @@ const Profile = () => {
       </Tabs>
 
       <ImagePreviewModal isOpen={showImagePreview} onClose={() => setShowImagePreview(false)} imageUrl={currentImageUrl} title="Profile Photo" />
+
+      <ChangePlanModal
+        open={changePlanOpen}
+        onOpenChange={setChangePlanOpen}
+        currentPlan={formData.subscriptionPlan || 'FREE'}
+        onSuccess={() => {
+          loadUserData();
+        }}
+      />
     </div>
   );
 };

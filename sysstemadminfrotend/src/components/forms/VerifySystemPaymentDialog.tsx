@@ -16,6 +16,10 @@ interface Payment {
   userId: string;
   paymentAmount: string;
   status: string;
+  targetPlan?: string;
+  quantity?: number;
+  notes?: string;
+  paymentMonth?: string;
   [key: string]: any;
 }
 
@@ -43,8 +47,14 @@ export function VerifySystemPaymentDialog({
   useEffect(() => {
     if (open) {
       resetForm();
+      if (payment?.targetPlan) {
+        setSubscriptionPlan(payment.targetPlan);
+      }
+      if (payment?.quantity && payment.quantity > 1) {
+        setPaymentValidityDays(30 * payment.quantity);
+      }
     }
-  }, [open]);
+  }, [open, payment]);
 
   const handleSubmit = async () => {
     if (!payment) return;
@@ -113,6 +123,15 @@ export function VerifySystemPaymentDialog({
               <span className="text-muted-foreground">Amount:</span>
               <p className="font-medium">Rs. {payment?.paymentAmount}</p>
             </div>
+            {payment?.targetPlan && (
+              <div className="col-span-2 bg-blue-50 dark:bg-blue-950 rounded-md p-2">
+                <span className="text-muted-foreground text-xs">Requested Plan:</span>
+                <p className="font-semibold text-blue-600">{payment.targetPlan}</p>
+                {payment?.quantity && payment.quantity > 1 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">×{payment.quantity} units</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

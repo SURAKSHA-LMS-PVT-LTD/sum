@@ -28,6 +28,7 @@ interface Payment {
   verifiedAt: string | null;
   rejectionReason: string | null;
   notes: string;
+  targetPlan?: string;
   createdAt: string;
   updatedAt: string;
 }

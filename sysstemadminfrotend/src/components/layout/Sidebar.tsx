@@ -34,6 +34,7 @@ import {
   Coins,
   Banknote,
   AlertTriangle,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +60,7 @@ const navItems = [
   { to: "/dashboard/structured-lectures", icon: GraduationCap, label: "Structured Lectures" },
   { to: "/dashboard/transport", icon: Bus, label: "Transport" },
   { to: "/dashboard/system-payment", icon: CreditCard, label: "System Payment" },
+  { to: "/dashboard/package-definitions", icon: Package, label: "Package Definitions" },
   { to: "/dashboard/card-management", icon: CreditCard, label: "Card Management" },
   { to: "/dashboard/card-orders", icon: CreditCard, label: "Card Orders" },
   { to: "/dashboard/card-payments", icon: Receipt, label: "Card Payments" },
