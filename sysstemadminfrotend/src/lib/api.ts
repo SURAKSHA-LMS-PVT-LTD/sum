@@ -2545,4 +2545,36 @@ export const api = {
     if (params?.limit)       q.set('limit', String(params.limit));
     return apiRequest(`/admin/design-templates/generations?${q}`);
   },
+
+  // ── Gateway Payment Orders (admin) ────────────────────────────────────────
+  adminGetGatewayOrders: (params?: {
+    instituteId?: string;
+    status?: string;
+    provider?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.instituteId) q.set('instituteId', params.instituteId);
+    if (params?.status)      q.set('status',      params.status);
+    if (params?.provider)    q.set('provider',    params.provider);
+    q.set('page',  String(params?.page  ?? 1));
+    q.set('limit', String(params?.limit ?? 20));
+    return apiRequest(`/payment-gateway/admin/gateway-orders?${q}`);
+  },
+
+  adminGetGatewayOrder: (orderId: string) =>
+    apiRequest(`/payment-gateway/admin/gateway-orders/${orderId}`),
+
+  adminGetGatewayStats: () =>
+    apiRequest(`/payment-gateway/admin/gateway-orders/stats`),
+
+  adminManualGrantGatewayOrder: (orderId: string) =>
+    apiRequest(`/payment-gateway/admin/gateway-orders/${orderId}/manual-grant`, { method: 'POST' }),
+
+  adminCancelGatewayOrder: (orderId: string, reason?: string) =>
+    apiRequest(`/payment-gateway/admin/gateway-orders/${orderId}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
 };

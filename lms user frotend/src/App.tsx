@@ -73,6 +73,7 @@ import StudentSubjectProfilePage from "@/pages/StudentSubjectProfilePage";
 import InstituteAttendancePage from "./pages/InstituteAttendancePage";
 import SettingsPage from "./pages/SettingsPage";
 import DeployPage from "./pages/DeployPage";
+import PaymentReturnPage from "./pages/PaymentReturnPage";
 import { isPopupRouteSegment } from "@/utils/popupRoutes";
 
 const queryClient = new QueryClient({
@@ -308,6 +309,10 @@ const AppContent = () => {
       <Route path="/institute-attendance" element={<ProtectedRoute><InstituteAttendancePage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/deploy" element={<ProtectedRoute><DeployPage /></ProtectedRoute>} />
+
+      {/* PayHere gateway return / cancel landing pages */}
+      <Route path="/payment/return" element={<ProtectedRoute><PaymentReturnPage /></ProtectedRoute>} />
+      <Route path="/payment/cancel" element={<ProtectedRoute><PaymentReturnPage cancelled /></ProtectedRoute>} />
 
       <Route path="*" element={<PopupRouteFallback />} />
     </Routes>

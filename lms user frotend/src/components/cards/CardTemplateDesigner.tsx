@@ -24,7 +24,7 @@ import {
   Plus, Trash2, Save, Type, Image, Bold, Italic,
   ChevronUp, ChevronDown, Eye, Layers, Settings,
   AlignLeft, AlignCenter, AlignRight, Loader2, Check, X, Upload,
-  ArrowLeft, LayoutGrid, Pencil, Clock,
+  ArrowLeft, LayoutGrid, Pencil, Clock, QrCode,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { profileImageApi } from '@/api/profileImage.api';
@@ -63,7 +63,32 @@ export interface ImageElement {
   borderWidth: number;
 }
 
-export type CardElement = TextElement | ImageElement;
+/**
+ * QR code element.
+ * valueMode decides what the QR encodes:
+ *  - 'token'  → a single field token (uses `token`), e.g. {userIdByInstitute}
+ *  - 'url'    → a URL/string pattern with embedded tokens (uses `pattern`),
+ *               e.g. https://fds.lk/{instituteCardId}  or  https://fds.lk/{uuid}
+ *  - 'uuid'   → a freshly generated random UUID per user, truncated to `uuidLength`
+ * When the resolved value contains the {uuid} token (url mode) or in uuid mode,
+ * each user gets a unique generated id which is also written to the export CSV.
+ */
+export interface QrElement {
+  id: string;
+  type: 'qr';
+  x: number;
+  y: number;
+  size: number;             // percent of card width (square)
+  valueMode: 'token' | 'url' | 'uuid';
+  token: string;            // used when valueMode === 'token'
+  pattern: string;          // used when valueMode === 'url'
+  uuidLength: number;       // 15-23, used when valueMode === 'uuid' or pattern has {uuid}
+  fgColor: string;
+  bgColor: string;
+  margin: number;           // quiet-zone modules
+}
+
+export type CardElement = TextElement | ImageElement | QrElement;
 
 export interface CardTemplate {
   id: string;
@@ -95,6 +120,35 @@ const loadGoogleFont = (family: string) => {
   link.rel = 'stylesheet';
   link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@400;700&display=swap`;
   document.head.appendChild(link);
+};
+
+// ─── QR sample-value helper ────────────────────────────────────────────────────
+// In the designer we don't have a real user, so we show a representative sample.
+const qrSampleValue = (el: QrElement): string => {
+  if (el.valueMode === 'uuid') return 'a1b2c3d4e5f6g7h8'.slice(0, Math.min(el.uuidLength, 16));
+  if (el.valueMode === 'token') return el.token.replace(/[{}]/g, '') || 'SAMPLE';
+  // url mode — show the pattern with tokens left visible
+  return el.pattern || 'https://example.com';
+};
+
+// ─── Live QR preview (canvas) for the designer ──────────────────────────────────
+const QrPreview: React.FC<{ el: QrElement }> = ({ el }) => {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    let cancelled = false;
+    import('qrcode').then((QRmod: any) => {
+      const QR = QRmod.default ?? QRmod;
+      if (cancelled || !ref.current) return;
+      QR.toCanvas(ref.current, qrSampleValue(el), {
+        margin: el.margin,
+        color: { dark: el.fgColor, light: el.bgColor },
+        width: 240,
+        errorCorrectionLevel: 'M',
+      }).catch(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [el.valueMode, el.token, el.pattern, el.uuidLength, el.fgColor, el.bgColor, el.margin]);
+  return <canvas ref={ref} style={{ width: '100%', height: '100%', display: 'block' }} />;
 };
 
 // ─── Token helpers ────────────────────────────────────────────────────────────
@@ -134,6 +188,9 @@ interface CardTemplateDesignerProps {
   onBack?: () => void;
   /** Raw API templates (carry status/rejection info). Optional — backwards compatible. */
   apiTemplates?: Array<{ id: string; status: string; rejectionReason?: string }>;
+  /** Called with the chosen name — parent creates + saves + navigates into editor. */
+  onCreate?: (name: string) => Promise<void>;
+  creating?: boolean;
 }
 
 const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
@@ -144,20 +201,37 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   onTemplateSelect,
   onBack,
   apiTemplates = [],
+  onCreate,
+  creating,
 }) => {
   const { toast } = useToast();
 
-  // Local copy of templates so edits don't propagate until Save
-  const [templates, setTemplates] = useState<CardTemplate[]>(propTemplates);
+  // Local copy of templates — owns all unsaved edits.
+  // Initialised from propTemplates; only syncs from parent when the template
+  // list length changes (new template added / deleted) or on first load.
+  const [templates, setTemplates] = useState<CardTemplate[]>(propTemplates ?? []);
   const [selectedElId, setSelectedElId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
-  const [addingTemplate, setAddingTemplate] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
   const [uploadingOverlay, setUploadingOverlay] = useState(false);
 
-  // Sync when parent updates templates (after save from another view)
-  useEffect(() => { setTemplates(propTemplates); }, [propTemplates]);
+  // Only pull from propTemplates when the set of templates actually changes
+  // (different IDs or count), not on every parent render. This prevents
+  // propTemplates from overwriting local edits on each re-render.
+  useEffect(() => {
+    const incoming = propTemplates ?? [];
+    const incomingIds = incoming.map(t => t.id).sort().join(',');
+    const localIds   = templates.map(t => t.id).sort().join(',');
+    if (incomingIds !== localIds) {
+      // Merge: keep local edits for templates that already exist locally,
+      // add/remove templates that changed in the parent.
+      setTemplates(prev => {
+        const localMap = new Map(prev.map(t => [t.id, t]));
+        return incoming.map(t => localMap.get(t.id) ?? t);
+      });
+    }
+  }, [propTemplates]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -165,6 +239,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   const overlayInputRef = useRef<HTMLInputElement>(null);
 
   const activeTemplate = templates.find(t => t.id === activeTemplateId) ?? null;
+
   const selectedEl = activeTemplate?.elements.find(e => e.id === selectedElId) ?? null;
 
   // Load Google Fonts for active template elements
@@ -179,26 +254,6 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   }, [onSave]);
 
   // ─── Template CRUD ─────────────────────────────────────────────────────────
-
-  const addTemplate = () => {
-    if (!newTemplateName.trim()) return;
-    const t: CardTemplate = {
-      id: makeId(),
-      name: newTemplateName.trim(),
-      backgroundImageUrl: '',
-      overlayImageUrl: '',
-      cardWidth: DEFAULT_CARD_W,
-      cardHeight: DEFAULT_CARD_H,
-      elements: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    const next = [...templates, t];
-    setTemplates(next);
-    onTemplateSelect(t.id);
-    setNewTemplateName('');
-    setAddingTemplate(false);
-  };
 
   const deleteTemplate = (id: string) => {
     const next = templates.filter(t => t.id !== id);
@@ -254,7 +309,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
       bold: false, italic: false, align: 'left', width: 60,
     };
     loadGoogleFont(el.fontFamily);
-    patchTemplate({ elements: [...activeTemplate.elements, el] });
+    patchTemplate({ elements: [...(activeTemplate.elements ?? []), el] });
     setSelectedElId(el.id);
   };
 
@@ -265,26 +320,39 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
       x: 5, y: 10, width: 20, height: 33,
       shape: 'circle', borderColor: '#ffffff', borderWidth: 2,
     };
-    patchTemplate({ elements: [...activeTemplate.elements, el] });
+    patchTemplate({ elements: [...(activeTemplate.elements ?? []), el] });
+    setSelectedElId(el.id);
+  };
+
+  const addQrElement = () => {
+    if (!activeTemplate) return;
+    const el: QrElement = {
+      id: makeId(), type: 'qr',
+      x: 70, y: 60, size: 22,
+      valueMode: 'token', token: '{userIdByInstitute}',
+      pattern: 'https://fds.lk/{uuid}', uuidLength: 18,
+      fgColor: '#000000', bgColor: '#ffffff', margin: 1,
+    };
+    patchTemplate({ elements: [...(activeTemplate.elements ?? []), el] });
     setSelectedElId(el.id);
   };
 
   const deleteElement = (id: string) => {
     if (!activeTemplate) return;
-    patchTemplate({ elements: activeTemplate.elements.filter(e => e.id !== id) });
+    patchTemplate({ elements: (activeTemplate.elements ?? []).filter(e => e.id !== id) });
     if (selectedElId === id) setSelectedElId(null);
   };
 
   const patchElement = (id: string, patch: Partial<CardElement>) => {
     if (!activeTemplate) return;
     patchTemplate({
-      elements: activeTemplate.elements.map(e => e.id === id ? { ...e, ...patch } as CardElement : e),
+      elements: (activeTemplate.elements ?? []).map(e => e.id === id ? { ...e, ...patch } as CardElement : e),
     });
   };
 
   const moveElementZ = (id: string, dir: 'up' | 'down') => {
     if (!activeTemplate) return;
-    const els = [...activeTemplate.elements];
+    const els = [...(activeTemplate.elements ?? [])];
     const idx = els.findIndex(e => e.id === id);
     if (idx < 0) return;
     const swap = dir === 'up' ? idx + 1 : idx - 1;
@@ -353,6 +421,27 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
             fontSize: '10px', color: '#666',
           }}>
             <span style={{ textAlign: 'center', padding: '4px' }}>User<br/>Photo</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (el.type === 'qr') {
+      return (
+        <div
+          key={el.id}
+          style={{
+            position: 'absolute',
+            left: `${el.x}%`, top: `${el.y}%`,
+            width: `${el.size}%`, paddingBottom: `${el.size}%`,
+            cursor: interactive ? 'move' : 'default',
+            outline: interactive && selectedElId === el.id ? '2px dashed #6366f1' : 'none',
+          }}
+          onMouseDown={interactive ? (e) => onMouseDown(e, el.id, el.x, el.y) : undefined}
+          onClick={(e) => { e.stopPropagation(); if (interactive) setSelectedElId(el.id); }}
+        >
+          <div style={{ position: 'absolute', inset: 0, background: el.bgColor }}>
+            <QrPreview el={el} />
           </div>
         </div>
       );
@@ -444,6 +533,112 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
               <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />Forward
             </Button>
             <Button variant="outline" size="sm" className="flex-1 h-7 sm:h-8 text-xs sm:text-sm" onClick={() => moveElementZ(selectedEl.id, 'down')}>
+              <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />Back
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // QR element props
+    if (selectedEl.type === 'qr') {
+      const qr = selectedEl;
+      return (
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-xs sm:text-sm flex items-center gap-1.5"><QrCode className="h-3.5 w-3.5" />QR Code</h3>
+            <Button variant="ghost" size="sm" onClick={() => deleteElement(qr.id)} className="text-destructive h-6 sm:h-7 px-2 sm:px-3 text-xs sm:text-sm">
+              <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            </Button>
+          </div>
+
+          {/* Value mode */}
+          <div className="space-y-1">
+            <Label className="text-xs">QR encodes</Label>
+            <Select value={qr.valueMode} onValueChange={v => patchElement(qr.id, { valueMode: v as QrElement['valueMode'] })}>
+              <SelectTrigger className="h-7 sm:h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="token">A field (ID, card ID…)</SelectItem>
+                <SelectItem value="url">Custom URL + tokens</SelectItem>
+                <SelectItem value="uuid">Random unique UUID</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Token picker */}
+          {qr.valueMode === 'token' && (
+            <div className="space-y-1">
+              <Label className="text-xs">Field</Label>
+              <Select value={qr.token} onValueChange={v => patchElement(qr.id, { token: v })}>
+                <SelectTrigger className="h-7 sm:h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="{userIdByInstitute}">Institute User ID</SelectItem>
+                  <SelectItem value="{instituteCardId}">Card ID</SelectItem>
+                  <SelectItem value="{email}">Email</SelectItem>
+                  <SelectItem value="{fullName}">Full Name</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* URL pattern */}
+          {qr.valueMode === 'url' && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">URL pattern</Label>
+              <Input value={qr.pattern}
+                onChange={e => patchElement(qr.id, { pattern: e.target.value })}
+                placeholder="https://fds.lk/{uuid}" className="h-7 sm:h-8 text-xs font-mono" />
+              <div className="flex flex-wrap gap-1">
+                {['{userIdByInstitute}', '{instituteCardId}', '{email}', '{uuid}'].map(tk => (
+                  <button key={tk} type="button"
+                    className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20"
+                    onClick={() => patchElement(qr.id, { pattern: qr.pattern + tk })}>{tk}</button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">Use <code>{'{uuid}'}</code> to embed a generated unique id (exported to CSV).</p>
+            </div>
+          )}
+
+          {/* UUID length — shown for uuid mode or url with {uuid} */}
+          {(qr.valueMode === 'uuid' || (qr.valueMode === 'url' && qr.pattern.includes('{uuid}'))) && (
+            <div className="space-y-1">
+              <Label className="text-xs">UUID length: <span className="font-bold">{qr.uuidLength}</span> chars</Label>
+              <Input type="range" min={15} max={23} step={1} value={qr.uuidLength}
+                onChange={e => patchElement(qr.id, { uuidLength: +e.target.value })}
+                className="w-full h-7 cursor-pointer" />
+            </div>
+          )}
+
+          {/* Position + size */}
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+            <div className="space-y-1"><Label className="text-xs">X (%)</Label>
+              <Input type="number" value={qr.x} min={0} max={95} step={0.5}
+                onChange={e => patchElement(qr.id, { x: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
+            <div className="space-y-1"><Label className="text-xs">Y (%)</Label>
+              <Input type="number" value={qr.y} min={0} max={95} step={0.5}
+                onChange={e => patchElement(qr.id, { y: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
+            <div className="space-y-1"><Label className="text-xs">Size (%)</Label>
+              <Input type="number" value={qr.size} min={5} max={60} step={1}
+                onChange={e => patchElement(qr.id, { size: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
+          </div>
+
+          {/* Colors */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="space-y-1"><Label className="text-xs">Foreground</Label>
+              <input type="color" value={qr.fgColor}
+                onChange={e => patchElement(qr.id, { fgColor: e.target.value })}
+                className="w-full h-7 sm:h-8 rounded cursor-pointer border" /></div>
+            <div className="space-y-1"><Label className="text-xs">Background</Label>
+              <input type="color" value={qr.bgColor}
+                onChange={e => patchElement(qr.id, { bgColor: e.target.value })}
+                className="w-full h-7 sm:h-8 rounded cursor-pointer border" /></div>
+          </div>
+
+          <div className="flex gap-1 sm:gap-2 pt-1">
+            <Button variant="outline" size="sm" className="flex-1 h-7 sm:h-8 text-xs sm:text-sm" onClick={() => moveElementZ(qr.id, 'up')}>
+              <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />Forward
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1 h-7 sm:h-8 text-xs sm:text-sm" onClick={() => moveElementZ(qr.id, 'down')}>
               <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />Back
             </Button>
           </div>
@@ -569,27 +764,32 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
             </div>
             <Badge variant="secondary" className="ml-auto sm:ml-2">{templates.length}</Badge>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <Button size="sm" onClick={() => saveTemplates(templates)} disabled={saving || templates.length === 0} variant="outline" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">
-              {saving ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin mr-1" /> : <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />}
-              <span className="hidden sm:inline">Save All</span>
-              <span className="sm:hidden">Save</span>
+          <div className="flex items-center gap-1.5 w-full sm:w-auto">
+            <Input
+              value={newTemplateName}
+              onChange={e => setNewTemplateName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newTemplateName.trim() && onCreate) {
+                  onCreate(newTemplateName.trim()).then(() => setNewTemplateName(''));
+                }
+              }}
+              placeholder="Template name…"
+              className="h-7 sm:h-8 text-xs sm:text-sm flex-1 sm:w-44"
+            />
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!newTemplateName.trim() || !onCreate) return;
+                onCreate(newTemplateName.trim()).then(() => setNewTemplateName(''));
+              }}
+              disabled={!newTemplateName.trim() || creating}
+              className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 shrink-0"
+            >
+              {creating
+                ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                : <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />}
+              Create
             </Button>
-            {addingTemplate ? (
-              <div className="flex items-center gap-1 w-full sm:w-auto">
-                <Input value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)}
-                  placeholder="Name" className="h-7 sm:h-8 text-xs sm:text-sm flex-1 sm:flex-none sm:w-44"
-                  onKeyDown={e => e.key === 'Enter' && addTemplate()} autoFocus />
-                <Button size="sm" onClick={addTemplate} className="h-7 sm:h-8 px-2 sm:px-3"><Check className="h-3 w-3 sm:h-4 sm:w-4" /></Button>
-                <Button size="sm" variant="ghost" onClick={() => { setAddingTemplate(false); setNewTemplateName(''); }} className="h-7 sm:h-8 px-2 sm:px-3">
-                  <X className="h-3 w-3 sm:h-4 sm:w-4" />
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" onClick={() => setAddingTemplate(true)} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">
-                <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /><span className="hidden sm:inline">New Template</span><span className="sm:hidden">New</span>
-              </Button>
-            )}
           </div>
         </div>
 
@@ -598,16 +798,16 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
           <div className="text-center py-12 sm:py-20 text-muted-foreground border-2 border-dashed border-border rounded-xl">
             <Layers className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-3 opacity-25" />
             <p className="font-medium text-sm sm:text-base">No templates yet</p>
-            <p className="text-xs sm:text-sm mt-1">Click <strong>New Template</strong> to create your first design.</p>
+            <p className="text-xs sm:text-sm mt-1">Enter a name above and click <strong>Create</strong> to start designing.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {templates.map(t => (
               <div key={t.id}
                 className="group relative rounded-lg sm:rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-md transition-all active:scale-95"
-                onClick={() => { onTemplateSelect(t.id); setSelectedElId(null); }}>
+                onClick={() => { onTemplateSelect?.(t.id); setSelectedElId(null); }}>
                 {/* Preview thumbnail */}
-                <div className="relative overflow-hidden bg-muted/40" style={{ paddingBottom: `${(t.cardHeight / t.cardWidth) * 100}%` }}>
+                <div className="relative overflow-hidden bg-muted/40" style={{ paddingBottom: `${((t.cardHeight ?? 400) / (t.cardWidth ?? 640)) * 100}%` }}>
                   <div className="absolute inset-0"
                     style={{
                       background: t.backgroundImageUrl
@@ -615,7 +815,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                         : 'linear-gradient(135deg,#1a237e,#283593)',
                     }}>
                     {/* Render text elements as tiny preview */}
-                    {t.elements.map(el => {
+                    {(t.elements ?? []).map(el => {
                       if (el.type === 'text') {
                         return (
                           <div key={el.id} style={{
@@ -626,6 +826,20 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                             whiteSpace: 'pre-wrap', lineHeight: 1.3, pointerEvents: 'none',
                           }}>
                             {el.content.replace(/\{[^}]+\}/g, '···')}
+                          </div>
+                        );
+                      }
+                      if (el.type === 'qr') {
+                        return (
+                          <div key={el.id} style={{
+                            position: 'absolute', left: `${el.x}%`, top: `${el.y}%`,
+                            width: `${el.size}%`, paddingBottom: `${el.size}%`, pointerEvents: 'none',
+                          }}>
+                            <div style={{
+                              position: 'absolute', inset: 0, background: el.bgColor,
+                              backgroundImage: 'repeating-linear-gradient(0deg,#000 0 2px,transparent 2px 4px),repeating-linear-gradient(90deg,#000 0 2px,transparent 2px 4px)',
+                              opacity: 0.7,
+                            }} />
                           </div>
                         );
                       }
@@ -676,7 +890,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                   <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                     <span className="text-[10px] sm:text-xs">{t.cardWidth}×{t.cardHeight}px</span>
                     <span>·</span>
-                    <span className="text-[10px] sm:text-xs">{t.elements.length} el</span>
+                    <span className="text-[10px] sm:text-xs">{(t.elements ?? []).length} el</span>
                   </div>
                   <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-muted-foreground">
                     <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
@@ -692,7 +906,15 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   }
 
   // ── EDITOR VIEW ───────────────────────────────────────────────────────────
-  const activeApiTpl = activeTemplate ? apiTemplates.find(a => a.id === activeTemplate.id) : null;
+  if (!activeTemplate) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
+        <Loader2 className="h-5 w-5 animate-spin mr-2" />Loading template…
+      </div>
+    );
+  }
+
+  const activeApiTpl = apiTemplates.find(a => a.id === activeTemplate.id) ?? null;
   return (
     <div className="space-y-2 sm:space-y-4 pb-20 sm:pb-12">
       {/* Re-approval warning when editing an approved template */}
@@ -709,14 +931,14 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
           <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Templates</span>
         </Button>
         <span className="text-muted-foreground hidden sm:inline">/</span>
-        <span className="text-xs sm:text-sm font-medium truncate">{activeTemplate!.name}</span>
+        <span className="text-xs sm:text-sm font-medium truncate">{activeTemplate.name}</span>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2 flex-wrap">
           <Button size="sm" variant="outline" onClick={() => setShowPreview(p => !p)} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 gap-1">
             <Eye className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">{showPreview ? 'Hide Preview' : 'Preview'}</span><span className="sm:hidden">{showPreview ? 'Hide' : 'Show'}</span>
           </Button>
           <Button size="sm" variant="ghost" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 text-destructive"
-            onClick={() => { if (confirm(`Delete "${activeTemplate!.name}"?`)) { deleteTemplate(activeTemplate!.id); } }}>
+            onClick={() => { if (confirm(`Delete "${activeTemplate.name}"?`)) { deleteTemplate(activeTemplate.id); } }}>
             <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
           <Button size="sm" onClick={() => saveTemplates(templates)} disabled={saving} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 gap-1">
@@ -740,16 +962,16 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
               <div className="grid grid-cols-1 gap-2 sm:gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Name</Label>
-                  <Input value={activeTemplate!.name}
+                  <Input value={activeTemplate.name}
                     onChange={e => patchTemplate({ name: e.target.value })} className="h-7 sm:h-8 text-xs sm:text-sm" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Card Size (W × H)</Label>
                   <div className="flex gap-1 items-center">
-                    <Input type="number" value={activeTemplate!.cardWidth} min={200} max={1200}
+                    <Input type="number" value={activeTemplate.cardWidth} min={200} max={1200}
                       onChange={e => patchTemplate({ cardWidth: +e.target.value })} className="h-7 sm:h-8 text-xs sm:text-sm flex-1" />
                     <span className="text-muted-foreground text-xs">×</span>
-                    <Input type="number" value={activeTemplate!.cardHeight} min={100} max={800}
+                    <Input type="number" value={activeTemplate.cardHeight} min={100} max={800}
                       onChange={e => patchTemplate({ cardHeight: +e.target.value })} className="h-7 sm:h-8 text-xs sm:text-sm flex-1" />
                     <span className="text-muted-foreground text-xs shrink-0 whitespace-nowrap">px</span>
                   </div>
@@ -760,21 +982,21 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1"><Image className="h-3 w-3" />Background</Label>
                   <div className="flex gap-1">
-                    <Input value={activeTemplate!.backgroundImageUrl}
+                    <Input value={activeTemplate.backgroundImageUrl}
                       onChange={e => patchTemplate({ backgroundImageUrl: e.target.value })}
                       placeholder="URL or upload…" className="h-7 sm:h-8 text-xs sm:text-sm min-w-0" />
                     <Button type="button" size="sm" variant="outline" className="h-7 sm:h-8 px-2 shrink-0"
                       disabled={uploadingBg} onClick={() => bgInputRef.current?.click()} title="Upload">
                       {uploadingBg ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                     </Button>
-                    {activeTemplate!.backgroundImageUrl && (
+                    {activeTemplate.backgroundImageUrl && (
                       <Button type="button" size="sm" variant="ghost" className="h-7 sm:h-8 px-2 shrink-0 text-muted-foreground"
                         onClick={() => patchTemplate({ backgroundImageUrl: '' })}><X className="h-3 w-3" /></Button>
                     )}
                   </div>
-                  {activeTemplate!.backgroundImageUrl && (
+                  {activeTemplate.backgroundImageUrl && (
                     <div className="rounded border border-border overflow-hidden h-10 sm:h-14 bg-muted/30">
-                      <img src={activeTemplate!.backgroundImageUrl} alt="bg preview" className="w-full h-full object-cover" />
+                      <img src={activeTemplate.backgroundImageUrl} alt="bg preview" className="w-full h-full object-cover" />
                     </div>
                   )}
                   <input ref={bgInputRef} type="file" accept="image/*" className="hidden"
@@ -785,21 +1007,21 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1"><Layers className="h-3 w-3" />Overlay PNG</Label>
                   <div className="flex gap-1">
-                    <Input value={activeTemplate!.overlayImageUrl}
+                    <Input value={activeTemplate.overlayImageUrl}
                       onChange={e => patchTemplate({ overlayImageUrl: e.target.value })}
                       placeholder="Transparent PNG URL or upload…" className="h-7 sm:h-8 text-xs sm:text-sm min-w-0" />
                     <Button type="button" size="sm" variant="outline" className="h-7 sm:h-8 px-2 shrink-0"
                       disabled={uploadingOverlay} onClick={() => overlayInputRef.current?.click()} title="Upload">
                       {uploadingOverlay ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                     </Button>
-                    {activeTemplate!.overlayImageUrl && (
+                    {activeTemplate.overlayImageUrl && (
                       <Button type="button" size="sm" variant="ghost" className="h-7 sm:h-8 px-2 shrink-0 text-muted-foreground"
                         onClick={() => patchTemplate({ overlayImageUrl: '' })}><X className="h-3 w-3" /></Button>
                     )}
                   </div>
-                  {activeTemplate!.overlayImageUrl && (
+                  {activeTemplate.overlayImageUrl && (
                     <div className="rounded border border-border overflow-hidden h-10 sm:h-14 bg-muted/30">
-                      <img src={activeTemplate!.overlayImageUrl} alt="overlay preview" className="w-full h-full object-cover" />
+                      <img src={activeTemplate.overlayImageUrl} alt="overlay preview" className="w-full h-full object-cover" />
                     </div>
                   )}
                   <input ref={overlayInputRef} type="file" accept="image/*" className="hidden"
@@ -820,6 +1042,9 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={addImageElement}>
                   <Image className="h-3.5 w-3.5 mr-1" />User Photo
                 </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={addQrElement}>
+                  <QrCode className="h-3.5 w-3.5 mr-1" />QR Code
+                </Button>
               </div>
             </div>
 
@@ -828,18 +1053,18 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                 ref={canvasRef}
                 className="relative mx-auto rounded-lg overflow-hidden select-none"
                 style={{
-                  width: activeTemplate!.cardWidth,
-                  height: activeTemplate!.cardHeight,
-                  background: activeTemplate!.backgroundImageUrl
-                    ? `url(${activeTemplate!.backgroundImageUrl}) center/cover no-repeat`
+                  width: activeTemplate.cardWidth,
+                  height: activeTemplate.cardHeight,
+                  background: activeTemplate.backgroundImageUrl
+                    ? `url(${activeTemplate.backgroundImageUrl}) center/cover no-repeat`
                     : 'linear-gradient(135deg,#1a237e,#283593)',
                   cursor: 'default',
                 }}
                 onClick={() => setSelectedElId(null)}
               >
-                {activeTemplate!.elements.map(el => renderElement(el, true))}
-                {activeTemplate!.overlayImageUrl && (
-                  <img src={activeTemplate!.overlayImageUrl} alt=""
+                {(activeTemplate.elements ?? []).map(el => <React.Fragment key={el.id}>{renderElement(el, true)}</React.Fragment>)}
+                {activeTemplate.overlayImageUrl && (
+                  <img src={activeTemplate.overlayImageUrl} alt=""
                     className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                     style={{ zIndex: 50 }} />
                 )}
@@ -854,22 +1079,25 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
           {/* Layer list */}
           <Card>
             <CardHeader className="py-2 sm:py-3 px-3 sm:px-4">
-              <CardTitle className="text-[10px] sm:text-xs uppercase tracking-wide text-muted-foreground">Layers ({activeTemplate!.elements.length})</CardTitle>
+              <CardTitle className="text-[10px] sm:text-xs uppercase tracking-wide text-muted-foreground">Layers ({(activeTemplate.elements ?? []).length})</CardTitle>
             </CardHeader>
             <CardContent className="px-3 sm:px-4 pb-2 sm:pb-3">
-              {activeTemplate!.elements.length === 0 ? (
+              {(activeTemplate.elements ?? []).length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2 sm:py-3">No elements yet</p>
               ) : (
                 <div className="space-y-1">
-                  {[...activeTemplate!.elements].reverse().map(el => (
+                  {[...(activeTemplate.elements ?? [])].reverse().map(el => (
                     <div key={el.id}
                       onClick={() => setSelectedElId(el.id)}
                       className={`flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer text-xs sm:text-sm transition-colors ${
                         selectedElId === el.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
                       }`}>
-                      {el.type === 'text' ? <Type className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" /> : <Image className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />}
+                      {el.type === 'text' ? <Type className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                        : el.type === 'qr' ? <QrCode className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                        : <Image className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />}
                       <span className="flex-1 truncate text-xs">
-                        {el.type === 'text' ? el.content.slice(0, 20) || '(empty)' : 'Photo'}
+                        {el.type === 'text' ? (el.content.slice(0, 20) || '(empty)')
+                          : el.type === 'qr' ? 'QR Code' : 'Photo'}
                       </span>
                       <button className="text-muted-foreground hover:text-destructive shrink-0 p-0.5"
                         onClick={e => { e.stopPropagation(); deleteElement(el.id); }}>

@@ -11,8 +11,14 @@ import CardTemplateBulkGenerate from '@/components/cards/CardTemplateBulkGenerat
 // ─── Adapters between API DesignTemplate and UI CardTemplate ──────────────────
 
 function apiToUi(dt: DesignTemplate): CardTemplate & { status: DesignTemplateStatus; rejectionReason?: string; allowPng: boolean; allowPdf: boolean; costPng: number; costPdf: number } {
+  const def = (dt.definition ?? {}) as Partial<CardTemplate>;
   return {
-    ...(dt.definition as CardTemplate),
+    backgroundImageUrl: '',
+    overlayImageUrl: '',
+    cardWidth: 640,
+    cardHeight: 400,
+    elements: [],
+    ...def,
     id: dt.id,
     name: dt.name,
     createdAt: dt.createdAt,
@@ -104,30 +110,61 @@ const InstituteDesignsPage: React.FC = () => {
       const toDelete = apiTemplates.filter(t => !updatedIds.has(t.id));
       await Promise.all(toDelete.map(t => instituteDesignsApi.deleteTemplate(currentInstituteId, t.id)));
 
-      // Upsert new/changed templates
-      const upserted: DesignTemplate[] = [];
+      // Track old-id → new-id for newly created templates (local makeId → server UUID)
+      const idRemap = new Map<string, string>();
+
+      const newApiTemplates: DesignTemplate[] = [];
       for (const tpl of updatedUi) {
-        const { id, name, createdAt, updatedAt, ...rest } = tpl as any;
-        // definition = everything except the fields we extract
-        const definition = { ...tpl, id, name, createdAt, updatedAt };
+        const { id, name } = tpl as any;
+        const definition = { ...tpl };
 
         if (existingIds.has(id)) {
           const updated = await instituteDesignsApi.updateTemplate(currentInstituteId, id, { name, definition });
-          upserted.push(updated);
+          newApiTemplates.push(updated);
         } else {
           const created = await instituteDesignsApi.createTemplate(currentInstituteId, { name, definition });
-          upserted.push(created);
+          newApiTemplates.push(created);
+          idRemap.set(id, created.id);
         }
       }
 
-      setApiTemplates(upserted);
+      setApiTemplates(newApiTemplates);
+
+      // If the currently-edited template was just created, update the URL to the server ID
+      if (tid && idRemap.has(tid)) {
+        navigate(buildSearch('designer', 'edit', idRemap.get(tid)!), { replace: true });
+      }
+
       toast({ title: 'Saved', description: 'Templates saved. New/edited templates are pending review.' });
     } catch {
       toast({ title: 'Save failed', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
-  }, [currentInstituteId, apiTemplates, toast]);
+  }, [currentInstituteId, apiTemplates, tid, navigate, toast]);
+
+  // ── Create template directly → save → open editor ────────────────────────
+  const [creating, setCreating] = useState(false);
+
+  const createAndEdit = useCallback(async (name: string) => {
+    if (!currentInstituteId) return;
+    setCreating(true);
+    try {
+      const blankDefinition = {
+        backgroundImageUrl: '', overlayImageUrl: '',
+        cardWidth: 640, cardHeight: 400, elements: [],
+      };
+      const created = await instituteDesignsApi.createTemplate(currentInstituteId, {
+        name, definition: blankDefinition,
+      });
+      setApiTemplates(prev => [...prev, created]);
+      navigate(buildSearch('designer', 'edit', created.id));
+    } catch {
+      toast({ title: 'Could not create template', variant: 'destructive' });
+    } finally {
+      setCreating(false);
+    }
+  }, [currentInstituteId, navigate, toast]);
 
   // ── URL navigation helpers ────────────────────────────────────────────────
   const goTab  = (t: Tab)             => navigate(buildSearch(t, 'list'), { replace: true });
@@ -237,6 +274,8 @@ const InstituteDesignsPage: React.FC = () => {
               onTemplateSelect={goEdit}
               onBack={goList}
               apiTemplates={apiTemplates}
+              onCreate={createAndEdit}
+              creating={creating}
             />
           ) : (
             <CardTemplateBulkGenerate

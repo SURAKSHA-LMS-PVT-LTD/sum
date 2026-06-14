@@ -90,11 +90,46 @@ async function ensureFontLoaded(family: string) {
   await document.fonts.load(`16px '${family}'`).catch(() => {});
 }
 
-async function renderCard(tpl: CardTemplate, user: InstituteUser, userImg: string | null, bg: string | null, ov: string | null): Promise<HTMLCanvasElement> {
+function makeTruncatedUuid(length: number): string {
+  const raw = (crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`)
+    .replace(/-/g, '');
+  const len = Math.min(23, Math.max(15, length || 18));
+  return raw.slice(0, len);
+}
+
+function resolveQrValue(el: any, u: InstituteUser): { value: string; uuid?: string } {
+  if (el.valueMode === 'token') return { value: resolveTokens(el.token, u) };
+  if (el.valueMode === 'uuid') { const uuid = makeTruncatedUuid(el.uuidLength); return { value: uuid, uuid }; }
+  let uuid: string | undefined;
+  let pattern = el.pattern || '';
+  if (pattern.includes('{uuid}')) { uuid = makeTruncatedUuid(el.uuidLength); pattern = pattern.replace(/\{uuid\}/g, uuid); }
+  return { value: resolveTokens(pattern, u), uuid };
+}
+
+async function renderCard(tpl: CardTemplate, user: InstituteUser, userImg: string | null, bg: string | null, ov: string | null): Promise<{ canvas: HTMLCanvasElement; qrValues: Record<string, string> }> {
   const { default: html2canvas } = await import('html2canvas');
   const fonts = new Set<string>();
   for (const el of tpl.elements) if (el.type === 'text') fonts.add(el.fontFamily);
   await Promise.all([...fonts].map(ensureFontLoaded));
+
+  // Pre-generate QR data URLs
+  const QRmod: any = await import('qrcode');
+  const QR = QRmod.default ?? QRmod;
+  const qrDataUrls: Record<string, string> = {};
+  const qrValues: Record<string, string> = {};
+  for (const el of tpl.elements as any[]) {
+    if (el.type === 'qr') {
+      const { value, uuid } = resolveQrValue(el, user);
+      if (uuid) qrValues[el.id] = uuid;
+      try {
+        qrDataUrls[el.id] = await QR.toDataURL(value || ' ', {
+          margin: el.margin ?? 1,
+          color: { dark: el.fgColor || '#000000', light: el.bgColor || '#ffffff' },
+          width: 600, errorCorrectionLevel: 'M',
+        });
+      } catch { qrDataUrls[el.id] = ''; }
+    }
+  }
 
   const W = tpl.cardWidth, H = tpl.cardHeight;
   const host = document.createElement('div');
@@ -106,7 +141,7 @@ async function renderCard(tpl: CardTemplate, user: InstituteUser, userImg: strin
     bgDiv.style.cssText = `position:absolute;inset:0;${bg ? `background:url(${bg}) center/cover no-repeat` : 'background:linear-gradient(135deg,#1a237e,#283593)'};`;
     host.appendChild(bgDiv);
 
-    for (const el of tpl.elements) {
+    for (const el of tpl.elements as any[]) {
       if (el.type === 'image') {
         const wrap = document.createElement('div');
         wrap.style.cssText = `position:absolute;left:${el.x}%;top:${el.y}%;width:${el.width}%;padding-bottom:${el.height}%;`;
@@ -114,6 +149,16 @@ async function renderCard(tpl: CardTemplate, user: InstituteUser, userImg: strin
         inner.style.cssText = `position:absolute;inset:0;border-radius:${el.shape==='circle'?'50%':'6px'};border:${el.borderWidth}px solid ${el.borderColor};overflow:hidden;background:#aaa;`;
         if (userImg) { const img = document.createElement('img'); img.src = userImg; img.style.cssText='width:100%;height:100%;object-fit:cover;'; inner.appendChild(img); }
         wrap.appendChild(inner); host.appendChild(wrap);
+      } else if (el.type === 'qr') {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = `position:absolute;left:${el.x}%;top:${el.y}%;width:${el.size}%;padding-bottom:${el.size}%;`;
+        if (qrDataUrls[el.id]) {
+          const img = document.createElement('img');
+          img.src = qrDataUrls[el.id];
+          img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;';
+          wrap.appendChild(img);
+        }
+        host.appendChild(wrap);
       } else {
         const div = document.createElement('div');
         div.style.cssText = `position:absolute;left:${el.x}%;top:${el.y}%;width:${el.width}%;font-size:${el.fontSize}px;font-family:'${el.fontFamily}',sans-serif;color:${el.color};font-weight:${el.bold?'bold':'normal'};font-style:${el.italic?'italic':'normal'};text-align:${el.align};white-space:pre-wrap;line-height:1.3;`;
@@ -124,7 +169,8 @@ async function renderCard(tpl: CardTemplate, user: InstituteUser, userImg: strin
     if (ov) { const img = document.createElement('img'); img.src=ov; img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;'; host.appendChild(img); }
 
     await new Promise(r => setTimeout(r, 80));
-    return await html2canvas(host, { width: W, height: H, scale: 2, useCORS: true, allowTaint: false, backgroundColor: null, logging: false });
+    const canvas = await html2canvas(host, { width: W, height: H, scale: 2, useCORS: true, allowTaint: false, backgroundColor: null, logging: false });
+    return { canvas, qrValues };
   } finally {
     document.body.removeChild(host);
   }
@@ -137,21 +183,32 @@ interface CardPdfLayoutPageProps {
   apiTemplate: DesignTemplate;
   users: InstituteUser[];
   selectedUserIds: Set<string>;
+  /** PDF (download) or PRINT (print-ready PDF) — drives which cost is billed */
+  outputType?: DesignOutputType;
   onBack: () => void;
 }
 
 const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
-  template, apiTemplate, users, selectedUserIds, onBack,
+  template, apiTemplate, users, selectedUserIds, outputType = 'PDF', onBack,
 }) => {
   const { toast } = useToast();
   const { currentInstituteId } = useAuth();
 
   // Layout settings
   const [pageSize, setPageSize] = useState<keyof typeof PAGE_SIZES>('A4');
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [cols, setCols] = useState(2);
   const [rows, setRows] = useState(4);
   const [marginMm, setMarginMm] = useState(10);
   const [gapMm, setGapMm] = useState(4);
+  // Card scale: shrink each card cell within its slot (others keep the grid).
+  // 100 = fill the cell; lower keeps the grid spacing but draws smaller cards.
+  const [cardScale, setCardScale] = useState(100);
+  // Optional page header (printed at top of every page) + page numbers
+  const [headerText, setHeaderText] = useState('');
+  const [showPageNumbers, setShowPageNumbers] = useState(false);
+  // Keep template aspect ratio (letterbox card inside cell) instead of stretching
+  const [keepAspect, setKeepAspect] = useState(true);
 
   // Billing
   const [preflight, setPreflight] = useState<{
@@ -173,14 +230,18 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
     setRows(preset.rows);
   };
 
-  // Derived dimensions
-  const page = PAGE_SIZES[pageSize];
+  // Derived dimensions (respect orientation: swap w/h when landscape)
+  const base = PAGE_SIZES[pageSize];
+  const page = orientation === 'landscape' ? { ...base, w: base.h, h: base.w } : base;
+  const headerH = headerText ? 12 : 0;          // mm reserved at top for header
+  const footerH = showPageNumbers ? 8 : 0;       // mm reserved at bottom for page no.
   const cardAreaW = page.w - 2 * marginMm;
-  const cardAreaH = page.h - 2 * marginMm;
+  const cardAreaH = page.h - 2 * marginMm - headerH - footerH;
   const cellW = (cardAreaW - (cols - 1) * gapMm) / cols;
   const cellH = (cardAreaH - (rows - 1) * gapMm) / rows;
   const perPage = cols * rows;
   const totalPages = Math.ceil(targetUsers.length / perPage);
+  const tplAspect = template.cardWidth / template.cardHeight;
 
   // ── Pre-flight ─────────────────────────────────────────────────────────────
   const runPreflight = async () => {
@@ -188,7 +249,7 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
     setLoadingPreflight(true);
     try {
       const result = await instituteDesignsApi.previewCost(
-        currentInstituteId, template.id, 'PDF', targetUsers.map(u => u.id),
+        currentInstituteId, template.id, outputType, targetUsers.map(u => u.id),
       );
       setPreflight(result);
       setStep('preflight');
@@ -207,7 +268,7 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
     let commitResult: { recordId: string; definition: Record<string, any> };
     try {
       commitResult = await instituteDesignsApi.commitGeneration(
-        currentInstituteId, template.id, 'PDF', targetUsers.map(u => u.id),
+        currentInstituteId, template.id, outputType, targetUsers.map(u => u.id),
       );
     } catch (err: any) {
       toast({ title: 'Commit failed', description: err?.message, variant: 'destructive' });
@@ -233,6 +294,10 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
 
     // Render all canvases
     const canvases: { canvas: HTMLCanvasElement; ok: boolean }[] = [];
+    const uuidQrEls = (tplFromServer.elements as any[]).filter(
+      el => el.type === 'qr' && (el.valueMode === 'uuid' || (el.valueMode === 'url' && (el.pattern || '').includes('{uuid}'))),
+    );
+    const uuidRows: { user: InstituteUser; uuids: Record<string, string> }[] = [];
     let okCount = 0, failCount = 0;
     for (let i = 0; i < targetUsers.length; i++) {
       if (abortRef.current) break;
@@ -240,7 +305,8 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
       try {
         const rawImg = user.imageUrl ? getImageUrl(user.imageUrl) : '';
         const userImg = rawImg ? (userImgCache.get(rawImg) ?? null) : null;
-        const canvas = await renderCard(tplFromServer, user, userImg, bgData, ovData);
+        const { canvas, qrValues } = await renderCard(tplFromServer, user, userImg, bgData, ovData);
+        if (uuidQrEls.length > 0) uuidRows.push({ user, uuids: qrValues });
         canvases.push({ canvas, ok: true });
         okCount++;
       } catch {
@@ -250,24 +316,75 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
       setProgress({ done: i + 1, total: targetUsers.length });
     }
 
+    // Export the generated-UUID CSV alongside the PDF
+    if (uuidQrEls.length > 0 && uuidRows.length > 0) {
+      try {
+        const single = uuidQrEls.length === 1;
+        const header = ['User ID', 'Institute User ID', 'Card ID', 'Name', 'Email',
+          ...uuidQrEls.map((el, i) => single ? 'Generated UUID' : `Generated UUID (QR ${i + 1})`)];
+        const esc = (v: string) => /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+        const lines = [header.map(esc).join(',')];
+        for (const { user, uuids } of uuidRows) {
+          lines.push([user.id, user.userIdByInstitute || '', user.instituteCardId || '', user.name || '', user.email || '',
+            ...uuidQrEls.map(el => uuids[el.id] || '')].map(c => esc(String(c))).join(','));
+        }
+        const csvBlob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(csvBlob);
+        a.download = `${(template.name || 'designs').replace(/\s+/g, '_')}_uuids_${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch { /* ignore */ }
+    }
+
     // 3. Build PDF
     try {
       const { default: jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: page.w > page.h ? 'l' : 'p', unit: 'mm', format: [page.w, page.h] });
-      let pageIdx = 0;
+      const okCanvases = canvases.filter(c => c.ok && c.canvas.width > 0);
+      const pagesNeeded = Math.max(1, Math.ceil(okCanvases.length / perPage));
 
-      for (let i = 0; i < canvases.length; i++) {
+      // Draws the header text + page number on the current page
+      const drawPageChrome = (pageNo: number) => {
+        if (headerText) {
+          pdf.setFontSize(12);
+          pdf.setTextColor(40);
+          pdf.text(headerText, page.w / 2, marginMm + 6, { align: 'center' });
+        }
+        if (showPageNumbers) {
+          pdf.setFontSize(9);
+          pdf.setTextColor(120);
+          pdf.text(`Page ${pageNo} of ${pagesNeeded}`, page.w / 2, page.h - 4, { align: 'center' });
+        }
+      };
+
+      const gridTop = marginMm + headerH;
+      drawPageChrome(1);
+
+      for (let i = 0; i < okCanvases.length; i++) {
         const slot = i % perPage;
-        if (slot === 0 && i > 0) { pdf.addPage(); pageIdx++; }
+        if (slot === 0 && i > 0) { pdf.addPage(); drawPageChrome(Math.floor(i / perPage) + 1); }
         const col = slot % cols;
         const row = Math.floor(slot / cols);
-        const x = marginMm + col * (cellW + gapMm);
-        const y = marginMm + row * (cellH + gapMm);
-        const { canvas } = canvases[i];
-        if (canvas.width > 0 && canvas.height > 0) {
-          const imgData = canvas.toDataURL('image/png');
-          pdf.addImage(imgData, 'PNG', x, y, cellW, cellH);
+        const cellX = marginMm + col * (cellW + gapMm);
+        const cellY = gridTop + row * (cellH + gapMm);
+
+        // Apply card scale (shrink within the cell, keep centred)
+        const scale = Math.min(100, Math.max(20, cardScale)) / 100;
+        let drawW = cellW * scale;
+        let drawH = cellH * scale;
+        // Keep template aspect ratio inside the (scaled) cell if requested
+        if (keepAspect) {
+          const cellAspect = drawW / drawH;
+          if (tplAspect > cellAspect) drawH = drawW / tplAspect;
+          else                        drawW = drawH * tplAspect;
         }
+        const x = cellX + (cellW - drawW) / 2;
+        const y = cellY + (cellH - drawH) / 2;
+
+        const { canvas } = okCanvases[i];
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', x, y, drawW, drawH);
       }
 
       const pdfBlob = pdf.output('blob');
@@ -296,10 +413,6 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
     setGenerating(false);
     setStep('done');
   };
-
-  // ── Preview grid (CSS only, no render) ────────────────────────────────────
-  const previewCols = Math.min(cols, 4);
-  const previewRows = Math.min(rows, 4);
 
   return (
     <div className="space-y-4 pb-16">
@@ -332,6 +445,19 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
                     {Object.entries(PAGE_SIZES).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Orientation */}
+              <div className="flex items-center gap-2">
+                <Label className="text-xs w-24 shrink-0">Orientation</Label>
+                <div className="flex gap-1 flex-1">
+                  {(['portrait', 'landscape'] as const).map(o => (
+                    <button key={o} onClick={() => setOrientation(o)}
+                      className={`flex-1 text-xs px-2 py-1 rounded border capitalize transition-colors ${orientation === o ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/50 border-border hover:bg-muted'}`}>
+                      {o}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Presets */}
@@ -370,6 +496,33 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
                 <Label className="text-xs w-24 shrink-0">Gap: <span className="font-bold">{gapMm}mm</span></Label>
                 <Slider min={0} max={15} step={0.5} value={[gapMm]} onValueChange={([v]) => setGapMm(v)} className="flex-1" />
               </div>
+
+              {/* Card scale within cell */}
+              <div className="flex items-center gap-3">
+                <Label className="text-xs w-24 shrink-0">Card size: <span className="font-bold">{cardScale}%</span></Label>
+                <Slider min={30} max={100} step={1} value={[cardScale]} onValueChange={([v]) => setCardScale(v)} className="flex-1" />
+              </div>
+
+              <Separator />
+
+              {/* Keep aspect toggle */}
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input type="checkbox" checked={keepAspect} onChange={e => setKeepAspect(e.target.checked)} className="h-3.5 w-3.5" />
+                Keep card aspect ratio (no stretch)
+              </label>
+
+              {/* Page header text */}
+              <div className="space-y-1">
+                <Label className="text-xs">Page header (optional)</Label>
+                <Input value={headerText} onChange={e => setHeaderText(e.target.value)}
+                  placeholder="e.g. ABC College — Student ID Cards 2026" className="h-7 text-xs" />
+              </div>
+
+              {/* Page numbers toggle */}
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input type="checkbox" checked={showPageNumbers} onChange={e => setShowPageNumbers(e.target.checked)} className="h-3.5 w-3.5" />
+                Show page numbers (Page N of M)
+              </label>
 
               {/* Computed info */}
               <div className="rounded-lg bg-muted/50 border p-2 text-xs space-y-0.5 text-muted-foreground">
@@ -430,7 +583,7 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
               className="gap-2 w-full h-9 text-sm">
               {loadingPreflight
                 ? <><Loader2 className="h-4 w-4 animate-spin" />Checking cost…</>
-                : <><FileText className="h-4 w-4" />Check cost &amp; generate PDF</>
+                : <><FileText className="h-4 w-4" />Check cost &amp; generate {outputType === 'PRINT' ? 'print PDF' : 'PDF'}</>
               }
             </Button>
           )}
@@ -461,39 +614,66 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
             <CardTitle className="text-xs sm:text-sm flex items-center gap-2"><Grid className="h-4 w-4" />Preview</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            {/* A page preview rendered in CSS at scaled-down size */}
+            {/* Page preview rendered in CSS — mirrors the actual PDF layout */}
             <div className="w-full overflow-x-auto">
               <div className="relative border border-dashed border-border/60 rounded bg-white mx-auto"
-                style={{ width: '100%', maxWidth: 280, aspectRatio: `${page.w}/${page.h}` }}>
-                {/* Grid of card slots */}
-                {Array.from({ length: previewCols * previewRows }).map((_, i) => {
-                  const col = i % previewCols;
-                  const row = Math.floor(i / previewCols);
-                  const pctL = (marginMm + col * (cellW + gapMm)) / page.w * 100;
-                  const pctT = (marginMm + row * (cellH + gapMm)) / page.h * 100;
-                  const pctW = cellW / page.w * 100;
-                  const pctH = cellH / page.h * 100;
+                style={{ width: '100%', maxWidth: 300, aspectRatio: `${page.w}/${page.h}` }}>
+
+                {/* Header band */}
+                {headerText && (
+                  <div className="absolute left-0 right-0 flex items-center justify-center text-center px-1"
+                    style={{ top: `${marginMm / page.h * 100}%`, height: `${headerH / page.h * 100}%` }}>
+                    <span className="text-[7px] font-semibold text-gray-700 truncate">{headerText}</span>
+                  </div>
+                )}
+
+                {/* Card slots — full cols×rows grid */}
+                {Array.from({ length: perPage }).map((_, i) => {
+                  const col = i % cols;
+                  const row = Math.floor(i / cols);
+                  const gridTop = marginMm + headerH;
+                  // Cell rect (in mm → %)
+                  const cellLmm = marginMm + col * (cellW + gapMm);
+                  const cellTmm = gridTop + row * (cellH + gapMm);
+                  // Apply scale + aspect exactly like the PDF builder
+                  const scale = Math.min(100, Math.max(20, cardScale)) / 100;
+                  let drawW = cellW * scale, drawH = cellH * scale;
+                  if (keepAspect) {
+                    const cellAspect = drawW / drawH;
+                    if (tplAspect > cellAspect) drawH = drawW / tplAspect;
+                    else                        drawW = drawH * tplAspect;
+                  }
+                  const xmm = cellLmm + (cellW - drawW) / 2;
+                  const ymm = cellTmm + (cellH - drawH) / 2;
                   const hasUser = i < targetUsers.length;
                   return (
                     <div key={i} style={{
                       position: 'absolute',
-                      left: `${pctL}%`, top: `${pctT}%`,
-                      width: `${pctW}%`, height: `${pctH}%`,
+                      left: `${xmm / page.w * 100}%`, top: `${ymm / page.h * 100}%`,
+                      width: `${drawW / page.w * 100}%`, height: `${drawH / page.h * 100}%`,
                     }}>
                       <div className="absolute inset-0 rounded-sm border border-border/40 overflow-hidden flex items-center justify-center"
                         style={{ background: hasUser ? (template.backgroundImageUrl ? `url(${template.backgroundImageUrl}) center/cover` : 'linear-gradient(135deg,#1a237e,#283593)') : '#f3f4f6' }}>
                         {hasUser
                           ? <span className="text-[6px] text-white/70 font-medium">{targetUsers[i]?.name?.slice(0, 10)}</span>
-                          : <span className="text-[6px] text-muted-foreground">empty</span>
+                          : <span className="text-[6px] text-muted-foreground">·</span>
                         }
                       </div>
                     </div>
                   );
                 })}
+
+                {/* Page number band */}
+                {showPageNumbers && (
+                  <div className="absolute left-0 right-0 flex items-center justify-center"
+                    style={{ bottom: 0, height: `${footerH / page.h * 100}%` }}>
+                    <span className="text-[6px] text-gray-400">Page 1 of {totalPages}</span>
+                  </div>
+                )}
               </div>
             </div>
             <p className="text-xs text-muted-foreground text-center mt-2">
-              {page.label} · {cols}×{rows} grid
+              {orientation === 'landscape' ? `${base.label} (landscape)` : page.label} · {cols}×{rows} · {perPage}/page · {totalPages} page(s)
             </p>
           </CardContent>
         </Card>

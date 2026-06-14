@@ -36,6 +36,7 @@ import {
   AlertTriangle,
   Package,
   LayoutGrid,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -95,6 +96,7 @@ const navItems = [
   { to: "/dashboard/account-deletion", icon: UserX, label: "Account Deletion" },
   { to: "/dashboard/error-reports",     icon: AlertTriangle, label: "Error Reports" },
   { to: "/dashboard/design-approvals", icon: LayoutGrid,    label: "Design Approvals" },
+  { to: "/dashboard/gateway-payments", icon: Zap,          label: "Gateway Payments" },
 ];
 
 export function AppSidebar() {

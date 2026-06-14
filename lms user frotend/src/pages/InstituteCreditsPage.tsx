@@ -475,6 +475,7 @@ export default function InstituteCreditsPage() {
             )}
           </TabsContent>
 
+
           {/* ── Transactions Tab ───────────────────────────── */}
           <TabsContent value="transactions" className="mt-4">
             {loadingTx ? (
@@ -662,6 +663,7 @@ export default function InstituteCreditsPage() {
           url={previewSlipUrl}
         />
       )}
+
     </PageContainer>
   );
 }

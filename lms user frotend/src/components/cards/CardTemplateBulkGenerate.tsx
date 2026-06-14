@@ -65,6 +65,40 @@ interface GenResult {
   error?: string;
 }
 
+// ─── UUID helper (truncated standard UUID, 15-23 chars) ─────────────────────────
+
+function makeTruncatedUuid(length: number): string {
+  const raw = (crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`)
+    .replace(/-/g, '');
+  const len = Math.min(23, Math.max(15, length || 18));
+  return raw.slice(0, len);
+}
+
+// ─── QR value resolver ──────────────────────────────────────────────────────────
+// Resolves the string a QR should encode for a given user.
+// Returns { value, uuid? } — uuid is set whenever a fresh id was generated
+// (uuid mode, or url-pattern containing {uuid}) so it can be written to the CSV.
+function resolveQrValue(
+  el: { valueMode: 'token' | 'url' | 'uuid'; token: string; pattern: string; uuidLength: number },
+  u: InstituteUser,
+): { value: string; uuid?: string } {
+  if (el.valueMode === 'token') {
+    return { value: resolveTokens(el.token, u) };
+  }
+  if (el.valueMode === 'uuid') {
+    const uuid = makeTruncatedUuid(el.uuidLength);
+    return { value: uuid, uuid };
+  }
+  // url mode
+  let uuid: string | undefined;
+  let pattern = el.pattern || '';
+  if (pattern.includes('{uuid}')) {
+    uuid = makeTruncatedUuid(el.uuidLength);
+    pattern = pattern.replace(/\{uuid\}/g, uuid);
+  }
+  return { value: resolveTokens(pattern, u), uuid };
+}
+
 // ─── Token resolver ────────────────────────────────────────────────────────────
 
 function resolveTokens(content: string, u: InstituteUser): string {
@@ -99,6 +133,35 @@ function resolveFileName(pattern: string, u: InstituteUser, ext: string): string
   return `${result || 'file'}.${ext}`;
 }
 
+// ─── CSV builder for generated UUIDs ────────────────────────────────────────────
+function csvEscape(v: string): string {
+  if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+  return v;
+}
+
+function buildUuidCsv(
+  uuidQrEls: any[],
+  rows: { user: InstituteUser; uuids: Record<string, string> }[],
+): string {
+  // One column per uuid-generating QR element. If multiple, label them QR 1, QR 2…
+  const single = uuidQrEls.length === 1;
+  const header = ['User ID', 'Institute User ID', 'Card ID', 'Name', 'Email',
+    ...uuidQrEls.map((el, i) => single ? 'Generated UUID' : `Generated UUID (QR ${i + 1})`)];
+  const lines = [header.map(csvEscape).join(',')];
+  for (const { user, uuids } of rows) {
+    const cells = [
+      user.id,
+      user.userIdByInstitute || '',
+      user.instituteCardId || '',
+      user.name || '',
+      user.email || '',
+      ...uuidQrEls.map(el => uuids[el.id] || ''),
+    ];
+    lines.push(cells.map(c => csvEscape(String(c))).join(','));
+  }
+  return lines.join('\r\n');
+}
+
 // ─── Image helpers ─────────────────────────────────────────────────────────────
 
 async function toDataUrl(url: string): Promise<string | null> {
@@ -127,11 +190,31 @@ async function renderCard(
   userImgDataUrl: string | null,
   bgDataUrl: string | null,
   overlayDataUrl: string | null,
-): Promise<HTMLCanvasElement> {
+): Promise<{ canvas: HTMLCanvasElement; qrValues: Record<string, string> }> {
   const { default: html2canvas } = await import('html2canvas');
   const fonts = new Set<string>();
   for (const el of tpl.elements) if (el.type === 'text') fonts.add((el as TextElement).fontFamily);
   await Promise.all([...fonts].map(ensureFontLoaded));
+
+  // Pre-generate QR data URLs (qrcode is async) before building the DOM.
+  const QRmod: any = await import('qrcode');
+  const QR = QRmod.default ?? QRmod;
+  const qrDataUrls: Record<string, string> = {};
+  const qrValues: Record<string, string> = {}; // elementId → generated uuid (for CSV)
+  for (const el of tpl.elements as any[]) {
+    if (el.type === 'qr') {
+      const { value, uuid } = resolveQrValue(el, user);
+      if (uuid) qrValues[el.id] = uuid;
+      try {
+        qrDataUrls[el.id] = await QR.toDataURL(value || ' ', {
+          margin: el.margin ?? 1,
+          color: { dark: el.fgColor || '#000000', light: el.bgColor || '#ffffff' },
+          width: 600,
+          errorCorrectionLevel: 'M',
+        });
+      } catch { qrDataUrls[el.id] = ''; }
+    }
+  }
 
   const W = tpl.cardWidth;
   const H = tpl.cardHeight;
@@ -151,7 +234,7 @@ async function renderCard(
     }
     host.appendChild(bg);
 
-    for (const el of tpl.elements) {
+    for (const el of tpl.elements as any[]) {
       if (el.type === 'image') {
         const wrap = document.createElement('div');
         wrap.style.cssText = `position:absolute;left:${el.x}%;top:${el.y}%;width:${el.width}%;padding-bottom:${el.height}%;`;
@@ -164,6 +247,16 @@ async function renderCard(
           inner.appendChild(img);
         }
         wrap.appendChild(inner);
+        host.appendChild(wrap);
+      } else if (el.type === 'qr') {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = `position:absolute;left:${el.x}%;top:${el.y}%;width:${el.size}%;padding-bottom:${el.size}%;`;
+        if (qrDataUrls[el.id]) {
+          const img = document.createElement('img');
+          img.src = qrDataUrls[el.id];
+          img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;';
+          wrap.appendChild(img);
+        }
         host.appendChild(wrap);
       } else {
         const te = el as TextElement;
@@ -182,7 +275,8 @@ async function renderCard(
     }
 
     await new Promise(r => setTimeout(r, 120));
-    return await html2canvas(host, { width: W, height: H, scale: 2, useCORS: true, allowTaint: false, backgroundColor: null, logging: false });
+    const canvas = await html2canvas(host, { width: W, height: H, scale: 2, useCORS: true, allowTaint: false, backgroundColor: null, logging: false });
+    return { canvas, qrValues };
   } finally {
     document.body.removeChild(host);
   }
@@ -373,7 +467,8 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
   const runPreflight = async () => {
     if (!currentInstituteId || !activeTemplateId || selectedIds.size === 0) return;
     // PDF: delegate entirely to CardPdfLayoutPage which handles its own billing
-    if (outputType === 'PDF') { setShowPdfLayout(true); return; }
+    // PDF and PRINT both use the multi-card layout page (PRINT = print-ready PDF)
+    if (outputType === 'PDF' || outputType === 'PRINT') { setShowPdfLayout(true); return; }
     setLoadingPreflight(true);
     try {
       const userIds = [...selectedIds];
@@ -437,13 +532,22 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
     const log: GenResult[] = [];
     const mimeMap = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' } as const;
 
+    // QR elements that generate a unique id per user (uuid mode, or url with {uuid})
+    const uuidQrEls = (tplFromServer.elements as any[]).filter(
+      el => el.type === 'qr' && (el.valueMode === 'uuid' || (el.valueMode === 'url' && (el.pattern || '').includes('{uuid}'))),
+    );
+    // userId → { elementId → generated uuid }
+    const uuidRows: { user: InstituteUser; uuids: Record<string, string> }[] = [];
+
     for (let i = 0; i < targets.length; i++) {
       if (abortRef.current) break;
       const user = targets[i];
       try {
         const rawImg = user.imageUrl ? getImageUrl(user.imageUrl) : '';
         const userImgDataUrl = rawImg ? (userImgCache.get(rawImg) ?? null) : null;
-        const canvas = await renderCard(tplFromServer, user, userImgDataUrl, bgDataUrl, ovDataUrl);
+        const { canvas, qrValues } = await renderCard(tplFromServer, user, userImgDataUrl, bgDataUrl, ovDataUrl);
+
+        if (uuidQrEls.length > 0) uuidRows.push({ user, uuids: qrValues });
 
         if (zip) {
           const blob = await new Promise<Blob>((res, rej) =>
@@ -460,7 +564,22 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
       setResults([...log]);
     }
 
-    // 3. Download ZIP (PNG output)
+    // 3a. Build the generated-UUID CSV and add it to the ZIP (and standalone download)
+    if (uuidQrEls.length > 0 && uuidRows.length > 0) {
+      const csv = buildUuidCsv(uuidQrEls, uuidRows);
+      if (zip) zip.file('generated-uuids.csv', csv);
+      // Also offer a direct CSV download so it's never missed
+      try {
+        const csvBlob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(csvBlob);
+        a.download = `${(selectedTemplate.name || 'designs').replace(/\s+/g, '_')}_uuids_${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch { /* ignore */ }
+    }
+
+    // 3b. Download ZIP (PNG output)
     if (!abortRef.current && zip) {
       try {
         const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
@@ -516,6 +635,7 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
         apiTemplate={selectedApiTpl}
         users={users}
         selectedUserIds={selectedIds}
+        outputType={outputType === 'PRINT' ? 'PRINT' : 'PDF'}
         onBack={() => setShowPdfLayout(false)}
       />
     );
@@ -562,13 +682,13 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                 <div key={t.id}
                   className="group relative rounded-lg sm:rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-md transition-all active:scale-95"
                   onClick={() => onTemplateSelect(t.id)}>
-                  <div className="relative overflow-hidden bg-muted/40" style={{ paddingBottom: `${(t.cardHeight / t.cardWidth) * 100}%` }}>
+                  <div className="relative overflow-hidden bg-muted/40" style={{ paddingBottom: `${((t.cardHeight ?? 400) / (t.cardWidth ?? 640)) * 100}%` }}>
                     <div className="absolute inset-0" style={{
                       background: t.backgroundImageUrl
                         ? `url(${t.backgroundImageUrl}) center/cover no-repeat`
                         : 'linear-gradient(135deg,#1a237e,#283593)',
                     }}>
-                      {t.elements.map(el => {
+                      {(t.elements ?? []).map((el: any) => {
                         if (el.type === 'text') return (
                           <div key={el.id} style={{
                             position: 'absolute', left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`,
@@ -577,6 +697,18 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                             fontStyle: el.italic ? 'italic' : 'normal', textAlign: el.align,
                             whiteSpace: 'pre-wrap', lineHeight: 1.3, pointerEvents: 'none',
                           }}>{el.content.replace(/\{[^}]+\}/g, '···')}</div>
+                        );
+                        if (el.type === 'qr') return (
+                          <div key={el.id} style={{
+                            position: 'absolute', left: `${el.x}%`, top: `${el.y}%`,
+                            width: `${el.size}%`, paddingBottom: `${el.size}%`, pointerEvents: 'none',
+                          }}>
+                            <div style={{
+                              position: 'absolute', inset: 0, background: el.bgColor || '#fff',
+                              backgroundImage: 'repeating-linear-gradient(0deg,#000 0 2px,transparent 2px 4px),repeating-linear-gradient(90deg,#000 0 2px,transparent 2px 4px)',
+                              opacity: 0.7,
+                            }} />
+                          </div>
                         );
                         return (
                           <div key={el.id} style={{

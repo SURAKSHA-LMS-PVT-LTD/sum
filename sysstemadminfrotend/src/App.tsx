@@ -47,6 +47,7 @@ import CollectPhysicalPaymentPage from "./pages/CollectPhysicalPaymentPage";
 import ErrorReportsPage from "./pages/ErrorReportsPage";
 import PackageDefinitionsPage from "./pages/PackageDefinitionsPage";
 import InstituteDesignApprovalsPage from "./pages/InstituteDesignApprovalsPage";
+import GatewayPaymentsPage from "./pages/GatewayPaymentsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -112,6 +113,7 @@ const App = () => (
             <Route path="/dashboard/error-reports" element={<ErrorReportsPage />} />
             <Route path="/dashboard/package-definitions" element={<PackageDefinitionsPage />} />
             <Route path="/dashboard/design-approvals" element={<InstituteDesignApprovalsPage />} />
+            <Route path="/dashboard/gateway-payments" element={<GatewayPaymentsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
