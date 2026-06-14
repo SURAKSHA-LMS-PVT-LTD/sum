@@ -215,7 +215,7 @@ const QRAttendance = () => {
     
     try {
       let latitude: number, longitude: number;
-      
+
       if (Capacitor.isNativePlatform()) {
         // Use Capacitor Geolocation on native
         const { Geolocation } = await import('@capacitor/geolocation');
@@ -239,32 +239,15 @@ const QRAttendance = () => {
         setLocationLoading(false);
         return;
       }
-      
-      try {
-        const address = await reverseGeocode(latitude, longitude);
-        setLocation({ latitude, longitude, address });
-      } catch {
-        const address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-        setLocation({ latitude, longitude, address });
-      }
+
+      // Send raw coordinates only — no external reverse-geocode. The backend stores the
+      // location string as-is and derives a human-readable label itself, so blocking the
+      // scan on a slow, rate-limited third-party geocoder is unnecessary.
+      setLocation({ latitude, longitude, address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` });
     } catch {
       setLocation(null);
     } finally {
       setLocationLoading(false);
-    }
-  };
-
-  const reverseGeocode = async (latitude: number, longitude: number): Promise<string> => {
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-      const data = await response.json();
-      
-      if (data && data.display_name) {
-        return data.display_name;
-      }
-      throw new Error('No address found');
-    } catch {
-      return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
     }
   };
 

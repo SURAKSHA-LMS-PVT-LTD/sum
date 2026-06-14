@@ -46,6 +46,8 @@ interface CardUserData {
   imageUrl: string;
   userType: string;
   dateOfBirth: string;
+  /** RFID/NFC card number — used as QR payload so card deactivation invalidates the QR */
+  rfid?: string;
 }
 
 interface PreparedPdfPackage {
@@ -119,6 +121,7 @@ const DigitalIdCard: React.FC = () => {
           imageUrl: d.imageUrl || '',
           userType: d.userType || '',
           dateOfBirth: d.dateOfBirth || '',
+          rfid: d.rfid || undefined,
         };
         setCardData(cd);
         // Pre-fetch photo as base64 for PDF/print embedding (try with auth first)
@@ -143,14 +146,11 @@ const DigitalIdCard: React.FC = () => {
             })();
           }
         }
-        const qrPayload = JSON.stringify({
-          userId: cd.id,
-          studentId: cd.id,
-          name: cd.nameWithInitials,
-          barcodeNumber: cd.id,
-          issued: issueDate,
-        });
-        const qr = await QRCode.toDataURL(qrPayload, {
+        // Encode just the RFID value as a plain string so the backend can match it
+        // directly against users.rfid (WHERE rfid = ?), which validates rfidCardStatus.
+        // Falls back to userId only when no RFID is assigned, preserving old behaviour.
+        const scanId = cd.rfid || cd.id;
+        const qr = await QRCode.toDataURL(scanId, {
           width: 300, margin: 1, errorCorrectionLevel: 'M',
         });
         setQrDataUrl(qr);
@@ -1018,7 +1018,7 @@ ${back}
                 )}
                 {/* Scan instruction */}
                 <div style={{ fontSize: Math.max(P(5), 7), color: C2.muted, marginTop: P(3), textAlign: 'center' }}>
-                  Scan to verify identity
+                  {cardData.rfid ? 'Scan to mark attendance' : 'No RFID card assigned'}
                 </div>
                 {/* Extra user details */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: `${P(2)}px ${P(8)}px`, justifyContent: 'center', marginTop: P(5), maxWidth: '100%' }}>
