@@ -236,7 +236,10 @@ export default function AdvertisementPage() {
         instituteIds: instituteIds.length > 0 ? instituteIds : undefined,
         subscriptionPlans,
       });
-      setCheckResult(res);
+      // Backend shape: { success, message, data: { targeting, delivery, execution } }
+      // Flatten targeting + execution so the panel can read flat fields.
+      const d = res?.data ?? res;
+      setCheckResult({ ...(d?.targeting ?? {}), ...(d?.execution ?? {}), raw: d });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Check sending failed", variant: "destructive" });
     } finally {
@@ -264,8 +267,9 @@ export default function AdvertisementPage() {
         instituteIds: instituteIds.length > 0 ? instituteIds : undefined,
         subscriptionPlans,
       });
-      setSendResult(res);
-      toast({ title: "Success", description: "Advertisement sent manually" });
+      // Backend shape: { success, message, data: { campaignId, totalTargeted, totalSent, totalFailed, packageBreakdown } }
+      setSendResult(res?.data ?? res);
+      toast({ title: "Success", description: res?.message || "Advertisement sent manually" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Send failed", variant: "destructive" });
     } finally {
@@ -286,7 +290,8 @@ export default function AdvertisementPage() {
         targetType: 'specific_users',
         specificUserIds: [previewUserId.trim()],
       });
-      setPreviewResult(res);
+      const d = res?.data ?? res;
+      setPreviewResult({ ...(d?.targeting ?? {}), ...(d?.execution ?? {}), raw: d });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Preview failed", variant: "destructive" });
     } finally {
@@ -770,23 +775,33 @@ export default function AdvertisementPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground">Status</p>
-                    <Badge className={cacheStatus.healthy ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                      {cacheStatus.healthy ? "Healthy" : "Unhealthy"}
+                    <Badge className={cacheStatus.isCached ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}>
+                      {cacheStatus.isCached ? "Cached" : "Empty"}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Cached Ads</p>
-                    <p className="font-bold">{cacheStatus.cachedCount ?? cacheStatus.count ?? "N/A"}</p>
+                    <p className="font-bold">{cacheStatus.totalAds ?? "N/A"}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Last Updated</p>
-                    <p className="font-medium text-xs">
-                      {cacheStatus.lastUpdated ? new Date(cacheStatus.lastUpdated).toLocaleString() : "N/A"}
-                    </p>
+                    <p className="text-muted-foreground">Pending Metrics</p>
+                    <p className="font-bold">{cacheStatus.pendingMetrics ?? 0}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">TTL (seconds)</p>
-                    <p className="font-bold">{cacheStatus.ttl ?? "N/A"}</p>
+                    <p className="font-bold">{cacheStatus.ttlSeconds ?? "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Metrics Updated</p>
+                    <p className="font-medium text-xs">
+                      {cacheStatus.metricsLastUpdated ? new Date(cacheStatus.metricsLastUpdated).toLocaleString() : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Last Sync</p>
+                    <p className="font-medium text-xs">
+                      {cacheStatus.lastSyncTime ? new Date(cacheStatus.lastSyncTime).toLocaleString() : "Never"}
+                    </p>
                   </div>
                 </div>
               </CardContent>

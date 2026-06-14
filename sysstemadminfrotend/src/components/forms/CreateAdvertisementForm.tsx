@@ -173,18 +173,27 @@ export function CreateAdvertisementForm({
 
   const onSubmit = async (data: FormData) => {
     try {
+      // BUG FIX: the backend hard-requires mediaUrl (returns 400 if empty). Block
+      // submission early with a clear message instead of letting it fail server-side.
+      if (!selectedFile) {
+        toast({
+          title: "Media required",
+          description: "Please upload a media file before creating the advertisement.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setIsSubmitting(true);
 
       let mediaUrl = "";
 
-      // Upload file if selected
-      if (selectedFile) {
-        setIsUploading(true);
-        const folder = getFolder(data.mediaType);
-        const uploadResult = await uploadFile(selectedFile, folder);
-        mediaUrl = uploadResult.relativePath;
-        setIsUploading(false);
-      }
+      // Upload file
+      setIsUploading(true);
+      const folder = getFolder(data.mediaType);
+      const uploadResult = await uploadFile(selectedFile, folder);
+      mediaUrl = uploadResult.relativePath;
+      setIsUploading(false);
 
       const payload = {
         title: data.title,

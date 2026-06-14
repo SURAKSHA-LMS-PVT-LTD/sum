@@ -115,7 +115,7 @@ const OrderCardDialog: React.FC<OrderCardDialogProps> = ({
   if (!card) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} routeName="order-card-dialog-popup">
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

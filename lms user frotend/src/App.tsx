@@ -302,6 +302,7 @@ const AppContent = () => {
       <Route path="/my-submissions" element={<ProtectedRoute><MySubmissions /></ProtectedRoute>} />
       <Route path="/card-demo" element={<ProtectedRoute><CardDemo /></ProtectedRoute>} />
       <Route path="/id-cards" element={<ProtectedRoute><CardManagement /></ProtectedRoute>} />
+      <Route path="/id-cards/*" element={<Navigate to="/id-cards" replace />} />
       <Route path="/sessions" element={<ProtectedRoute><ActiveSessionsPage /></ProtectedRoute>} />
 
       <Route path="/institute-attendance" element={<ProtectedRoute><InstituteAttendancePage /></ProtectedRoute>} />
