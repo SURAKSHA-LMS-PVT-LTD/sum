@@ -16,7 +16,7 @@ import {
   User, LogOut, ChevronRight, RefreshCw, CheckCircle2, Settings,
   UserCog, GraduationCap, School, Shield, BookOpen, Users, UserCheck, Loader2, Baby
 } from 'lucide-react';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -175,13 +175,13 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
   );
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} routeName="profile-switcher-drawer">
-      <DrawerContent className="max-h-[95vh] rounded-t-3xl">
-        <DrawerHeader className="pb-0 pt-5 px-5">
-          <DrawerTitle className="text-base font-bold text-foreground">Switch Profile</DrawerTitle>
-        </DrawerHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-80 sm:w-80 p-0 flex flex-col">
+        <SheetHeader className="px-4 pt-5 pb-3 border-b border-border/50">
+          <SheetTitle className="text-sm font-bold text-foreground">Switch Profile</SheetTitle>
+        </SheetHeader>
 
-        <div className="px-4 pb-10 pt-3 space-y-1">
+        <div className="overflow-y-auto flex-1 px-3 pb-6 pt-2 space-y-1">
 
           {/* ── Current Role Context Banner ──────────────────────────── */}
           {selectedInstitute && (
@@ -208,13 +208,13 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
             onClick={handleSelectSelf}
             disabled={!!switching}
             className={cn(
-              'w-full flex items-center gap-3 p-3.5 rounded-2xl transition-all active:scale-[0.98]',
+              'w-full flex items-center gap-2.5 p-2 rounded-xl transition-all active:scale-[0.98]',
               isSelfActive ? 'bg-primary/10 border border-primary/20 shadow-sm' : 'hover:bg-muted/60',
               switching && 'opacity-60 pointer-events-none'
             )}
           >
             <div className="relative shrink-0">
-              <Avatar className="h-13 w-13 border-2 border-border" style={{ width: 52, height: 52 }}>
+              <Avatar className="h-13 w-13 border-2 border-border" style={{ width: 36, height: 36 }}>
                 {user?.imageUrl && (
                   <AvatarImage src={getImageUrl(user.imageUrl)} alt={user.name} className="object-cover" />
                 )}
@@ -285,13 +285,13 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
                         onClick={() => handleSelectChild(child)}
                         disabled={!!switching}
                         className={cn(
-                          'w-full flex items-center gap-3 p-3.5 rounded-2xl transition-all active:scale-[0.98]',
+                          'w-full flex items-center gap-2.5 p-2 rounded-xl transition-all active:scale-[0.98]',
                           active ? 'bg-primary/10 border border-primary/20 shadow-sm' : 'hover:bg-muted/60',
                           switching && 'opacity-60 pointer-events-none'
                         )}
                       >
                         <div className="relative shrink-0">
-                          <Avatar className="border-2 border-border" style={{ width: 52, height: 52 }}>
+                          <Avatar className="border-2 border-border" style={{ width: 36, height: 36 }}>
                             {child.imageUrl && (
                               <AvatarImage src={getImageUrl(child.imageUrl)} alt={child.name} className="object-cover" />
                             )}
@@ -343,7 +343,7 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
 
             <button
               onClick={handleGoToProfile}
-              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl hover:bg-muted/60 active:scale-[0.98] transition-all text-left"
+              className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-muted/60 active:scale-[0.98] transition-all text-left"
             >
               <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
                 <UserCog className="h-4 w-4 text-muted-foreground" />
@@ -358,7 +358,7 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
             {!isTenantLogin && (userChildren?.length || 0) > 0 && (
               <button
                 onClick={() => { onOpenChange(false); navigate('/my-children'); }}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl hover:bg-muted/60 active:scale-[0.98] transition-all text-left"
+                className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-muted/60 active:scale-[0.98] transition-all text-left"
               >
                 <div className="h-9 w-9 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
                   <Baby className="h-4 w-4 text-orange-600" />
@@ -373,7 +373,7 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
 
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl hover:bg-destructive/5 active:scale-[0.98] transition-all text-left"
+              className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-destructive/5 active:scale-[0.98] transition-all text-left"
             >
               <div className="h-9 w-9 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
                 <LogOut className="h-4 w-4 text-destructive" />
@@ -385,8 +385,8 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
             </button>
           </div>
         </div>
-      </DrawerContent>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   );
 };
 

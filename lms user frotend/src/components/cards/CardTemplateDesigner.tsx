@@ -132,6 +132,8 @@ interface CardTemplateDesignerProps {
   activeTemplateId?: string | null;
   onTemplateSelect?: (id: string) => void;
   onBack?: () => void;
+  /** Raw API templates (carry status/rejection info). Optional — backwards compatible. */
+  apiTemplates?: Array<{ id: string; status: string; rejectionReason?: string }>;
 }
 
 const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
@@ -141,6 +143,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   activeTemplateId,
   onTemplateSelect,
   onBack,
+  apiTemplates = [],
 }) => {
   const { toast } = useToast();
 
@@ -654,6 +657,22 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                 {/* Card info */}
                 <div className="p-2 sm:p-3">
                   <p className="font-medium text-xs sm:text-sm truncate">{t.name}</p>
+                  {/* Approval status badge */}
+                  {(() => {
+                    const apiTpl = apiTemplates.find(a => a.id === t.id);
+                    if (!apiTpl) return null;
+                    const colors: Record<string, string> = {
+                      APPROVED: 'text-green-600 bg-green-50',
+                      PENDING: 'text-yellow-600 bg-yellow-50',
+                      REJECTED: 'text-red-600 bg-red-50',
+                      SUSPENDED: 'text-orange-600 bg-orange-50',
+                    };
+                    return (
+                      <span className={`inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded font-semibold ${colors[apiTpl.status] ?? 'text-muted-foreground bg-muted'}`}>
+                        {apiTpl.status}
+                      </span>
+                    );
+                  })()}
                   <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                     <span className="text-[10px] sm:text-xs">{t.cardWidth}×{t.cardHeight}px</span>
                     <span>·</span>
@@ -673,8 +692,16 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   }
 
   // ── EDITOR VIEW ───────────────────────────────────────────────────────────
+  const activeApiTpl = activeTemplate ? apiTemplates.find(a => a.id === activeTemplate.id) : null;
   return (
     <div className="space-y-2 sm:space-y-4 pb-20 sm:pb-12">
+      {/* Re-approval warning when editing an approved template */}
+      {activeApiTpl?.status === 'APPROVED' && (
+        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs">
+          <span className="font-semibold">⚠ Approved template:</span>
+          Saving changes will reset it to <span className="font-semibold">Pending Review</span> and disable generation until re-approved.
+        </div>
+      )}
       {/* Top bar */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap p-2 sm:p-3 bg-card rounded-lg sm:rounded-xl border border-border">
         <Button size="sm" variant="ghost" className="h-7 sm:h-8 gap-1 text-xs sm:text-sm px-2 sm:px-3 text-muted-foreground hover:text-foreground"

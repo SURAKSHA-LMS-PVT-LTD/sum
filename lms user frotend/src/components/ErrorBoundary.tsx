@@ -326,6 +326,23 @@ function ErrorIcon({ kind }: { kind: ErrorKind }) {
   );
 }
 
+async function sendErrorReport(args: {
+  errorMessage: string;
+  errorStack?: string;
+  screenshotDataUrl?: string | null;
+  pageUrl: string;
+  userAgent: string;
+}) {
+  await errorReportService.submit({
+    kind: ERROR_REPORT_KINDS.REACT_BOUNDARY,
+    errorMessage: (args.errorMessage || 'Unknown error').slice(0, 500),
+    errorStack: args.errorStack,
+    screenshotDataUrl: args.screenshotDataUrl ?? undefined,
+    pageUrl: args.pageUrl,
+    userAgent: args.userAgent,
+  });
+}
+
 export default ErrorBoundary;
-export { classifyError, captureScreenshot };
+export { classifyError, captureScreenshot, sendErrorReport };
 export type { ErrorKind };

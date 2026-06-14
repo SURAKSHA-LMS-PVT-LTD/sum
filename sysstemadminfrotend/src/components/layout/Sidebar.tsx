@@ -35,6 +35,7 @@ import {
   Banknote,
   AlertTriangle,
   Package,
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -92,7 +93,8 @@ const navItems = [
   { to: "/dashboard/class-subjects", icon: BookMarked, label: "Class Subjects" },
   { to: "/dashboard/attendance-reports", icon: BarChart3, label: "Attendance Reports" },
   { to: "/dashboard/account-deletion", icon: UserX, label: "Account Deletion" },
-  { to: "/dashboard/error-reports",    icon: AlertTriangle, label: "Error Reports" },
+  { to: "/dashboard/error-reports",     icon: AlertTriangle, label: "Error Reports" },
+  { to: "/dashboard/design-approvals", icon: LayoutGrid,    label: "Design Approvals" },
 ];
 
 export function AppSidebar() {

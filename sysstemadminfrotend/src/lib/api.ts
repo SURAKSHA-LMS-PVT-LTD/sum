@@ -2496,4 +2496,53 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+
+  // ── Institute Design Approvals ────────────────────────────────────────────
+  getDesignTemplates: (params?: { status?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.page)   q.set('page', String(params.page));
+    if (params?.limit)  q.set('limit', String(params.limit));
+    return apiRequest(`/admin/design-templates?${q}`);
+  },
+
+  approveDesignTemplate: (
+    id: string,
+    data: {
+      costPng?: number; costPdf?: number; costWhatsapp?: number; costPrint?: number;
+      allowPng?: boolean; allowPdf?: boolean; allowWhatsapp?: boolean; allowPrint?: boolean;
+      whatsappTtlDays?: number; adminNotes?: string;
+    },
+  ) =>
+    apiRequest(`/admin/design-templates/${id}/approve`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  rejectDesignTemplate: (id: string, data: { rejectionReason: string; adminNotes?: string }) =>
+    apiRequest(`/admin/design-templates/${id}/reject`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  suspendDesignTemplate: (id: string, data?: { adminNotes?: string }) =>
+    apiRequest(`/admin/design-templates/${id}/suspend`, {
+      method: 'PUT',
+      body: JSON.stringify(data ?? {}),
+    }),
+
+  unsuspendDesignTemplate: (id: string, data?: { adminNotes?: string }) =>
+    apiRequest(`/admin/design-templates/${id}/unsuspend`, {
+      method: 'PUT',
+      body: JSON.stringify(data ?? {}),
+    }),
+
+  getDesignGenerations: (params?: { instituteId?: string; templateId?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.instituteId) q.set('instituteId', params.instituteId);
+    if (params?.templateId)  q.set('templateId',  params.templateId);
+    if (params?.page)        q.set('page', String(params.page));
+    if (params?.limit)       q.set('limit', String(params.limit));
+    return apiRequest(`/admin/design-templates/generations?${q}`);
+  },
 };

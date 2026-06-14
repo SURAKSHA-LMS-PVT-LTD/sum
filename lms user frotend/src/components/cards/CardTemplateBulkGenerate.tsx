@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,14 +10,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   Download, Loader2, Users, Filter, CheckCircle2, XCircle,
   AlertCircle, ChevronDown, Layers, Search, Settings2,
-  LayoutGrid, ArrowLeft, Clock, Zap,
+  LayoutGrid, ArrowLeft, Clock, Zap, CreditCard, FileImage, FileText,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiClient } from '@/api/client';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { userTypesApi, UserType } from '@/api/userTypes.api';
+import { apiClient } from '@/api/client';
 import { CardTemplate, TextElement } from './CardTemplateDesigner';
+import { instituteDesignsApi, DesignTemplate, DesignOutputType } from '@/api/instituteDesigns.api';
+import CardPdfLayoutPage from './CardPdfLayoutPage';
 import JSZip from 'jszip';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -30,7 +32,6 @@ interface InstituteUser {
   nameWithInitials?: string;
   email?: string;
   imageUrl?: string;
-  instituteUserImageUrl?: string;
   dateOfBirth?: string;
   createdAt?: string;
   userIdByInstitute?: string | null;
@@ -187,11 +188,11 @@ async function renderCard(
   }
 }
 
-// ─── FILE TYPE OPTIONS ─────────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────────────────
 
 const FILE_TYPES = [
   { value: 'png', label: 'PNG (lossless)' },
-  { value: 'jpg', label: 'JPEG (smaller size)' },
+  { value: 'jpg', label: 'JPEG (smaller)' },
   { value: 'webp', label: 'WebP (best compression)' },
 ];
 
@@ -201,13 +202,18 @@ const NAMING_TOKENS = ['{userId}', '{firstName}', '{lastName}', '{fullName}', '{
 
 interface CardTemplateBulkGenerateProps {
   templates?: CardTemplate[];
+  /** Raw API templates — carry status + allowed output flags + costs */
+  apiTemplates?: DesignTemplate[];
   activeTemplateId?: string | null;
   onTemplateSelect?: (id: string) => void;
   onBack?: () => void;
 }
 
+type GenStep = 'filters' | 'preflight' | 'generating' | 'done';
+
 const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
-  templates,
+  templates = [],
+  apiTemplates = [],
   activeTemplateId,
   onTemplateSelect,
   onBack,
@@ -215,25 +221,17 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
   const { toast } = useToast();
   const { currentInstituteId } = useAuth();
 
-  // Bootstrap data (user types + classes only — templates come from parent)
+  // Bootstrap
   const [userTypes, setUserTypes] = useState<UserType[]>([]);
   const [classes, setClasses] = useState<InstituteClass[]>([]);
   const [subjects, setSubjects] = useState<InstituteSubject[]>([]);
   const [bootstrapping, setBootstrapping] = useState(true);
 
-  // Filters (not auto-applied — user clicks "Fetch Users")
+  // Filters
   const [filters, setFilters] = useState<Filters>({
-    userTypeSlug: 'STUDENT',
-    classId: '',
-    subjectId: '',
-    search: '',
-    gender: '',
-    isActive: 'true',
-    dobFrom: '',
-    dobTo: '',
-    joinedFrom: '',
-    joinedTo: '',
-    limit: 500,
+    userTypeSlug: 'STUDENT', classId: '', subjectId: '', search: '',
+    gender: '', isActive: 'true', dobFrom: '', dobTo: '',
+    joinedFrom: '', joinedTo: '', limit: 500,
   });
   const [filtersOpen, setFiltersOpen] = useState(true);
 
@@ -248,6 +246,18 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
   const [fileType, setFileType] = useState<'png' | 'jpg' | 'webp'>('png');
   const [namingPattern, setNamingPattern] = useState('{userId}_{fullName}');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [outputType, setOutputType] = useState<DesignOutputType>('PNG');
+
+  // PDF layout page
+  const [showPdfLayout, setShowPdfLayout] = useState(false);
+
+  // Pre-flight / billing
+  const [step, setStep] = useState<GenStep>('filters');
+  const [preflight, setPreflight] = useState<{
+    userCount: number; unitCost: number; totalCost: number; balance: number; sufficient: boolean;
+  } | null>(null);
+  const [loadingPreflight, setLoadingPreflight] = useState(false);
+  const [recordId, setRecordId] = useState<string | null>(null);
 
   // Generation
   const [generating, setGenerating] = useState(false);
@@ -258,8 +268,26 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
   toastRef.current = toast;
 
   const selectedTemplate = templates.find(t => t.id === activeTemplateId) ?? null;
+  const selectedApiTpl = apiTemplates.find(t => t.id === activeTemplateId) ?? null;
 
-  // ── Bootstrap: user types + classes only ─────────────────────────────────────
+  // Allowed output types for this template
+  const allowedOutputs = selectedApiTpl
+    ? ([
+        selectedApiTpl.allowPng      && 'PNG',
+        selectedApiTpl.allowPdf      && 'PDF',
+        selectedApiTpl.allowWhatsapp && 'WHATSAPP',
+        selectedApiTpl.allowPrint    && 'PRINT',
+      ] as (DesignOutputType | false)[]).filter((x): x is DesignOutputType => !!x)
+    : [];
+
+  // Set initial outputType to first allowed when template changes
+  useEffect(() => {
+    if (allowedOutputs.length > 0 && !allowedOutputs.includes(outputType)) {
+      setOutputType(allowedOutputs[0]);
+    }
+  }, [activeTemplateId]);
+
+  // ── Bootstrap ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentInstituteId) return;
     Promise.all([
@@ -273,7 +301,7 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
     }).finally(() => setBootstrapping(false));
   }, [currentInstituteId]);
 
-  // ── Load subjects when class changes ─────────────────────────────────────────
+  // ── Load subjects when class changes ──────────────────────────────────────
   useEffect(() => {
     if (!filters.classId || !currentInstituteId) { setSubjects([]); return; }
     apiClient.get(`/institutes/${currentInstituteId}/classes/${filters.classId}/subjects?limit=200`)
@@ -281,11 +309,12 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
       .catch(() => setSubjects([]));
   }, [filters.classId, currentInstituteId]);
 
-  // ── Fetch users (explicit — only on button click) ─────────────────────────────
+  // ── Fetch users ────────────────────────────────────────────────────────────
   const fetchUsers = async () => {
     if (!currentInstituteId || !filters.userTypeSlug) return;
     setLoadingUsers(true);
     setHasFetched(true);
+    setStep('filters');
     try {
       const p = new URLSearchParams({ page: '1', limit: String(filters.limit) });
       if (filters.search)    p.set('search', filters.search);
@@ -307,7 +336,6 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
 
       const res: any = await apiClient.get(endpoint);
       const raw: any[] = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-
       const data: InstituteUser[] = raw.map(u => ({
         id: String(u.userId || u.id || u.user_id || ''),
         name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim(),
@@ -324,7 +352,6 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
         classId: filters.classId || undefined,
         className: u.className || u.class_name,
       }));
-
       setUsers(data);
       setTotalUsers(res?.meta?.total ?? data.length);
       setSelectedIds(new Set(data.map(u => u.id)));
@@ -336,35 +363,77 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
     }
   };
 
-  // ── Selection helpers ────────────────────────────────────────────────────────
+  // ── Selection helpers ──────────────────────────────────────────────────────
   const toggleUser = (id: string) =>
     setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleAll = () =>
     setSelectedIds(selectedIds.size === users.length ? new Set() : new Set(users.map(u => u.id)));
 
-  // ── Generate & ZIP ───────────────────────────────────────────────────────────
-  const generate = async () => {
-    if (!selectedTemplate) { toastRef.current({ title: 'No template selected', variant: 'destructive' }); return; }
-    const targets = users.filter(u => selectedIds.has(u.id));
-    if (!targets.length) { toastRef.current({ title: 'No users selected', variant: 'destructive' }); return; }
+  // ── Pre-flight: fetch cost preview ────────────────────────────────────────
+  const runPreflight = async () => {
+    if (!currentInstituteId || !activeTemplateId || selectedIds.size === 0) return;
+    // PDF: delegate entirely to CardPdfLayoutPage which handles its own billing
+    if (outputType === 'PDF') { setShowPdfLayout(true); return; }
+    setLoadingPreflight(true);
+    try {
+      const userIds = [...selectedIds];
+      const result = await instituteDesignsApi.previewCost(
+        currentInstituteId, activeTemplateId, outputType, userIds,
+      );
+      setPreflight(result);
+      setStep('preflight');
+    } catch (err: any) {
+      toastRef.current({
+        title: 'Could not fetch cost preview',
+        description: err?.response?.data?.message ?? err?.message ?? 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingPreflight(false);
+    }
+  };
 
+  // ── Commit generation (debit) + render ───────────────────────────────────
+  const generate = async () => {
+    if (!currentInstituteId || !selectedTemplate || !activeTemplateId) return;
+    const targets = users.filter(u => selectedIds.has(u.id));
+    if (!targets.length) return;
+
+    // 1. Commit (debits credits, returns record + definition)
+    let commitResult: { recordId: string; definition: Record<string, any> };
+    try {
+      commitResult = await instituteDesignsApi.commitGeneration(
+        currentInstituteId, activeTemplateId, outputType, targets.map(u => u.id),
+      );
+    } catch (err: any) {
+      toastRef.current({
+        title: 'Generation failed — credits not deducted',
+        description: err?.response?.data?.message ?? err?.message,
+        variant: 'destructive',
+      });
+      setStep('filters');
+      return;
+    }
+    setRecordId(commitResult.recordId);
+
+    // 2. Render client-side
     setGenerating(true);
+    setStep('generating');
     abortRef.current = false;
     setProgress({ done: 0, total: targets.length });
     setResults([]);
 
-    // Pre-fetch template images + all unique user images in parallel (2 API calls total for templates)
+    // Use definition from server (the approved snapshot)
+    const tplFromServer = { ...selectedTemplate, ...commitResult.definition } as CardTemplate;
     const uniqueImgUrls = [...new Set(targets.map(u => u.imageUrl ? getImageUrl(u.imageUrl) : '').filter(Boolean))];
     const [bgDataUrl, ovDataUrl, ...userImgResults] = await Promise.all([
-      selectedTemplate.backgroundImageUrl ? toDataUrl(selectedTemplate.backgroundImageUrl) : Promise.resolve(null),
-      selectedTemplate.overlayImageUrl    ? toDataUrl(selectedTemplate.overlayImageUrl)    : Promise.resolve(null),
+      tplFromServer.backgroundImageUrl ? toDataUrl(tplFromServer.backgroundImageUrl) : Promise.resolve(null),
+      tplFromServer.overlayImageUrl    ? toDataUrl(tplFromServer.overlayImageUrl)    : Promise.resolve(null),
       ...uniqueImgUrls.map(url => toDataUrl(url)),
     ]);
-    const userImgCache = new Map<string, string | null>(
-      uniqueImgUrls.map((url, i) => [url, userImgResults[i]])
-    );
+    const userImgCache = new Map<string, string | null>(uniqueImgUrls.map((url, i) => [url, userImgResults[i]]));
 
-    const zip = new JSZip();
+    const zip = outputType === 'PNG' ? new JSZip() : null;
     const log: GenResult[] = [];
     const mimeMap = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' } as const;
 
@@ -374,12 +443,15 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
       try {
         const rawImg = user.imageUrl ? getImageUrl(user.imageUrl) : '';
         const userImgDataUrl = rawImg ? (userImgCache.get(rawImg) ?? null) : null;
-        const canvas = await renderCard(selectedTemplate, user, userImgDataUrl, bgDataUrl, ovDataUrl);
-        const blob = await new Promise<Blob>((res, rej) =>
-          canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), mimeMap[fileType], fileType === 'jpg' ? 0.92 : undefined)
-        );
-        const fileName = resolveFileName(namingPattern, user, fileType);
-        zip.file(fileName, blob);
+        const canvas = await renderCard(tplFromServer, user, userImgDataUrl, bgDataUrl, ovDataUrl);
+
+        if (zip) {
+          const blob = await new Promise<Blob>((res, rej) =>
+            canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), mimeMap[fileType], fileType === 'jpg' ? 0.92 : undefined)
+          );
+          const fileName = resolveFileName(namingPattern, user, fileType);
+          zip.file(fileName, blob);
+        }
         log.push({ userId: user.id, userName: user.name, status: 'ok' });
       } catch (err: any) {
         log.push({ userId: user.id, userName: user.name, status: 'error', error: err?.message });
@@ -388,38 +460,78 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
       setResults([...log]);
     }
 
-    if (!abortRef.current) {
+    // 3. Download ZIP (PNG output)
+    if (!abortRef.current && zip) {
       try {
         const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(zipBlob);
-        a.download = `${selectedTemplate.name.replace(/\s+/g, '_')}_${Date.now()}.zip`;
+        a.download = `${(selectedTemplate.name || 'designs').replace(/\s+/g, '_')}_${Date.now()}.zip`;
         a.click();
         URL.revokeObjectURL(a.href);
-        const ok   = log.filter(r => r.status === 'ok').length;
-        const fail = log.filter(r => r.status === 'error').length;
-        toastRef.current({ title: `${ok} files generated`, description: fail ? `${fail} failed` : 'ZIP downloaded.', variant: fail ? 'destructive' : 'default' });
       } catch {
-        toastRef.current({ title: 'ZIP failed', variant: 'destructive' });
+        toastRef.current({ title: 'ZIP download failed', variant: 'destructive' });
       }
     }
+
+    // 4. Report result (triggers server-side refund for failures)
+    const okCount   = log.filter(r => r.status === 'ok').length;
+    const failCount = log.filter(r => r.status === 'error').length;
+    try {
+      await instituteDesignsApi.reportResult(currentInstituteId, commitResult.recordId, okCount, failCount);
+      if (failCount > 0) {
+        const refundAmount = (preflight?.unitCost ?? 0) * failCount;
+        toastRef.current({
+          title: `${okCount} generated${failCount ? `, ${failCount} failed` : ''}`,
+          description: failCount > 0 ? `${refundAmount.toFixed(2)} credits refunded for failures.` : undefined,
+          variant: failCount > 0 ? 'destructive' : 'default',
+        });
+      } else {
+        toastRef.current({ title: `${okCount} files generated`, description: 'ZIP downloaded.' });
+      }
+    } catch {
+      toastRef.current({ title: 'Warning: could not report result to server', variant: 'destructive' });
+    }
+
     setGenerating(false);
     setProgress(null);
+    setStep('done');
   };
 
-  // ─── UI ───────────────────────────────────────────────────────────────────────
+  // ─── UI ──────────────────────────────────────────────────────────────────────
 
   if (bootstrapping) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted-foreground">
-        <Loader2 className="h-7 w-7 animate-spin" />
-        <p className="text-sm">Loading…</p>
+        <Loader2 className="h-7 w-7 animate-spin" /><p className="text-sm">Loading…</p>
       </div>
     );
   }
 
-  // ── LIST VIEW — pick a template ───────────────────────────────────────────
+  // ── PDF layout page ────────────────────────────────────────────────────────
+  if (showPdfLayout && selectedTemplate && selectedApiTpl) {
+    return (
+      <CardPdfLayoutPage
+        template={selectedTemplate}
+        apiTemplate={selectedApiTpl}
+        users={users}
+        selectedUserIds={selectedIds}
+        onBack={() => setShowPdfLayout(false)}
+      />
+    );
+  }
+
+  // ── LIST VIEW ───────────────────────────────────────────────────────────────
   if (!activeTemplateId || !selectedTemplate) {
+    const approvedTemplates = templates.filter(t => {
+      const api = apiTemplates.find(a => a.id === t.id);
+      return api?.status === 'APPROVED';
+    });
+    const pendingCount = templates.filter(t => {
+      const api = apiTemplates.find(a => a.id === t.id);
+      return api?.status !== 'APPROVED';
+    }).length;
+
     return (
       <div className="space-y-3 sm:space-y-5 pb-20 sm:pb-12">
         <div className="flex items-center gap-2 p-3 sm:p-4 bg-card rounded-lg sm:rounded-xl border border-border">
@@ -427,96 +539,100 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
             <LayoutGrid className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-sm sm:text-base">Select Template</h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">Pick one to generate cards</p>
+            <h3 className="font-semibold text-sm sm:text-base">Generate & Export</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">Only approved templates can generate</p>
           </div>
-          <Badge variant="secondary" className="ml-auto">{templates.length}</Badge>
+          <div className="ml-auto flex items-center gap-2">
+            <Badge variant="secondary">{approvedTemplates.length} approved</Badge>
+            {pendingCount > 0 && <Badge variant="outline" className="text-yellow-600">{pendingCount} pending</Badge>}
+          </div>
         </div>
 
-        {templates.length === 0 ? (
+        {approvedTemplates.length === 0 ? (
           <div className="text-center py-12 sm:py-20 text-muted-foreground border-2 border-dashed border-border rounded-xl">
             <Layers className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-3 opacity-25" />
-            <p className="font-medium text-sm sm:text-base">No templates yet</p>
-            <p className="text-xs sm:text-sm mt-1">Go to <strong>Template Designer</strong> to create one first.</p>
+            <p className="font-medium text-sm sm:text-base">No approved templates yet</p>
+            <p className="text-xs sm:text-sm mt-1">Create a template in the <strong>Designer</strong> tab and wait for system admin approval.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {templates.map(t => (
-              <div key={t.id}
-                className="group relative rounded-lg sm:rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-md transition-all active:scale-95"
-                onClick={() => onTemplateSelect(t.id)}>
-                {/* Preview thumbnail */}
-                <div className="relative overflow-hidden bg-muted/40" style={{ paddingBottom: `${(t.cardHeight / t.cardWidth) * 100}%` }}>
-                  <div className="absolute inset-0" style={{
-                    background: t.backgroundImageUrl
-                      ? `url(${t.backgroundImageUrl}) center/cover no-repeat`
-                      : 'linear-gradient(135deg,#1a237e,#283593)',
-                  }}>
-                    {t.elements.map(el => {
-                      if (el.type === 'text') return (
-                        <div key={el.id} style={{
-                          position: 'absolute', left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`,
-                          fontSize: `${el.fontSize * 0.35}px`, fontFamily: `'${el.fontFamily}',sans-serif`,
-                          color: el.color, fontWeight: el.bold ? 'bold' : 'normal',
-                          fontStyle: el.italic ? 'italic' : 'normal', textAlign: el.align,
-                          whiteSpace: 'pre-wrap', lineHeight: 1.3, pointerEvents: 'none',
-                        }}>
-                          {el.content.replace(/\{[^}]+\}/g, '···')}
-                        </div>
-                      );
-                      return (
-                        <div key={el.id} style={{
-                          position: 'absolute', left: `${el.x}%`, top: `${el.y}%`,
-                          width: `${el.width}%`, paddingBottom: `${el.height}%`, pointerEvents: 'none',
-                        }}>
-                          <div style={{
-                            position: 'absolute', inset: 0, background: '#aaa', opacity: 0.5,
-                            borderRadius: el.shape === 'circle' ? '50%' : '6px',
-                            border: `${el.borderWidth}px solid ${el.borderColor}`,
-                          }} />
-                        </div>
-                      );
-                    })}
-                    {t.overlayImageUrl && (
-                      <img src={t.overlayImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ zIndex: 10 }} />
-                    )}
+            {approvedTemplates.map(t => {
+              const api = apiTemplates.find(a => a.id === t.id)!;
+              return (
+                <div key={t.id}
+                  className="group relative rounded-lg sm:rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-md transition-all active:scale-95"
+                  onClick={() => onTemplateSelect(t.id)}>
+                  <div className="relative overflow-hidden bg-muted/40" style={{ paddingBottom: `${(t.cardHeight / t.cardWidth) * 100}%` }}>
+                    <div className="absolute inset-0" style={{
+                      background: t.backgroundImageUrl
+                        ? `url(${t.backgroundImageUrl}) center/cover no-repeat`
+                        : 'linear-gradient(135deg,#1a237e,#283593)',
+                    }}>
+                      {t.elements.map(el => {
+                        if (el.type === 'text') return (
+                          <div key={el.id} style={{
+                            position: 'absolute', left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`,
+                            fontSize: `${el.fontSize * 0.35}px`, fontFamily: `'${el.fontFamily}',sans-serif`,
+                            color: el.color, fontWeight: el.bold ? 'bold' : 'normal',
+                            fontStyle: el.italic ? 'italic' : 'normal', textAlign: el.align,
+                            whiteSpace: 'pre-wrap', lineHeight: 1.3, pointerEvents: 'none',
+                          }}>{el.content.replace(/\{[^}]+\}/g, '···')}</div>
+                        );
+                        return (
+                          <div key={el.id} style={{
+                            position: 'absolute', left: `${el.x}%`, top: `${el.y}%`,
+                            width: `${el.width}%`, paddingBottom: `${el.height}%`, pointerEvents: 'none',
+                          }}>
+                            <div style={{
+                              position: 'absolute', inset: 0, background: '#aaa', opacity: 0.5,
+                              borderRadius: el.shape === 'circle' ? '50%' : '6px',
+                              border: `${el.borderWidth}px solid ${el.borderColor}`,
+                            }} />
+                          </div>
+                        );
+                      })}
+                      {t.overlayImageUrl && (
+                        <img src={t.overlayImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ zIndex: 10 }} />
+                      )}
+                    </div>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ zIndex: 20 }}>
+                      <span className="flex items-center gap-1.5 text-white text-xs font-medium bg-black/30 px-3 py-1.5 rounded-lg">
+                        <Zap className="h-3 w-3" />Generate
+                      </span>
+                    </div>
                   </div>
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ zIndex: 20 }}>
-                    <span className="flex items-center gap-1.5 text-white text-xs sm:text-sm font-medium bg-black/30 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
-                      <Zap className="h-3 w-3 sm:h-4 sm:w-4" />Generate
-                    </span>
+                  <div className="p-2 sm:p-3">
+                    <p className="font-medium text-xs sm:text-sm truncate">{t.name}</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {api.allowPng  && <span className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-200 font-semibold">PNG</span>}
+                      {api.allowPdf  && <span className="text-[9px] px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded border border-purple-200 font-semibold">PDF</span>}
+                      {api.allowWhatsapp && <span className="text-[9px] px-1.5 py-0.5 bg-green-50 text-green-600 rounded border border-green-200 font-semibold">WhatsApp</span>}
+                    </div>
+                    <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+                      <Clock className="h-2.5 w-2.5" /><span>{new Date(t.updatedAt).toLocaleDateString()}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="p-2 sm:p-3">
-                  <p className="font-medium text-xs sm:text-sm truncate">{t.name}</p>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                    <span className="text-[10px] sm:text-xs">{t.cardWidth}×{t.cardHeight}px</span>
-                    <span>·</span>
-                    <span className="text-[10px] sm:text-xs">{t.elements.length} el</span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-muted-foreground">
-                    <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                    <span>{new Date(t.updatedAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
     );
   }
 
-  // ── GENERATE VIEW ─────────────────────────────────────────────────────────
   const okCount   = results.filter(r => r.status === 'ok').length;
   const failCount = results.filter(r => r.status === 'error').length;
+  const selectedArr = [...selectedIds];
 
+  // ── GENERATE VIEW ──────────────────────────────────────────────────────────
   return (
     <div className="space-y-2 sm:space-y-4 pb-20 sm:pb-12">
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 bg-card rounded-lg sm:rounded-xl border border-border flex-wrap">
-        <button onClick={onBack} className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={() => { onBack(); setStep('filters'); setPreflight(null); }}
+          className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />Templates
         </button>
         <span className="text-muted-foreground hidden sm:inline text-xs">/</span>
@@ -527,9 +643,23 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
           </div>
           <span className="text-xs sm:text-sm font-medium truncate">{selectedTemplate.name}</span>
         </div>
+        {/* Output type selector */}
+        {allowedOutputs.length > 1 && (
+          <div className="ml-auto">
+            <Select value={outputType} onValueChange={v => { setOutputType(v as DesignOutputType); setStep('filters'); setPreflight(null); }}>
+              <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {allowedOutputs.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {allowedOutputs.length === 1 && (
+          <Badge variant="secondary" className="ml-auto text-xs">{outputType}</Badge>
+        )}
       </div>
 
-      {/* ── Step 2: Filters ──────────────────────────────────────────────────── */}
+      {/* Filters */}
       <Card>
         <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
           <CollapsibleTrigger asChild>
@@ -611,7 +741,7 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                 <div className="space-y-1">
                   <Label className="text-xs">Status</Label>
                   <Select value={filters.isActive || '__all__'} onValueChange={v => setFilters(f => ({ ...f, isActive: v === '__all__' ? '' : v }))}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">All</SelectItem>
                       <SelectItem value="true">Active</SelectItem>
@@ -622,39 +752,39 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
 
                 {/* DOB range */}
                 <div className="space-y-1">
-                  <Label className="text-xs">Date of Birth — from</Label>
-                  <Input type="date" value={filters.dobFrom} onChange={e => setFilters(f => ({ ...f, dobFrom: e.target.value }))} className="h-8 text-sm" />
+                  <Label className="text-xs">DOB from</Label>
+                  <Input type="date" value={filters.dobFrom} onChange={e => setFilters(f => ({ ...f, dobFrom: e.target.value }))} className="h-7 sm:h-8 text-xs" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Date of Birth — to</Label>
-                  <Input type="date" value={filters.dobTo} onChange={e => setFilters(f => ({ ...f, dobTo: e.target.value }))} className="h-8 text-sm" />
+                  <Label className="text-xs">DOB to</Label>
+                  <Input type="date" value={filters.dobTo} onChange={e => setFilters(f => ({ ...f, dobTo: e.target.value }))} className="h-7 sm:h-8 text-xs" />
                 </div>
 
                 {/* Joined range */}
                 <div className="space-y-1">
-                  <Label className="text-xs">Joined — from</Label>
-                  <Input type="date" value={filters.joinedFrom} onChange={e => setFilters(f => ({ ...f, joinedFrom: e.target.value }))} className="h-8 text-sm" />
+                  <Label className="text-xs">Joined from</Label>
+                  <Input type="date" value={filters.joinedFrom} onChange={e => setFilters(f => ({ ...f, joinedFrom: e.target.value }))} className="h-7 sm:h-8 text-xs" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Joined — to</Label>
-                  <Input type="date" value={filters.joinedTo} onChange={e => setFilters(f => ({ ...f, joinedTo: e.target.value }))} className="h-8 text-sm" />
+                  <Label className="text-xs">Joined to</Label>
+                  <Input type="date" value={filters.joinedTo} onChange={e => setFilters(f => ({ ...f, joinedTo: e.target.value }))} className="h-7 sm:h-8 text-xs" />
                 </div>
 
                 {/* Limit */}
                 <div className="space-y-1">
                   <Label className="text-xs">Max records</Label>
                   <Select value={String(filters.limit)} onValueChange={v => setFilters(f => ({ ...f, limit: +v }))}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {[50, 100, 200, 500, 1000, 2000].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-
               </div>
 
-              <Button onClick={fetchUsers} disabled={loadingUsers || !filters.userTypeSlug} className="mt-2 sm:mt-4 gap-1 sm:gap-2 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3" size="sm">
-                {loadingUsers ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Search className="h-3 w-3 sm:h-4 sm:w-4" />}
+              <Button onClick={fetchUsers} disabled={loadingUsers || !filters.userTypeSlug}
+                className="mt-2 sm:mt-4 gap-1 sm:gap-2 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3" size="sm">
+                {loadingUsers ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
                 Fetch Users
               </Button>
             </CardContent>
@@ -662,55 +792,51 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
         </Collapsible>
       </Card>
 
-      {/* ── Step 3: User list ────────────────────────────────────────────────── */}
+      {/* User list */}
       {loadingUsers ? (
-        <div className="flex items-center justify-center py-8 sm:py-10 gap-2 text-muted-foreground text-xs sm:text-sm">
-          <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />Fetching users…
+        <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-xs">
+          <Loader2 className="h-4 w-4 animate-spin" />Fetching users…
         </div>
       ) : hasFetched && (
         <Card>
           <CardHeader className="py-2 sm:py-3 px-3 sm:px-4">
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
-                <CardTitle className="text-xs sm:text-sm">Users</CardTitle>
-              </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <CardTitle className="text-xs sm:text-sm">Users</CardTitle>
               <Badge variant="secondary" className="text-xs">
                 {totalUsers > users.length ? `${users.length}/${totalUsers}` : `${users.length}`}
               </Badge>
-              <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-                <button onClick={toggleAll} className="text-xs text-primary underline underline-offset-2">
-                  {selectedIds.size === users.length ? 'Desel' : 'All'}
+              <div className="ml-auto flex items-center gap-1.5">
+                <button onClick={toggleAll} className="text-xs text-primary underline">
+                  {selectedIds.size === users.length ? 'Desel all' : 'Sel all'}
                 </button>
-                <Badge variant="outline" className="text-xs">{selectedIds.size}</Badge>
+                <Badge variant="outline" className="text-xs">{selectedIds.size} sel</Badge>
               </div>
             </div>
           </CardHeader>
           {users.length === 0 ? (
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4 text-center text-xs sm:text-sm text-muted-foreground py-4">No users found.</CardContent>
+            <CardContent className="text-center text-xs text-muted-foreground py-4">No users found.</CardContent>
           ) : (
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <CardContent className="px-3 pb-3">
               <div className="max-h-72 overflow-y-auto rounded-lg border divide-y divide-border/60">
                 {users.map(user => {
-                  const sel    = selectedIds.has(user.id);
+                  const sel = selectedIds.has(user.id);
                   const result = results.find(r => r.userId === user.id);
                   return (
                     <div key={user.id} onClick={() => toggleUser(user.id)}
-                      className={`flex items-center gap-2 px-2 sm:px-3 py-2 sm:py-2.5 cursor-pointer select-none transition-colors ${sel ? 'bg-primary/5' : 'hover:bg-muted/40'}`}>
+                      className={`flex items-center gap-2 px-2 sm:px-3 py-2 cursor-pointer select-none transition-colors ${sel ? 'bg-primary/5' : 'hover:bg-muted/40'}`}>
                       <input type="checkbox" checked={sel} readOnly className="shrink-0 pointer-events-none h-4 w-4" />
-                      <Avatar className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
+                      <Avatar className="h-7 w-7 shrink-0">
                         <AvatarImage src={getImageUrl(user.imageUrl || '')} />
                         <AvatarFallback className="text-xs bg-muted">{(user.name || '?').slice(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-medium leading-tight truncate">{user.nameWithInitials || user.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {user.userIdByInstitute && <span className="mr-1">#{user.userIdByInstitute}</span>}
-                        </p>
+                        <p className="text-xs font-medium truncate">{user.nameWithInitials || user.name}</p>
+                        {user.userIdByInstitute && <p className="text-[10px] text-muted-foreground">#{user.userIdByInstitute}</p>}
                       </div>
                       {result && (result.status === 'ok'
-                        ? <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500 shrink-0" />
-                        : <span title={result.error}><XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive shrink-0" /></span>
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                        : <span title={result.error}><XCircle className="h-3.5 w-3.5 text-destructive shrink-0" /></span>
                       )}
                     </div>
                   );
@@ -721,120 +847,149 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
         </Card>
       )}
 
-      {/* ── Step 4: Output settings + Generate ───────────────────────────────── */}
-      <Card>
-        <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="py-2 sm:py-3 px-3 sm:px-4 cursor-pointer select-none">
-              <CardTitle className="text-xs sm:text-sm flex items-center gap-2">
-                <Settings2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />Output Settings
-                <ChevronDown className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ml-auto transition-transform ${settingsOpen ? 'rotate-180' : ''}`} />
-              </CardTitle>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3 sm:space-y-4">
+      {/* Output settings (PNG) */}
+      {outputType === 'PNG' && (
+        <Card>
+          <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="py-2 px-3 cursor-pointer select-none">
+                <CardTitle className="text-xs sm:text-sm flex items-center gap-2">
+                  <Settings2 className="h-3.5 w-3.5" />Output Settings
+                  <ChevronDown className={`h-3.5 w-3.5 ml-auto transition-transform ${settingsOpen ? 'rotate-180' : ''}`} />
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="px-3 pb-3 space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">File Type</Label>
+                  <Select value={fileType} onValueChange={v => setFileType(v as any)}>
+                    <SelectTrigger className="h-7 text-xs w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>{FILE_TYPES.map(ft => <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">File Naming Pattern</Label>
+                  <Input value={namingPattern} onChange={e => setNamingPattern(e.target.value)}
+                    placeholder="{userId}_{fullName}" className="h-7 text-xs font-mono" />
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {NAMING_TOKENS.map(t => (
+                      <button key={t} onClick={() => setNamingPattern(p => p + t)}
+                        className="text-xs px-1.5 py-0.5 rounded bg-muted hover:bg-muted/70 font-mono border border-border/60">{t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+      )}
 
-              {/* File type */}
-              <div className="space-y-1">
-                <Label className="text-xs">File Type</Label>
-                <Select value={fileType} onValueChange={v => setFileType(v as any)}>
-                  <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm w-40 sm:w-48"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {FILE_TYPES.map(ft => <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+      {/* ── PRE-FLIGHT PANEL ─────────────────────────────────────────────────── */}
+      {step === 'preflight' && preflight && (
+        <Card className="border-2 border-primary/30 bg-primary/5">
+          <CardContent className="pt-4 pb-4 px-4 space-y-3">
+            <div className="flex items-center gap-2 font-semibold text-sm">
+              <CreditCard className="h-4 w-4 text-primary" />Credit Summary
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <div className="rounded-lg bg-background border p-2">
+                <p className="text-[10px] text-muted-foreground">Users</p>
+                <p className="text-base font-bold">{preflight.userCount}</p>
               </div>
-
-              {/* Naming pattern */}
-              <div className="space-y-1">
-                <Label className="text-xs">File Naming Pattern</Label>
-                <Input
-                  value={namingPattern}
-                  onChange={e => setNamingPattern(e.target.value)}
-                  placeholder="{userId}_{fullName}"
-                  className="h-7 sm:h-8 text-xs sm:text-sm font-mono"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Preview: <span className="font-mono text-foreground text-xs">{namingPattern || 'file'}.{fileType}</span>
+              <div className="rounded-lg bg-background border p-2">
+                <p className="text-[10px] text-muted-foreground">Cost/user</p>
+                <p className="text-base font-bold">{preflight.unitCost.toFixed(2)}</p>
+              </div>
+              <div className="rounded-lg bg-background border p-2">
+                <p className="text-[10px] text-muted-foreground">Total cost</p>
+                <p className="text-base font-bold text-primary">{preflight.totalCost.toFixed(2)}</p>
+              </div>
+              <div className={`rounded-lg bg-background border p-2 ${preflight.sufficient ? '' : 'border-red-300 bg-red-50'}`}>
+                <p className="text-[10px] text-muted-foreground">Balance</p>
+                <p className={`text-base font-bold ${preflight.sufficient ? 'text-green-600' : 'text-red-600'}`}>
+                  {preflight.balance.toFixed(2)}
                 </p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {NAMING_TOKENS.map(t => (
-                    <button key={t} onClick={() => setNamingPattern(p => p + t)}
-                      className="text-xs px-1.5 sm:px-2 py-0.5 rounded bg-muted hover:bg-muted/70 font-mono border border-border/60 transition-colors text-xs">
-                      {t}
-                    </button>
-                  ))}
-                </div>
               </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-
-        <CardContent className="px-3 sm:px-4 pb-3 sm:pb-5 space-y-2 sm:space-y-4">
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <Button onClick={generate} disabled={generating || !selectedTemplate || selectedIds.size === 0} className="gap-1 sm:gap-2 h-7 sm:h-9 text-xs sm:text-sm px-2 sm:px-4">
-              {generating
-                ? <><Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /><span className="hidden sm:inline">Generating…</span><span className="sm:hidden">Gen…</span></>
-                : <><Download className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Generate & Download ZIP</span><span className="sm:hidden">Download</span></>}
-            </Button>
-            {generating && (
-              <Button variant="outline" size="sm" onClick={() => { abortRef.current = true; }} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">Cancel</Button>
+            </div>
+            {!preflight.sufficient && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                Insufficient credits. You need {preflight.totalCost.toFixed(2)} but have {preflight.balance.toFixed(2)}.
+                Please top up your credits first.
+              </div>
             )}
-            {!generating && selectedTemplate && selectedIds.size > 0 && (
-              <span className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{selectedIds.size}</span> {fileType} · <span className="hidden sm:inline font-medium">{selectedTemplate.name}</span>
-              </span>
-            )}
-          </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={generate} disabled={!preflight.sufficient || generating}
+                className="gap-1.5 h-8 text-xs px-4" size="sm">
+                {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                Confirm & Generate
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { setStep('filters'); setPreflight(null); }}
+                className="h-8 text-xs px-3">Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-          {/* Progress */}
-          {progress && (
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Rendering…</span>
-                <span>{progress.done} / {progress.total}</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all duration-200"
-                  style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }} />
-              </div>
-              {results.length > 0 && (
-                <div className="max-h-24 overflow-y-auto space-y-0.5 mt-1">
-                  {[...results].reverse().slice(0, 5).map(r => (
-                    <div key={r.userId} className="flex items-center gap-1.5 text-xs">
-                      {r.status === 'ok'
-                        ? <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                        : <XCircle className="h-3 w-3 text-destructive shrink-0" />}
-                      <span className="truncate text-muted-foreground">{r.userName}</span>
-                      {r.error && <span className="text-destructive/70 hidden sm:inline">— {r.error}</span>}
-                    </div>
-                  ))}
-                </div>
+      {/* ── GENERATE BUTTON (when in filters/done step) ──────────────────────── */}
+      {(step === 'filters' || step === 'done') && (
+        <Card>
+          <CardContent className="px-3 pb-3 pt-3 space-y-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <Button
+                onClick={runPreflight}
+                disabled={loadingPreflight || generating || selectedIds.size === 0 || !selectedTemplate || !hasFetched}
+                className="gap-1 sm:gap-2 h-7 sm:h-9 text-xs sm:text-sm px-2 sm:px-4"
+              >
+                {loadingPreflight
+                  ? <><Loader2 className="h-3 w-3 animate-spin" />Checking cost…</>
+                  : outputType === 'PDF'
+                    ? <><FileText className="h-3 w-3" />Check cost & layout PDF</>
+                    : <><FileImage className="h-3 w-3" />Check cost & generate</>
+                }
+              </Button>
+              {selectedIds.size > 0 && hasFetched && (
+                <span className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{selectedIds.size}</span> users · {outputType}
+                </span>
               )}
             </div>
-          )}
 
-          {/* Summary */}
-          {results.length > 0 && !generating && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm flex-wrap">
-                {okCount > 0 && <span className="flex items-center gap-1 sm:gap-1.5 text-green-600 font-medium"><CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{okCount} ok</span>}
-                {failCount > 0 && <span className="flex items-center gap-1 sm:gap-1.5 text-destructive font-medium"><XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{failCount} fail</span>}
-              </div>
-              {failCount > 0 && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 sm:p-3 space-y-1">
-                  <p className="text-xs font-semibold text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />Failed:</p>
-                  {results.filter(r => r.status === 'error').map(r => (
-                    <p key={r.userId} className="text-xs text-muted-foreground truncate">{r.userName}</p>
-                  ))}
+            {/* Progress */}
+            {progress && (
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Rendering…</span><span>{progress.done}/{progress.total}</span>
                 </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }} />
+                </div>
+                {results.length > 0 && (
+                  <div className="max-h-20 overflow-y-auto space-y-0.5 mt-1">
+                    {[...results].reverse().slice(0, 5).map(r => (
+                      <div key={r.userId} className="flex items-center gap-1.5 text-xs">
+                        {r.status === 'ok' ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-destructive" />}
+                        <span className="truncate text-muted-foreground">{r.userName}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
+            {/* Summary */}
+            {step === 'done' && results.length > 0 && !generating && (
+              <div className="flex items-center gap-3 text-xs flex-wrap">
+                {okCount > 0 && <span className="flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="h-3.5 w-3.5" />{okCount} ok</span>}
+                {failCount > 0 && <span className="flex items-center gap-1 text-destructive font-medium"><XCircle className="h-3.5 w-3.5" />{failCount} fail (refunded)</span>}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
