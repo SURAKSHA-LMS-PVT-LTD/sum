@@ -464,7 +464,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // validateToken will try memory token first, then cookie refresh
         const userData = await validateToken();
         if (!userData?.id) throw new Error('No user data returned');
-        const institutes = await fetchUserInstitutes(userData.id, true);
+        // On reload, let the cache serve the institute list (ttl 60s) instead of
+        // forcing a network round-trip — login/switch paths still force-refresh.
+        const institutes = await fetchUserInstitutes(userData.id, false);
         const mappedUser = mapUserData(userData, institutes);
         setUser(mappedUser);
       } catch {

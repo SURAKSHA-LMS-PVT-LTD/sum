@@ -122,8 +122,6 @@ const Payments = () => {
         }
       );
       
-      console.log('Payment API Response:', data);
-      
       setAllPayments(data.payments);
       filterPaymentsByStatus(data.payments, activeTab);
       

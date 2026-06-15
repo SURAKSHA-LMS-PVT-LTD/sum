@@ -11,7 +11,10 @@ import {
   Download, Loader2, Users, Filter, CheckCircle2, XCircle,
   AlertCircle, ChevronDown, Layers, Search, Settings2,
   LayoutGrid, ArrowLeft, Clock, Zap, CreditCard, FileImage, FileText,
+  Upload, Hash, ListFilter,
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getImageUrl } from '@/utils/imageUrlHelper';
@@ -160,6 +163,56 @@ function buildUuidCsv(
     lines.push(cells.map(c => csvEscape(String(c))).join(','));
   }
   return lines.join('\r\n');
+}
+
+// ─── ID import helpers ─────────────────────────────────────────────────────────
+
+/** Parse a plain CSV/TSV text into rows of string arrays. Handles quoted fields. */
+function parseCsvText(text: string): string[][] {
+  const rows: string[][] = [];
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cells: string[] = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQ) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') inQ = false;
+        else cur += ch;
+      } else {
+        if (ch === '"') inQ = true;
+        else if (ch === ',' || ch === '\t') { cells.push(cur.trim()); cur = ''; }
+        else cur += ch;
+      }
+    }
+    cells.push(cur.trim());
+    rows.push(cells);
+  }
+  return rows;
+}
+
+/** Read a File as text, auto-detect encoding. Returns { headers, rows }. */
+async function readSpreadsheetFile(file: File): Promise<{ headers: string[]; rows: string[][] }> {
+  const text = await file.text();
+  const all = parseCsvText(text);
+  if (all.length === 0) return { headers: [], rows: [] };
+  const [headers, ...rows] = all;
+  return { headers, rows };
+}
+
+/** Extract IDs from a spreadsheet column by column name. */
+function extractColumnIds(headers: string[], rows: string[][], colName: string): string[] {
+  const idx = headers.findIndex(h => h.trim().toLowerCase() === colName.trim().toLowerCase());
+  if (idx === -1) return [];
+  return rows.map(r => (r[idx] ?? '').trim()).filter(Boolean);
+}
+
+/** Parse a freeform text of IDs (newline or comma separated). */
+function parseManualIds(text: string): string[] {
+  return text.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
 }
 
 // ─── Image helpers ─────────────────────────────────────────────────────────────
@@ -329,6 +382,17 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
   });
   const [filtersOpen, setFiltersOpen] = useState(true);
 
+  // ID filter mode
+  const [filterMode, setFilterMode] = useState<'criteria' | 'ids'>('criteria');
+  const [manualIdText, setManualIdText] = useState('');
+  // CSV/Excel import state
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importHeaders, setImportHeaders] = useState<string[]>([]);
+  const [importRows, setImportRows] = useState<string[][]>([]);
+  const [importColName, setImportColName] = useState('');
+  const [importFileName, setImportFileName] = useState('');
+  const importFileRef = useRef<HTMLInputElement>(null);
+
   // Users
   const [users, setUsers] = useState<InstituteUser[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -455,6 +519,105 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
     } finally {
       setLoadingUsers(false);
     }
+  };
+
+  // ── Fetch users by explicit ID list ───────────────────────────────────────
+  const fetchUsersByIds = async (ids: string[]) => {
+    if (!currentInstituteId || ids.length === 0) return;
+    setLoadingUsers(true);
+    setHasFetched(true);
+    setStep('filters');
+    setResults([]);
+    try {
+      // Fetch all users (up to 2000) for the institute, then filter to those
+      // matching the provided IDs. We try userIdByInstitute first, fall back to userId.
+      const p = new URLSearchParams({ page: '1', limit: '2000', isActive: '' });
+      const endpoint = `/institute-users/institute/${currentInstituteId}/users/${filters.userTypeSlug}?${p}`;
+      const res: any = await apiClient.get(endpoint);
+      const raw: any[] = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const all: InstituteUser[] = raw.map(u => ({
+        id: String(u.userId || u.id || u.user_id || ''),
+        name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+        firstName: u.first_name || u.firstName,
+        lastName: u.last_name || u.lastName,
+        nameWithInitials: u.nameWithInitials || u.name_with_initials,
+        email: u.email,
+        imageUrl: u.instituteUserImageUrl || u.institute_user_image_url || u.imageUrl || u.image_url || u.user_image_url,
+        dateOfBirth: u.dateOfBirth || u.date_of_birth,
+        createdAt: u.createdAt || u.created_at,
+        userIdByInstitute: u.userIdByInstitute || u.user_id_institue || u.user_id_institute,
+        instituteCardId: u.instituteCardId || u.institute_card_id,
+        gender: u.gender,
+        classId: undefined,
+        className: u.className || u.class_name,
+      }));
+
+      // Build lookup by both system ID and institute-assigned ID for flexible matching
+      const bySystemId = new Map(all.map(u => [u.id, u]));
+      const byInstId   = new Map(all.map(u => [u.userIdByInstitute ?? '', u]).filter(([k]) => k));
+
+      const normalised = ids.map(id => id.trim()).filter(Boolean);
+      const matched: InstituteUser[] = [];
+      const notFound: string[] = [];
+      for (const id of normalised) {
+        const u = bySystemId.get(id) ?? byInstId.get(id);
+        if (u && !matched.find(m => m.id === u.id)) matched.push(u);
+        else if (!u) notFound.push(id);
+      }
+
+      setUsers(matched);
+      setTotalUsers(matched.length);
+      setSelectedIds(new Set(matched.map(u => u.id)));
+
+      if (notFound.length > 0) {
+        toastRef.current({
+          title: `${notFound.length} ID(s) not found`,
+          description: notFound.slice(0, 5).join(', ') + (notFound.length > 5 ? ` …+${notFound.length - 5}` : ''),
+          variant: 'destructive',
+        });
+      }
+      if (matched.length > 0) {
+        toastRef.current({ title: `${matched.length} user(s) matched`, variant: 'default' });
+      }
+    } catch {
+      toastRef.current({ title: 'Failed to load users', variant: 'destructive' });
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // ── CSV/Excel file import ──────────────────────────────────────────────────
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+    try {
+      const { headers, rows } = await readSpreadsheetFile(file);
+      if (headers.length === 0) {
+        toastRef.current({ title: 'File is empty or unreadable', variant: 'destructive' });
+        return;
+      }
+      setImportHeaders(headers);
+      setImportRows(rows);
+      setImportColName(headers[0]);
+      setImportFileName(file.name);
+      setImportDialogOpen(true);
+    } catch {
+      toastRef.current({ title: 'Failed to read file', variant: 'destructive' });
+    }
+  };
+
+  const handleImportConfirm = () => {
+    const ids = extractColumnIds(importHeaders, importRows, importColName);
+    if (ids.length === 0) {
+      toastRef.current({ title: `Column "${importColName}" has no values`, variant: 'destructive' });
+      return;
+    }
+    const text = ids.join('\n');
+    setManualIdText(prev => prev ? prev + '\n' + text : text);
+    setImportDialogOpen(false);
+    toastRef.current({ title: `Imported ${ids.length} IDs from "${importColName}"` });
   };
 
   // ── Selection helpers ──────────────────────────────────────────────────────
@@ -803,7 +966,100 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
             </CardHeader>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3">
+
+              {/* Mode toggle */}
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted w-fit">
+                <button
+                  onClick={() => setFilterMode('criteria')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${filterMode === 'criteria' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <ListFilter className="h-3 w-3" />By Criteria
+                </button>
+                <button
+                  onClick={() => setFilterMode('ids')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${filterMode === 'ids' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Hash className="h-3 w-3" />By ID List
+                </button>
+              </div>
+
+              {/* ── ID LIST MODE ── */}
+              {filterMode === 'ids' && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Label className="text-xs font-medium">User IDs</Label>
+                    <span className="text-[10px] text-muted-foreground">(system ID or institute-assigned ID, one per line or comma-separated)</span>
+                  </div>
+
+                  {/* User type required for lookups */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs shrink-0">User Type *</Label>
+                    <Select value={filters.userTypeSlug} onValueChange={v => setFilters(f => ({ ...f, userTypeSlug: v }))}>
+                      <SelectTrigger className="h-7 text-xs w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="STUDENT">Students</SelectItem>
+                        <SelectItem value="TEACHER">Teachers</SelectItem>
+                        <SelectItem value="ATTENDANCE_MARKER">Markers</SelectItem>
+                        <SelectItem value="INSTITUTE_ADMIN">Admins</SelectItem>
+                        {userTypes.filter(ut => !['STUDENT','TEACHER','ATTENDANCE_MARKER','INSTITUTE_ADMIN','PARENT'].includes(ut.slug.toUpperCase())).map(ut => (
+                          <SelectItem key={ut.id} value={ut.slug.toUpperCase()}>{ut.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Textarea
+                    value={manualIdText}
+                    onChange={e => setManualIdText(e.target.value)}
+                    placeholder={"1001\n1002\n1003\n…or paste comma-separated"}
+                    className="text-xs font-mono min-h-[120px] resize-y"
+                    spellCheck={false}
+                  />
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Hidden file input */}
+                    <input
+                      ref={importFileRef}
+                      type="file"
+                      accept=".csv,.tsv,.txt,.xls,.xlsx"
+                      className="hidden"
+                      onChange={handleImportFile}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5"
+                      onClick={() => importFileRef.current?.click()}
+                    >
+                      <Upload className="h-3 w-3" />Import CSV / Excel
+                    </Button>
+                    {manualIdText && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {parseManualIds(manualIdText).length} IDs entered
+                      </span>
+                    )}
+                    {manualIdText && (
+                      <button
+                        onClick={() => setManualIdText('')}
+                        className="text-[10px] text-destructive hover:underline ml-auto"
+                      >Clear</button>
+                    )}
+                  </div>
+
+                  <Button
+                    onClick={() => fetchUsersByIds(parseManualIds(manualIdText))}
+                    disabled={loadingUsers || !manualIdText.trim() || !filters.userTypeSlug}
+                    className="gap-1.5 h-7 sm:h-8 text-xs px-3" size="sm"
+                  >
+                    {loadingUsers ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                    Fetch by IDs
+                  </Button>
+                </div>
+              )}
+
+              {/* ── CRITERIA MODE ── */}
+              {filterMode === 'criteria' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
 
                 {/* User Type */}
@@ -919,10 +1175,56 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                 {loadingUsers ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
                 Fetch Users
               </Button>
+              </div> {/* end criteria grid */}
+              )} {/* end criteria mode */}
+
             </CardContent>
           </CollapsibleContent>
         </Collapsible>
       </Card>
+
+      {/* ── CSV/Excel column picker dialog ─────────────────────────────────────── */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Import from {importFileName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-xs text-muted-foreground">
+              Select the column that contains the user IDs.
+              Detected <strong>{importRows.length}</strong> row(s) with <strong>{importHeaders.length}</strong> column(s).
+            </p>
+            <div className="space-y-1">
+              <Label className="text-xs">Column name</Label>
+              <Select value={importColName} onValueChange={setImportColName}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select column…" /></SelectTrigger>
+                <SelectContent>
+                  {importHeaders.map(h => (
+                    <SelectItem key={h} value={h} className="text-xs">
+                      {h}
+                      <span className="ml-2 text-muted-foreground text-[10px]">
+                        ({extractColumnIds(importHeaders, importRows, h).length} values)
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {importColName && (
+              <div className="rounded bg-muted/50 border px-2 py-1.5 text-[10px] font-mono text-muted-foreground max-h-24 overflow-y-auto">
+                {extractColumnIds(importHeaders, importRows, importColName).slice(0, 8).join(', ')}
+                {extractColumnIds(importHeaders, importRows, importColName).length > 8 && ` …+${extractColumnIds(importHeaders, importRows, importColName).length - 8} more`}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setImportDialogOpen(false)}>Cancel</Button>
+            <Button size="sm" className="text-xs h-8" onClick={handleImportConfirm} disabled={!importColName}>
+              Import IDs
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* User list */}
       {loadingUsers ? (

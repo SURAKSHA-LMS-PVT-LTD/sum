@@ -2577,4 +2577,39 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
+
+  // Admin WhatsApp Messaging
+  whatsappGetInstitutes: (search?: string, page = 1, limit = 100) => {
+    const q = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (search) q.append('search', search);
+    return apiRequest(`/api/attendance/admin/whatsapp/institutes?${q}`);
+  },
+
+  whatsappGetInstituteUsers: (instituteId: string, search?: string, page = 1, limit = 50) => {
+    const q = new URLSearchParams({ instituteId, page: String(page), limit: String(limit) });
+    if (search) q.append('search', search);
+    return apiRequest(`/api/attendance/admin/whatsapp/institute-users?${q}`);
+  },
+
+  whatsappGetAttendanceUsers: (instituteId: string, date: string, page = 1, limit = 200) =>
+    apiRequest(
+      `/api/attendance/admin/whatsapp/attendance-users?instituteId=${instituteId}&date=${date}&page=${page}&limit=${limit}`,
+    ),
+
+  whatsappSessionStatus: (phones: string[]) =>
+    apiRequest('/api/attendance/admin/whatsapp/session-status', {
+      method: 'POST',
+      body: JSON.stringify({ phones }),
+    }),
+
+  whatsappSendBulk: (data: {
+    userIds: string[];
+    message: string;
+    instituteId?: string;
+    sessionOpen?: boolean;
+  }) =>
+    apiRequest('/api/attendance/admin/whatsapp/send-bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

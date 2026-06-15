@@ -315,6 +315,10 @@ const AppContent = ({ initialPage }: AppContentProps) => {
     if (/\/child\/[^\/]+\/subject-pay-submission/.test(path)) {
       return 'child-subject-pay-submission';
     }
+    // child/:id/my-submissions - Parent viewing child's fee submissions
+    if (/\/child\/[^\/]+\/my-submissions/.test(path)) {
+      return 'child-my-submissions';
+    }
     // houses/:houseId - House detail page
     if (/\/houses\/[^\/]+/.test(path)) {
       return 'house-detail-view';
@@ -724,17 +728,20 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       // Subject-level payments disabled — redirecting to dashboard
       if (nestedRouteComponent === 'child-subject-payments') return <Dashboard />;
       if (nestedRouteComponent === 'child-subject-pay-submission') return <Dashboard />;
+      // Child fee submissions (parent viewing child's payment submissions)
+      if (nestedRouteComponent === 'child-my-submissions') return <MySubmissions />;
       // Legacy child routes
       if (nestedRouteComponent === 'child-results') return <ChildResults />;
       if (nestedRouteComponent === 'child-attendance') return <ChildAttendancePage />;
       if (nestedRouteComponent === 'child-transport') return <ChildTransportPage />;
     }
-    
+
     // Non-parent-viewing child routes
     if (selectedChild && nestedRouteComponent) {
       // Subject-level payments disabled
       if (nestedRouteComponent === 'child-subject-payments') return <Dashboard />;
       if (nestedRouteComponent === 'child-subject-pay-submission') return <Dashboard />;
+      if (nestedRouteComponent === 'child-my-submissions') return <MySubmissions />;
       if (nestedRouteComponent === 'child-results') return <ChildResults />;
       if (nestedRouteComponent === 'child-attendance') return <ChildAttendancePage />;
       if (nestedRouteComponent === 'child-transport') return <ChildTransportPage />;

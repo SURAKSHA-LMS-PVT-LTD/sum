@@ -15,7 +15,7 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer';
 import surakshaLogo from '@/assets/suraksha-logo.png';
-import { enhancedCachedClient } from '@/api/enhancedCachedClient';
+import { useInstituteMe } from '@/hooks/useInstituteMe';
 import { cachedApiClient } from '@/api/cachedClient';
 import SafeImage from '@/components/ui/SafeImage';
 import { getImageUrl } from '@/utils/imageUrlHelper';
@@ -78,28 +78,10 @@ const Header = ({ onMenuClick }: HeaderProps) => {
     ? mapInstituteRoleToDisplayRole(selectedInstitute.userRole) || mapInstituteRoleToDisplayRole(selectedInstitute.instituteUserType)
     : user?.role;
 
-  const [instituteAvatarUrl, setInstituteAvatarUrl] = useState<string>('');
-
-  React.useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        if (!selectedInstitute?.id) { setInstituteAvatarUrl(''); return; }
-        const resp = await enhancedCachedClient.get<any>(
-          `/institute-users/institute/${selectedInstitute.id}/me`,
-          {},
-          { ttl: 300, forceRefresh: false, userId: selectedInstitute.id }
-        );
-        if (!cancelled) setInstituteAvatarUrl(resp?.instituteUserImageUrl || '');
-      } catch (err: any) {
-        if (cancelled) return;
-        console.warn('Failed to load institute avatar:', err?.message);
-        if (!err?.message?.includes('Too many requests')) setInstituteAvatarUrl('');
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [selectedInstitute?.id]);
+  // Shared hook — Header and Sidebar both read the same institute "me" record;
+  // the hook collapses them onto one request per institute id.
+  const { data: instituteMe } = useInstituteMe(selectedInstitute?.id);
+  const instituteAvatarUrl = instituteMe?.instituteUserImageUrl || '';
 
   // Init unread count ONCE on mount
   React.useEffect(() => {

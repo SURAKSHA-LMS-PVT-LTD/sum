@@ -33,7 +33,6 @@ const Dashboard = () => {
   const isSubjectLevelUrl = /\/subject\/[^/]+/.test(location.pathname);
   const hasSubjectContext = (selectedSubject && selectedClass && selectedInstitute) || isSubjectLevelUrl;
   
-  console.log('🎯 Dashboard - Institute Role:', userRole, 'from instituteUserType:', selectedInstitute?.userRole, 'isViewingAsParent:', isViewingAsParent, 'hasSubjectContext:', hasSubjectContext, 'selectedSubject:', !!selectedSubject, 'isSubjectLevelUrl:', isSubjectLevelUrl);
 
   // Parent viewing child's subject dashboard - show view-only banner
   if (isViewingAsParent && selectedChild && hasSubjectContext) {

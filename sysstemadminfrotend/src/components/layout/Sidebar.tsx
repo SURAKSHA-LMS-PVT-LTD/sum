@@ -37,6 +37,7 @@ import {
   Package,
   LayoutGrid,
   Zap,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,6 +98,7 @@ const navItems = [
   { to: "/dashboard/error-reports",     icon: AlertTriangle, label: "Error Reports" },
   { to: "/dashboard/design-approvals", icon: LayoutGrid,    label: "Design Approvals" },
   { to: "/dashboard/gateway-payments", icon: Zap,          label: "Gateway Payments" },
+  { to: "/dashboard/whatsapp-messaging", icon: MessageCircle, label: "WhatsApp Messaging" },
 ];
 
 export function AppSidebar() {

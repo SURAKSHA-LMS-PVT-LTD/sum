@@ -25,7 +25,7 @@ import GlobalSearch from '@/components/GlobalSearch';
 import surakshaLogoSidebar from '@/assets/suraksha-logo-sidebar.png';
 import surakshaMainLogo from '@/assets/surakshalms-main-logo.png';
 import { useNotificationStore } from '@/stores/useNotificationStore';
-import { enhancedCachedClient } from '@/api/enhancedCachedClient';
+import { useInstituteMe } from '@/hooks/useInstituteMe';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { FEATURE_KEYS } from '@/config/feature-keys';
@@ -182,41 +182,19 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { globalUnreadCount: unreadNotifCount } = useNotificationStore();
 
   // Load user avatar + institute tier in a single /me request (one API call with join)
-  const [sidebarAvatarUrl, setSidebarAvatarUrl] = React.useState('');
-  const [instituteTier, setInstituteTier] = React.useState<string>('FREE');
-  React.useEffect(() => {
+  // Shared hook — collapses the institute "me" fetch onto a single request
+  // shared with the Header (both are always mounted in the shell).
+  const { data: instituteMe } = useInstituteMe(
+    isViewingAsParent && selectedChild?.user?.imageUrl ? undefined : selectedInstitute?.id,
+  );
+  const sidebarAvatarUrl = React.useMemo(() => {
     if (isViewingAsParent && selectedChild?.user?.imageUrl) {
-      setSidebarAvatarUrl(getImageUrl(selectedChild.user.imageUrl));
-      return;
+      return getImageUrl(selectedChild.user.imageUrl);
     }
-    let cancelled = false;
-    const load = async () => {
-      try {
-        if (!selectedInstitute?.id) {
-          setSidebarAvatarUrl(user?.imageUrl ? getImageUrl(user.imageUrl) : '');
-          setInstituteTier('FREE');
-          return;
-        }
-        const resp = await enhancedCachedClient.get<any>(
-          `/institute-users/institute/${selectedInstitute.id}/me`,
-          {},
-          { ttl: 300, forceRefresh: false, userId: selectedInstitute.id }
-        );
-        if (!cancelled) {
-          const url = resp?.instituteUserImageUrl || user?.imageUrl || '';
-          setSidebarAvatarUrl(url ? getImageUrl(url) : '');
-          setInstituteTier(resp?.instituteTier || 'FREE');
-        }
-      } catch {
-        if (!cancelled) {
-          setSidebarAvatarUrl(user?.imageUrl ? getImageUrl(user.imageUrl) : '');
-          setInstituteTier('FREE');
-        }
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [selectedInstitute?.id, user?.imageUrl, isViewingAsParent, selectedChild?.user?.imageUrl]);
+    const url = instituteMe?.instituteUserImageUrl || user?.imageUrl || '';
+    return url ? getImageUrl(url) : '';
+  }, [isViewingAsParent, selectedChild?.user?.imageUrl, instituteMe?.instituteUserImageUrl, user?.imageUrl]);
+  const instituteTier = instituteMe?.instituteTier || 'FREE';
 
   const isTuitionInstitute = (selectedInstitute?.type || '').toLowerCase() === 'tuition_institute';
   const { subjectLabel, subjectsLabel } = useInstituteLabels();
