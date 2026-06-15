@@ -22,6 +22,7 @@ import { DataCardView } from '@/components/ui/data-card-view';
 import { useTableData } from '@/hooks/useTableData';
 import { useViewMode } from '@/hooks/useViewMode';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/PageState';
 import { cachedApiClient } from '@/api/cachedClient';
 import VideoPreviewDialog from '@/components/VideoPreviewDialog';
 import DeleteConfirmDialog from '@/components/forms/DeleteConfirmDialog';
@@ -130,8 +131,8 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
     autoLoad: true // Enable auto-loading from cache
   });
 
-  const { 
-    state: { data: lecturesData, loading: isLoading },
+  const {
+    state: { data: lecturesData, loading: isLoading, error: dataError },
     pagination,
     actions
   } = tableData;
@@ -592,7 +593,9 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
           )}
 
            {/* View Content */}
-          {filteredLectures.length === 0 ? (
+          {dataError ? (
+            <ErrorState error={dataError} onRetry={() => actions.refresh()} />
+          ) : filteredLectures.length === 0 ? (
             <EmptyState icon={Video} title="No Lectures Found" description="No lectures match your current filters." />
           ) : pageViewMode === 'card' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 overflow-visible">

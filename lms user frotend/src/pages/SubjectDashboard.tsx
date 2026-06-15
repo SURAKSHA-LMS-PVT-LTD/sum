@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { ErrorState } from '@/components/ui/PageState';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
@@ -542,6 +543,8 @@ const SubjectDashboard = () => {
             <div className="flex justify-center py-6 sm:py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
+          ) : lecturesTable.state.error ? (
+            <ErrorState error={lecturesTable.state.error} onRetry={() => lecturesTable.actions.refresh()} />
           ) : lectures.length === 0 ? (
             <div className="text-center py-6 sm:py-8 text-muted-foreground">
               <Video className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -612,6 +615,8 @@ const SubjectDashboard = () => {
             <div className="flex justify-center py-6 sm:py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
+          ) : examsTable.state.error ? (
+            <ErrorState error={examsTable.state.error} onRetry={() => examsTable.actions.refresh()} />
           ) : exams.length === 0 ? (
             <div className="text-center py-6 sm:py-8 text-muted-foreground">
               <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />

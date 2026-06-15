@@ -690,55 +690,50 @@ const AppContent = ({ initialPage }: AppContentProps) => {
     if (currentPage === 'system-payment' || currentPage === 'system-payments') return <Payments />;
     
     // CRITICAL: Handle parent viewing child routes FIRST - regardless of user role
-    // When isViewingAsParent is true and child is selected, show student UI in view-only mode
-    if (isViewingAsParent && selectedChild && nestedRouteComponent) {
-      // Child institute selection
-      if (nestedRouteComponent === 'child-select-institute') {
-        return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector useChildId={true} />;
-      }
-      // Child class selection
-      if (nestedRouteComponent === 'child-select-class') {
-        return <ClassSelector />;
-      }
-      // Child subject selection
-      if (nestedRouteComponent === 'child-select-subject') {
-        return <SubjectSelector />;
-      }
-      // Child dashboard (after selecting institute)
-      if (nestedRouteComponent === 'child-dashboard') {
+    // When isViewingAsParent is true and child is selected, ONLY allowed child pages render.
+    // Any unrecognised route falls back to Dashboard — institute-admin pages must never
+    // be reachable while in child-viewing mode.
+    if (isViewingAsParent && selectedChild) {
+      if (nestedRouteComponent) {
+        if (nestedRouteComponent === 'child-select-institute') {
+          return isTenantLogin ? tenantInstituteLoading() : <InstituteSelector useChildId={true} />;
+        }
+        if (nestedRouteComponent === 'child-select-class') return <ClassSelector />;
+        if (nestedRouteComponent === 'child-select-subject') return <SubjectSelector />;
+        if (nestedRouteComponent === 'child-dashboard') return <Dashboard />;
+        if (nestedRouteComponent === 'child-homework') return <Homework />;
+        if (nestedRouteComponent === 'child-lectures') return <Lectures />;
+        if (nestedRouteComponent === 'child-exams') return <Exams />;
+        if (nestedRouteComponent === 'child-results-page') return <Results />;
+        if (nestedRouteComponent === 'child-subject-payments') return <Dashboard />;
+        if (nestedRouteComponent === 'child-subject-pay-submission') return <Dashboard />;
+        if (nestedRouteComponent === 'child-my-submissions') return <MySubmissions />;
+        if (nestedRouteComponent === 'child-results') return <ChildResults />;
+        if (nestedRouteComponent === 'child-attendance') return <ChildAttendancePage />;
+        if (nestedRouteComponent === 'child-transport') return <ChildTransportPage />;
+        // Unknown nested route in child-viewing mode — deny
         return <Dashboard />;
       }
-      // Child homework (view-only - isViewingAsParent checked in component)
-      if (nestedRouteComponent === 'child-homework') {
-        return <Homework />;
+
+      // No nested route component — only allow safe global pages already handled above
+      // plus child-specific currentPage values. Block institute-admin pages entirely.
+      const allowedChildPages = new Set([
+        'dashboard', 'feedback', 'profile', 'appearance', 'settings',
+        'all-notifications', 'notifications', 'institute-notifications',
+        'calendar-view', 'today-dashboard',
+        'homework', 'homework-submissions', 'exams', 'results', 'lectures',
+        'institute-payments', 'class-payments', 'my-submissions',
+        'child-attendance', 'child-results', 'child-transport',
+        'parent-attendance', 'my-children', 'parents',
+        'select-institute', 'select-class', 'select-subject',
+      ]);
+      if (!allowedChildPages.has(currentPage)) {
+        return <Dashboard />;
       }
-      // Child lectures (view-only)
-      if (nestedRouteComponent === 'child-lectures') {
-        return <Lectures />;
-      }
-      // Child exams (view-only)
-      if (nestedRouteComponent === 'child-exams') {
-        return <Exams />;
-      }
-      // Child results page
-      if (nestedRouteComponent === 'child-results-page') {
-        return <Results />;
-      }
-      // Child subject payments (view-only for parent)
-      // Subject-level payments disabled — redirecting to dashboard
-      if (nestedRouteComponent === 'child-subject-payments') return <Dashboard />;
-      if (nestedRouteComponent === 'child-subject-pay-submission') return <Dashboard />;
-      // Child fee submissions (parent viewing child's payment submissions)
-      if (nestedRouteComponent === 'child-my-submissions') return <MySubmissions />;
-      // Legacy child routes
-      if (nestedRouteComponent === 'child-results') return <ChildResults />;
-      if (nestedRouteComponent === 'child-attendance') return <ChildAttendancePage />;
-      if (nestedRouteComponent === 'child-transport') return <ChildTransportPage />;
     }
 
-    // Non-parent-viewing child routes
+    // Non-parent-viewing child routes (student logged in directly, selectedChild set by URL)
     if (selectedChild && nestedRouteComponent) {
-      // Subject-level payments disabled
       if (nestedRouteComponent === 'child-subject-payments') return <Dashboard />;
       if (nestedRouteComponent === 'child-subject-pay-submission') return <Dashboard />;
       if (nestedRouteComponent === 'child-my-submissions') return <MySubmissions />;
@@ -1438,7 +1433,7 @@ const AppContent = ({ initialPage }: AppContentProps) => {
       case 'institute-profile':
         return <InstituteProfile />;
       case 'institute-settings':
-        return <InstituteSettingsPage />;
+        return userRole === 'InstituteAdmin' ? <InstituteSettingsPage /> : <Dashboard />;
       case 'sms':
         return <FeatureGatedPage featureKey="sms" component={<SMS />} />;
       case 'sms-history':

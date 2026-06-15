@@ -21,6 +21,7 @@ import CreateResultsForm from '@/components/forms/CreateResultsForm';
 import { DataCardView } from '@/components/ui/data-card-view';
 import { useViewMode } from '@/hooks/useViewMode';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/PageState';
 import { usePermission } from '@/hooks/usePermission';
 import { useTableData } from '@/hooks/useTableData';
 import { cachedApiClient } from '@/api/cachedClient';
@@ -86,7 +87,8 @@ const Exams = ({
   const {
     state: {
       data: examsData,
-      loading: isLoading
+      loading: isLoading,
+      error: dataError,
     },
     pagination,
     actions: {
@@ -489,7 +491,9 @@ const Exams = ({
               </div>}
 
            {/* View Content */}
-          {filteredExams.length === 0 ? (
+          {dataError ? (
+            <ErrorState error={dataError} onRetry={handleRefreshData} />
+          ) : filteredExams.length === 0 ? (
             <EmptyState icon={FileText} title="No Exams Found" description="No exams match your current filters." />
           ) : pageViewMode === 'card' ? (
             <div className="space-y-2">

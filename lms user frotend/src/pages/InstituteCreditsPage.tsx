@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/ui/PageState';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -88,6 +89,8 @@ export default function InstituteCreditsPage() {
   // Balance
   const [balance, setBalance] = useState<CreditBalance | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(true);
+  const [balanceError, setBalanceError] = useState<unknown>(null);
+  const [txError, setTxError] = useState<unknown>(null);
 
   // Transactions
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
@@ -101,6 +104,7 @@ export default function InstituteCreditsPage() {
   const [subPage, setSubPage] = useState(1);
   const [subFilter, setSubFilter] = useState<string>('');
   const [loadingSub, setLoadingSub] = useState(false);
+  const [subError, setSubError] = useState<unknown>(null);
 
   // Top-up dialog
   const [topUpOpen, setTopUpOpen] = useState(false);
@@ -125,29 +129,33 @@ export default function InstituteCreditsPage() {
   // ─── Data loading ─────────────────────────────────────────
   const loadBalance = useCallback(async () => {
     if (!instituteId) return;
+    setBalanceError(null);
     try {
       const data = await creditsApi.getBalance(instituteId);
       setBalance(data);
-    } catch {
-      // silent — might not have balance yet
-      setBalance({ instituteId, balance: 0, totalPurchased: 0, totalUsed: 0, dailyUsed: 0, monthlyUsed: 0, dailyLimit: null, monthlyLimit: null, isActive: true });
+    } catch (e) {
+      setBalanceError(e);
     }
   }, [instituteId]);
 
   const loadTransactions = useCallback(async () => {
     if (!instituteId) return;
     setLoadingTx(true);
+    setTxError(null);
     try {
       const data = await creditsApi.getTransactions(instituteId, { page: txPage, limit: 10 });
       setTransactions(data.data);
       setTxTotal(data.total);
-    } catch { /* silent */ }
+    } catch (e) {
+      setTxError(e);
+    }
     setLoadingTx(false);
   }, [instituteId, txPage]);
 
   const loadSubmissions = useCallback(async () => {
     if (!instituteId) return;
     setLoadingSub(true);
+    setSubError(null);
     try {
       const data = await creditsApi.getSubmissions(instituteId, {
         status: subFilter || undefined,
@@ -156,7 +164,9 @@ export default function InstituteCreditsPage() {
       });
       setSubmissions(data.data);
       setSubTotal(data.total);
-    } catch { /* silent */ }
+    } catch (e) {
+      setSubError(e);
+    }
     setLoadingSub(false);
   }, [instituteId, subPage, subFilter]);
 
@@ -304,6 +314,8 @@ export default function InstituteCreditsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
           </div>
+        ) : balanceError ? (
+          <ErrorState error={balanceError} onRetry={loadBalance} title="Could not load balance" />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="border-blue-200 dark:border-blue-800">
@@ -393,6 +405,8 @@ export default function InstituteCreditsPage() {
 
             {loadingSub ? (
               <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
+            ) : subError ? (
+              <ErrorState error={subError} onRetry={loadSubmissions} title="Could not load top-up requests" />
             ) : submissions.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Receipt className="h-10 w-10 mx-auto mb-2 opacity-40" />
@@ -480,6 +494,8 @@ export default function InstituteCreditsPage() {
           <TabsContent value="transactions" className="mt-4">
             {loadingTx ? (
               <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+            ) : txError ? (
+              <ErrorState error={txError} onRetry={loadTransactions} title="Could not load transactions" />
             ) : transactions.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <TrendingUp className="h-10 w-10 mx-auto mb-2 opacity-40" />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ErrorState } from '@/components/ui/PageState';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,6 +65,7 @@ const HouseDetail = () => {
   const [house, setHouse] = useState<InstituteHouse | null>(null);
   const [members, setMembers] = useState<HouseMember[]>([]);
   const [isLoadingHouse, setIsLoadingHouse] = useState(false);
+  const [houseError, setHouseError] = useState<unknown>(null);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
 
@@ -93,11 +95,12 @@ const HouseDetail = () => {
   const fetchHouse = async (forceRefresh = false) => {
     if (!currentInstituteId || !houseId) return;
     setIsLoadingHouse(true);
+    setHouseError(null);
     try {
       const data = await housesApi.getById(currentInstituteId, houseId, forceRefresh);
       setHouse(data);
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error', description: err?.message ?? 'Failed to load house.' });
+      setHouseError(err);
     } finally {
       setIsLoadingHouse(false);
     }
@@ -271,6 +274,11 @@ const HouseDetail = () => {
           <Loader2 className="h-5 w-5 animate-spin" />
           Loading house…
         </div>
+      )}
+
+      {/* ── Error state ───────────────────────────────────────────────── */}
+      {!isLoadingHouse && houseError && (
+        <ErrorState error={houseError} onRetry={() => fetchHouse(true)} />
       )}
 
       {/* ── House Header Card ─────────────────────────────────────────── */}

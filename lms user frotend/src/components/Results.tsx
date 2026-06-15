@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import CreateResultForm from '@/components/forms/CreateResultForm';
 import { examResultsApi, type ExamResultsQueryParams } from '@/api/examResults.api';
 import { getErrorMessage } from '@/api/apiError';
+import { ErrorState } from '@/components/ui/PageState';
 
 const Results = () => {
   const { user, selectedInstitute, selectedClass, selectedSubject, currentInstituteId, currentClassId, currentSubjectId, isViewingAsParent, selectedChild } = useAuth();
@@ -24,6 +25,7 @@ const Results = () => {
   const [resultsData, setResultsData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -32,6 +34,7 @@ const Results = () => {
 
   const handleLoadData = async () => {
     setIsLoading(true);
+    setLoadError(null);
     console.log('Loading results data...');
     console.log(`Current context - Institute: ${selectedInstitute?.name}, Class: ${selectedClass?.name}, Subject: ${selectedSubject?.name}`);
     
@@ -69,11 +72,7 @@ const Results = () => {
       setResultsData(mappedData);
       setDataLoaded(true);
     } catch (error: any) {
-      toast({
-        title: "Load Failed",
-        description: getErrorMessage(error, 'Failed to load results data.'),
-        variant: "destructive"
-      });
+      setLoadError(error);
     } finally {
       setIsLoading(false);
     }
@@ -207,6 +206,9 @@ const Results = () => {
   return (
     <div className="space-y-6">
       {!dataLoaded ? (
+        loadError ? (
+          <ErrorState error={loadError} onRetry={handleLoadData} title="Failed to load results" />
+        ) : (
         <div className="text-center py-12">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             {getContextTitle()}
@@ -214,8 +216,8 @@ const Results = () => {
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             Click the button below to load academic results data
           </p>
-          <Button 
-            onClick={handleLoadData} 
+          <Button
+            onClick={handleLoadData}
             disabled={isLoading}
             className="bg-blue-600 hover:bg-blue-700"
           >
@@ -232,6 +234,7 @@ const Results = () => {
             )}
           </Button>
         </div>
+        )
       ) : (
         <>
           <div className="text-center mb-6">

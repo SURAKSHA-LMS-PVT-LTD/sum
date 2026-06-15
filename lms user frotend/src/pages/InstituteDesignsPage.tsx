@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2, Palette, Zap, Clock, CheckCircle2, XCircle, PauseCircle, AlertCircle } from 'lucide-react';
+import { ErrorState } from '@/components/ui/PageState';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { instituteDesignsApi, DesignTemplate, DesignTemplateStatus } from '@/api/instituteDesigns.api';
@@ -79,6 +80,7 @@ const InstituteDesignsPage: React.FC = () => {
 
   const [apiTemplates, setApiTemplates] = useState<DesignTemplate[]>([]);
   const [loading,  setLoading]  = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [saving,   setSaving]   = useState(false);
 
   const { tab, view, tid } = getParams(location.search);
@@ -90,9 +92,10 @@ const InstituteDesignsPage: React.FC = () => {
   useEffect(() => {
     if (!currentInstituteId) return;
     setLoading(true);
+    setLoadError(null);
     instituteDesignsApi.listTemplates(currentInstituteId)
       .then(setApiTemplates)
-      .catch(() => setApiTemplates([]))
+      .catch(e => setLoadError(e))
       .finally(() => setLoading(false));
   }, [currentInstituteId]);
 
@@ -265,6 +268,16 @@ const InstituteDesignsPage: React.FC = () => {
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1">Please wait…</p>
               </div>
             </div>
+          ) : loadError ? (
+            <ErrorState error={loadError} onRetry={() => {
+              if (!currentInstituteId) return;
+              setLoading(true);
+              setLoadError(null);
+              instituteDesignsApi.listTemplates(currentInstituteId)
+                .then(setApiTemplates)
+                .catch(e => setLoadError(e))
+                .finally(() => setLoading(false));
+            }} />
           ) : tab === 'designer' ? (
             <CardTemplateDesigner
               templates={uiTemplates as CardTemplate[]}

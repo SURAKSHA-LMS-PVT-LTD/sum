@@ -22,6 +22,7 @@ import VerifySubmissionDialog from '@/components/forms/VerifySubmissionDialog';
 import CreateClassPaymentForm from '@/components/forms/CreateClassPaymentForm';
 import SubmitClassPaymentDialog from '@/components/forms/SubmitClassPaymentDialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/ui/PageState';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -92,6 +93,7 @@ const ClassPayments = () => {
 
   const [paymentsData, setPaymentsData] = useState<ClassPaymentsResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<PaymentSubmission | null>(null);
   const [createPaymentDialogOpen, setCreatePaymentDialogOpen] = useState(false);
@@ -125,6 +127,7 @@ const ClassPayments = () => {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
       let response: ClassPaymentsResponse;
       const isPayerRole = instituteRole === 'Student' || instituteRole === 'Parent' || (isViewingAsParent && selectedChild);
@@ -138,7 +141,7 @@ const ClassPayments = () => {
       }
       setPaymentsData(response);
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to load class payments.', variant: 'destructive' });
+      setLoadError(error);
     } finally {
       setLoading(false);
     }
@@ -350,7 +353,11 @@ const ClassPayments = () => {
 
       {loading && <Card><CardContent className="pt-6 space-y-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /></CardContent></Card>}
 
-      {!loading && (
+      {!loading && loadError && (
+        <ErrorState error={loadError} onRetry={() => loadPayments(page, rowsPerPage, true)} />
+      )}
+
+      {!loading && !loadError && (
         <Card className="w-full">
           <CardHeader>
             <div className="flex items-center justify-between">

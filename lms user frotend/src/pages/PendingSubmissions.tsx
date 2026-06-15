@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { institutePaymentsApi, PaymentSubmission, PendingSubmissionsResponse } from '@/api/institutePayments.api';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/PageState';
 import VerifySubmissionDialog from '@/components/forms/VerifySubmissionDialog';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,6 +48,7 @@ const PendingSubmissions = () => {
 
   const [data, setData] = useState<PendingSubmissionsResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -64,6 +66,7 @@ const PendingSubmissions = () => {
   const loadPendingSubmissions = async (forceRefresh = false) => {
     if (!selectedInstitute?.id) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await institutePaymentsApi.getPendingSubmissions(selectedInstitute.id, {
         page: page + 1,
@@ -72,11 +75,7 @@ const PendingSubmissions = () => {
       });
       setData(response);
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to load pending submissions',
-        variant: 'destructive',
-      });
+      setLoadError(error);
     } finally {
       setLoading(false);
     }
@@ -184,8 +183,13 @@ const PendingSubmissions = () => {
         </Card>
       )}
 
+      {/* Error */}
+      {!loading && loadError && (
+        <ErrorState error={loadError} onRetry={() => loadPendingSubmissions(true)} />
+      )}
+
       {/* Table */}
-      {!loading || data ? (
+      {(!loading || data) && !loadError ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">

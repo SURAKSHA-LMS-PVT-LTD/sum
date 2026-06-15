@@ -28,6 +28,7 @@ import CreateSubjectPaymentForm from '@/components/forms/CreateSubjectPaymentFor
 import SubmitSubjectPaymentDialog from '@/components/forms/SubmitSubjectPaymentDialog';
 import SubjectPaymentBankDetailsDialog from '@/components/forms/SubjectPaymentBankDetailsDialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/ui/PageState';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -66,6 +67,7 @@ const SubjectPayments = () => {
   } = useToast();
   const [subjectPaymentsData, setSubjectPaymentsData] = useState<SubjectPaymentsResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<PaymentSubmission | null>(null);
   const [submissionsDialogOpen, setSubmissionsDialogOpen] = useState(false);
@@ -106,6 +108,7 @@ const SubjectPayments = () => {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
       let response: SubjectPaymentsResponse;
       if (isSubmitterRole) {
@@ -128,11 +131,7 @@ const SubjectPayments = () => {
         description: "Subject payments loaded successfully."
       });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load subject payments.",
-        variant: "destructive"
-      });
+      setLoadError(error);
     } finally {
       setLoading(false);
     }
@@ -554,8 +553,13 @@ const SubjectPayments = () => {
           </CardContent>
         </Card>}
 
+      {/* Error State */}
+      {!loading && loadError && (
+        <ErrorState error={loadError} onRetry={() => loadSubjectPayments(page, rowsPerPage, true)} />
+      )}
+
       {/* Subject Payments Table */}
-      {!loading && <Card className="w-full">
+      {!loading && !loadError && <Card className="w-full">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-lg">

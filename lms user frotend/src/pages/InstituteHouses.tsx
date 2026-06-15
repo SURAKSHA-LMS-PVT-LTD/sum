@@ -23,6 +23,7 @@ import SubjectImageUpload from '@/components/SubjectImageUpload';
 import {
   Plus, RefreshCw, Edit, Trash2, Users, Flag, AlertCircle, Loader2, CheckCircle2,
 } from 'lucide-react';
+import { ErrorState } from '@/components/ui/PageState';
 
 // ─── Colour chip helper ────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ const InstituteHouses = () => {
   // ── Data ────────────────────────────────────────────────────────────────
   const [houses, setHouses] = useState<InstituteHouse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   // localStorage key scoped to user + institute so it never leaks across accounts
@@ -115,12 +117,13 @@ const InstituteHouses = () => {
   const fetchHouses = async (force = false) => {
     if (!currentInstituteId) return;
     setIsLoading(true);
+    setLoadError(null);
     try {
       const data = await housesApi.list(currentInstituteId, force);
       setHouses(data);
       syncEnrollmentFromList(data);
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error', description: err?.message ?? 'Failed to load houses' });
+      setLoadError(err);
     } finally {
       setIsLoading(false);
     }
@@ -308,8 +311,13 @@ const InstituteHouses = () => {
         </div>
       )}
 
+      {/* ── Error state ───────────────────────────────────────────────── */}
+      {!isLoading && loadError && (
+        <ErrorState error={loadError} onRetry={() => fetchHouses(true)} />
+      )}
+
       {/* ── Empty state ───────────────────────────────────────────────── */}
-      {!isLoading && houses.length === 0 && (
+      {!isLoading && !loadError && houses.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
           <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
             <Flag className="h-7 w-7 text-muted-foreground" />
