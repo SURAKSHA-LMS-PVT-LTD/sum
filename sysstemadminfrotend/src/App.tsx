@@ -49,6 +49,7 @@ import PackageDefinitionsPage from "./pages/PackageDefinitionsPage";
 import InstituteDesignApprovalsPage from "./pages/InstituteDesignApprovalsPage";
 import GatewayPaymentsPage from "./pages/GatewayPaymentsPage";
 import WhatsAppMessagingPage from "./pages/WhatsAppMessagingPage";
+import WhatsAppBroadcastPage from "./pages/WhatsAppBroadcastPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -116,6 +117,7 @@ const App = () => (
             <Route path="/dashboard/design-approvals" element={<InstituteDesignApprovalsPage />} />
             <Route path="/dashboard/gateway-payments" element={<GatewayPaymentsPage />} />
             <Route path="/dashboard/whatsapp-messaging" element={<WhatsAppMessagingPage />} />
+            <Route path="/dashboard/whatsapp-broadcast" element={<WhatsAppBroadcastPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

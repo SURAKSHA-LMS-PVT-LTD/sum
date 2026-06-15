@@ -2612,4 +2612,58 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // ── WhatsApp Broadcast portal (filter → count → send) ──
+  waBroadcastPreview: (filter: Record<string, any>) =>
+    apiRequest('/api/whatsapp/broadcast/audience/preview', {
+      method: 'POST',
+      body: JSON.stringify({ filter }),
+    }),
+
+  waBroadcastSample: (filter: Record<string, any>) =>
+    apiRequest('/api/whatsapp/broadcast/audience/sample', {
+      method: 'POST',
+      body: JSON.stringify({ filter }),
+    }),
+
+  waBroadcastSend: (data: {
+    filter: Record<string, any>;
+    message: string;
+    name?: string;
+    templateId?: string;
+    sessionOpenOnly?: boolean;
+    messageType?: 'text' | 'image' | 'video' | 'document' | 'audio' | 'interactive';
+    mediaUrl?: string;
+    fileName?: string;
+    interactive?: any;
+  }) =>
+    apiRequest('/api/whatsapp/broadcast/send', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  waBroadcastListTemplates: () =>
+    apiRequest('/api/whatsapp/broadcast/templates'),
+
+  waBroadcastSaveTemplate: (data: {
+    id?: string; name: string; description?: string; body: string;
+    flowJson?: string; placeholders?: string[];
+  }) =>
+    apiRequest('/api/whatsapp/broadcast/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  waBroadcastDeleteTemplate: (id: string) =>
+    apiRequest(`/api/whatsapp/broadcast/templates/${id}`, { method: 'DELETE' }),
+
+  waBroadcastListCampaigns: (limit = 50) =>
+    apiRequest(`/api/whatsapp/broadcast/campaigns?limit=${limit}`),
+
+  waBroadcastGetInstitutes: (search?: string) => {
+    const q = new URLSearchParams();
+    if (search) q.append('search', search);
+    q.append('limit', '200');
+    return apiRequest(`/api/attendance/admin/whatsapp/institutes?${q}`);
+  },
 };

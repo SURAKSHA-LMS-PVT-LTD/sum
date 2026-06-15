@@ -38,6 +38,7 @@ import {
   LayoutGrid,
   Zap,
   MessageCircle,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,6 +100,7 @@ const navItems = [
   { to: "/dashboard/design-approvals", icon: LayoutGrid,    label: "Design Approvals" },
   { to: "/dashboard/gateway-payments", icon: Zap,          label: "Gateway Payments" },
   { to: "/dashboard/whatsapp-messaging", icon: MessageCircle, label: "WhatsApp Messaging" },
+  { to: "/dashboard/whatsapp-broadcast", icon: Send, label: "WhatsApp Broadcast" },
 ];
 
 export function AppSidebar() {
