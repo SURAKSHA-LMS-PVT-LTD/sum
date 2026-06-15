@@ -98,8 +98,27 @@ class InstituteApi {
   async unassignTeacherFromSubject(..._args: any[]): Promise<any> { return {}; }
   async updateInstituteUserExtraData(..._args: any[]): Promise<any> { return {}; }
   async getInstituteClasses(..._args: any[]): Promise<any> { return []; }
-  async getClassSubjects(..._args: any[]): Promise<any> { return []; }
-  async createUser(..._args: any[]): Promise<any> { return {}; }
+
+  /** Fetch subjects assigned to a class. Returns an array of subject objects. */
+  async getClassSubjects(instituteId: string, classId: string): Promise<any[]> {
+    try {
+      const res: any = await enhancedCachedClient.get(
+        `/institutes/${instituteId}/classes/${classId}/subjects`,
+      );
+      return Array.isArray(res) ? res : (res?.data ?? res?.subjects ?? []);
+    } catch {
+      return [];
+    }
+  }
+
+  /** Create a new user and enroll them into the institute. */
+  async createUser(instituteId: string, dto: CreateInstituteUserDto): Promise<CreateInstituteUserResponse> {
+    return apiClient.post<CreateInstituteUserResponse>(
+      `/institutes/${instituteId}/users`,
+      dto,
+    );
+  }
+
   async getInstituteUsersByType(..._args: any[]): Promise<any> { return { data: [], meta: {} }; }
 }
 

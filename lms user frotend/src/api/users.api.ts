@@ -113,6 +113,17 @@ export const usersApi = {
     return apiClient.patch<User>('/users/upgrade-type', data);
   },
 
+  adminUpgradeUserType: async (
+    instituteId: string,
+    userId: string,
+    data: UpgradeUserTypeData = {},
+  ): Promise<User> => {
+    return apiClient.patch<User>(
+      `/institute-users/institute/${instituteId}/users/${userId}/upgrade-type`,
+      data,
+    );
+  },
+
   changePrimaryUserType: async (userId: string, userTypeId: string): Promise<any> => {
     return apiClient.patch(`/users/${userId}/change-primary-type`, { userTypeId });
   },

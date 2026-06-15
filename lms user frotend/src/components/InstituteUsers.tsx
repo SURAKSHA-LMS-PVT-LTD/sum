@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Eye, RefreshCw, GraduationCap, Users, UserCheck, Plus, UserPlus, UserCog, Filter, Search, Shield, Upload, CheckCircle, UserX, UserMinus, Loader2, Clock, CheckCircle2, XCircle, ChevronDown, LayoutGrid, Table2, KeyRound, Pencil, X, MoreVertical } from 'lucide-react';
+import { Eye, RefreshCw, GraduationCap, Users, UserCheck, Plus, UserPlus, UserCog, Filter, Search, Shield, Upload, CheckCircle, UserX, UserMinus, Loader2, Clock, CheckCircle2, XCircle, ChevronDown, LayoutGrid, Table2, KeyRound, Pencil, X, MoreVertical, ArrowUpCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
@@ -33,6 +33,7 @@ import CreateComprehensiveUserForm from '@/components/forms/CreateComprehensiveU
 import CreateInstituteUserForm from '@/components/forms/CreateInstituteUserForm';
 import { useNavigate } from 'react-router-dom';
 import AssignUserForm from '@/components/forms/AssignUserForm';
+import AdminUpgradeUserTypeDialog from '@/components/forms/AdminUpgradeUserTypeDialog';
 import AssignParentForm from '@/components/forms/AssignParentForm';
 import AssignParentByPhoneForm from '@/components/forms/AssignParentByPhoneForm';
 import AssignUserMethodsDialog from '@/components/forms/AssignUserMethodsDialog';
@@ -101,6 +102,8 @@ interface InstituteUserData {
     name: string;
     slug: string;
   };
+  /** Global system-level user type (e.g. USER_WITHOUT_PARENT) — present when API returns it */
+  globalUserType?: string;
 }
 interface InstituteUsersResponse {
   data: InstituteUserData[];
@@ -181,6 +184,7 @@ const InstituteUsers = () => {
   const [editExtraDataDialog, setEditExtraDataDialog] = useState<{ open: boolean; user: InstituteUserData | null }>({ open: false, user: null });
   const [extraDataRows, setExtraDataRows] = useState<{ key: string; value: string }[]>([]);
   const [savingExtraData, setSavingExtraData] = useState(false);
+  const [upgradeTypeDialog, setUpgradeTypeDialog] = useState<{ open: boolean; user: InstituteUserData | null }>({ open: false, user: null });
 
   const defaultViewForType = (typeId: string): 'card' | 'table' => {
     const type = userTypes.find(t => t.id === typeId);
@@ -616,11 +620,22 @@ const InstituteUsers = () => {
           { label: 'Change Institute Image', icon: <Upload className="h-4 w-4" />, onClick: () => setUploadingImageTarget({ userId: row.id, scope: 'INSTITUTE' }) }
         );
         if (isStudentRow && isUsersView) actions.push({ label: 'Assign Parent', icon: <UserCog className="h-4 w-4" />, onClick: () => handleAssignParent(row) });
-        if (isUsersView) actions.push(
-          { label: 'Change Role', icon: <UserCog className="h-4 w-4" />, onClick: () => { setChangeRoleDialog({ open: true, user: row }); setNewRoleValue(selectedUserTypeId); } },
-          { label: 'Set Password', icon: <KeyRound className="h-4 w-4" />, onClick: () => { setSetPasswordDialog({ open: true, user: row }); setNewPasswordValue(''); setConfirmPasswordValue(''); } },
-          { label: 'Edit Extra Data', icon: <Pencil className="h-4 w-4" />, onClick: () => handleOpenEditExtraData(row) }
-        );
+        if (isUsersView) {
+          actions.push(
+            { label: 'Change Role', icon: <UserCog className="h-4 w-4" />, onClick: () => { setChangeRoleDialog({ open: true, user: row }); setNewRoleValue(selectedUserTypeId); } },
+            { label: 'Set Password', icon: <KeyRound className="h-4 w-4" />, onClick: () => { setSetPasswordDialog({ open: true, user: row }); setNewPasswordValue(''); setConfirmPasswordValue(''); } },
+            { label: 'Edit Extra Data', icon: <Pencil className="h-4 w-4" />, onClick: () => handleOpenEditExtraData(row) },
+          );
+          const gType = row.globalUserType ?? '';
+          if (gType === 'USER_WITHOUT_PARENT' || gType === 'USER_WITHOUT_STUDENT') {
+            actions.push({
+              label: 'Upgrade to Full USER',
+              icon: <ArrowUpCircle className="h-4 w-4" />,
+              onClick: () => setUpgradeTypeDialog({ open: true, user: row }),
+              className: 'text-primary',
+            });
+          }
+        }
         if (isPendingView) actions.push({ label: verifyingIds.has(row.id) ? 'Verifying...' : 'Verify', icon: verifyingIds.has(row.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />, onClick: () => handleVerifyUser(row.id), disabled: verifyingIds.has(row.id), className: 'text-primary' });
         else if (isInactiveView) actions.push({ label: activatingUserId === row.id ? 'Activating...' : 'Activate', icon: activatingUserId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />, onClick: () => handleActivateUser(row.id), disabled: activatingUserId === row.id, className: 'text-emerald-600' });
         else actions.push({ label: deactivatingUserId === row.id ? 'Deactivating...' : 'Deactivate', icon: deactivatingUserId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserMinus className="h-4 w-4" />, onClick: () => handleDeactivateUser(row.id), disabled: deactivatingUserId === row.id, className: 'text-destructive' });
@@ -764,6 +779,21 @@ const InstituteUsers = () => {
       <Dialog open={changeRoleDialog.open} onOpenChange={(open) => !open && setChangeRoleDialog({ open: false, user: null })} routeName="change-user-role-popup"><DialogContent><DialogHeader><DialogTitle>Change User Role</DialogTitle></DialogHeader><div className="py-2 space-y-4"><p>Changing role for <strong>{changeRoleDialog.user?.name}</strong></p><div className="space-y-2"><p className="font-medium">New Role</p><Select value={newRoleValue} onValueChange={setNewRoleValue} disabled={typesLoading}><SelectTrigger><SelectValue placeholder={typesLoading ? 'Loading…' : 'Select role'} /></SelectTrigger><SelectContent>{userTypes.map(ut => <SelectItem key={ut.id} value={ut.id}><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: ut.color }} />{ut.name}</div></SelectItem>)}</SelectContent></Select></div></div><DialogFooter><Button variant="outline" onClick={() => setChangeRoleDialog({ open: false, user: null })}>Cancel</Button><Button onClick={handleChangeRole} disabled={changingRole || !newRoleValue}> {changingRole ? 'Changing...' : 'Change Role'}</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={setPasswordDialog.open} onOpenChange={(open) => !open && setSetPasswordDialog({ open: false, user: null })}><DialogContent routeName="set-password-popup">...</DialogContent></Dialog>
       <Dialog open={editExtraDataDialog.open} onOpenChange={(open) => !open && setEditExtraDataDialog({ open: false, user: null })}><DialogContent routeName="edit-extra-data-popup">...</DialogContent></Dialog>
+
+      {upgradeTypeDialog.user && (
+        <AdminUpgradeUserTypeDialog
+          open={upgradeTypeDialog.open}
+          onOpenChange={(open) => { if (!open) setUpgradeTypeDialog({ open: false, user: null }); }}
+          globalUserType={upgradeTypeDialog.user.globalUserType ?? ''}
+          userId={upgradeTypeDialog.user.id}
+          userName={upgradeTypeDialog.user.name}
+          instituteId={currentInstituteId!}
+          onSuccess={() => {
+            setUpgradeTypeDialog({ open: false, user: null });
+            getCurrentTable()?.actions.refresh();
+          }}
+        />
+      )}
     </div>;
 };
 export default InstituteUsers;

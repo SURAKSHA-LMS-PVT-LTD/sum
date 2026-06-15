@@ -425,7 +425,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
     query: string,
     setSearching: (v: boolean) => void,
     setLinkedUser: (u: UserLookupResult | null) => void,
-    setParent: React.Dispatch<React.SetStateAction<ParentInput>>,
+    _setParent: React.Dispatch<React.SetStateAction<ParentInput>>,
   ) => {
     const trimmed = query.trim();
     if (!trimmed) return;
@@ -433,12 +433,21 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
     setLinkedUser(null);
     try {
       const isEmail = trimmed.includes('@');
-      let result: UserLookupResult;
-      if (isEmail) {
-        result = await usersApi.lookupByEmail(trimmed);
-      } else {
-        result = await usersApi.lookupByPhone(trimmed);
+      const result: UserLookupResult = isEmail
+        ? await usersApi.lookupByEmail(trimmed)
+        : await usersApi.lookupByPhone(trimmed);
+
+      // Block students from being linked as parents
+      const type = (result.userType ?? '').toUpperCase();
+      if (type === 'STUDENT') {
+        toast({
+          title: 'Cannot Link Student',
+          description: 'This account is registered as a Student and cannot be assigned as a parent/guardian.',
+          variant: 'destructive',
+        });
+        return;
       }
+
       setLinkedUser(result);
     } catch (err: any) {
       toast({
@@ -782,7 +791,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
                 <div className="flex gap-2 items-end">
                   <div className="flex-1 space-y-1.5">
                     <Label className="text-sm">{L.addClassLabel}</Label>
-                    <Popover open={classSearchOpen} onOpenChange={setClassSearchOpen}>
+                    <Popover open={classSearchOpen} onOpenChange={setClassSearchOpen} modal={false}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"

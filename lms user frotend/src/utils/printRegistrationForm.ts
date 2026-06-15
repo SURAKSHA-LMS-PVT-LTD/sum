@@ -182,6 +182,12 @@ export function printStudentRegistrationForm(options: PrintRegistrationOptions =
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Student Registration Form</title>
+  <script>
+    window.addEventListener('load', function() {
+      // Small delay so images can attempt to load before print dialog
+      setTimeout(function() { window.print(); }, 400);
+    });
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     @page { size: A4 portrait; margin: 10mm; }
@@ -300,7 +306,6 @@ export function printStudentRegistrationForm(options: PrintRegistrationOptions =
 </html>`);
 
   win.document.close();
-  win.addEventListener('load', () => win.print());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
