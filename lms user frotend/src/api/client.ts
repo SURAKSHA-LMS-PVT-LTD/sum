@@ -27,6 +27,17 @@ class ApiClient {
   private isRefreshing = false;
   private refreshPromise: Promise<void> | null = null;
 
+  /**
+   * In-flight GET de-duplication.
+   * When several callers (e.g. multiple contexts/components mounting on page load)
+   * request the SAME GET endpoint+params concurrently, they share a single network
+   * request instead of each firing their own. The entry is removed as soon as the
+   * request settles, so this never serves stale data — it only collapses requests
+   * that are genuinely in flight at the same moment. Only GETs are deduped; mutating
+   * verbs (POST/PUT/PATCH/DELETE) are always sent individually.
+   */
+  private pendingGets = new Map<string, Promise<any>>();
+
   setUseBaseUrl2(use: boolean) {
     this.useBaseUrl2 = use;
   }
@@ -136,9 +147,23 @@ class ApiClient {
       });
     }
 
+    // Coalesce concurrent identical GETs into one network request.
+    const dedupKey = `${this.useBaseUrl2 ? 'b2:' : 'b1:'}${url.toString()}`;
+    const existing = this.pendingGets.get(dedupKey);
+    if (existing) return existing as Promise<T>;
+
     const makeRequest = async () => fetch(url.toString(), { method: 'GET', headers: await this.getHeaders(), credentials: getCredentialsMode() });
-    const response = await makeRequest();
-    return this.handleResponse<T>(response, makeRequest);
+    const requestPromise = (async () => {
+      const response = await makeRequest();
+      return this.handleResponse<T>(response, makeRequest);
+    })();
+
+    this.pendingGets.set(dedupKey, requestPromise);
+    try {
+      return await requestPromise;
+    } finally {
+      this.pendingGets.delete(dedupKey);
+    }
   }
 
   async post<T = any>(endpoint: string, data?: any): Promise<T> {

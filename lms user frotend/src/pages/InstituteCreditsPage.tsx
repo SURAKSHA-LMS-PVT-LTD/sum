@@ -39,6 +39,8 @@ import {
   TrendingUp,
   Eye,
   AlertTriangle,
+  Zap,
+  CreditCard,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +48,8 @@ import { creditsApi, type CreditBalance, type CreditTransaction, type TopUpSubmi
 import { uploadWithSignedUrl } from '@/utils/signedUploadHelper';
 import PaymentSlipPreviewDialog from '@/components/PaymentSlipPreviewDialog';
 import { getBaseUrl } from '@/contexts/utils/auth.api';
+import PaymentCheckoutSheet from '@/components/payment/PaymentCheckoutSheet';
+import { isPaymentGatewayEnabled } from '@/utils/featureFlags';
 
 // ═══════════════════════════════════════════════════════════════
 // Constants
@@ -106,7 +110,10 @@ export default function InstituteCreditsPage() {
   const [loadingSub, setLoadingSub] = useState(false);
   const [subError, setSubError] = useState<unknown>(null);
 
-  // Top-up dialog
+  // Gateway top-up sheet (only when gateway is enabled)
+  const [gatewaySheetOpen, setGatewaySheetOpen] = useState(false);
+
+  // Top-up dialog (slip upload)
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [topUpForm, setTopUpForm] = useState({
@@ -303,6 +310,11 @@ export default function InstituteCreditsPage() {
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRefresh} disabled={refreshing}>
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
+            {isPaymentGatewayEnabled() && (
+              <Button size="sm" variant="outline" onClick={() => setGatewaySheetOpen(true)}>
+                <Zap className="h-4 w-4 mr-1 text-primary" /> Pay Online
+              </Button>
+            )}
             <Button size="sm" onClick={() => setTopUpOpen(true)}>
               <Plus className="h-4 w-4 mr-1" /> Top Up
             </Button>
@@ -677,6 +689,17 @@ export default function InstituteCreditsPage() {
           open={previewOpen}
           onOpenChange={setPreviewOpen}
           url={previewSlipUrl}
+        />
+      )}
+
+      {/* ═══ Gateway Top-Up Sheet (only when feature enabled) ═══ */}
+      {isPaymentGatewayEnabled() && (
+        <PaymentCheckoutSheet
+          open={gatewaySheetOpen}
+          onOpenChange={setGatewaySheetOpen}
+          onSuccess={() => {
+            handleRefresh();
+          }}
         />
       )}
 

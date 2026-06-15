@@ -63,7 +63,11 @@ const AttendanceByUserType: React.FC = () => {
     }
   }, [currentInstituteId, startDate, endDate]);
 
-  useEffect(() => { loadEvents(); }, [loadEvents]);
+  // Debounce so adjusting both date inputs in quick succession fires one load, not two.
+  useEffect(() => {
+    const t = setTimeout(() => { loadEvents(); }, 400);
+    return () => clearTimeout(t);
+  }, [loadEvents]);
 
   const toggleEvent = (id: string) => {
     setSelectedEventIds(prev => {
