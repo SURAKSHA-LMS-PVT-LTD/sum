@@ -172,13 +172,17 @@ system** (so their `fetch` to the legacy pages carries your session cookies). Th
 call Suraksha with the API key you paste at the top.
 
 ### `01-student-migrator.js`
-- Edit the CONFIG block: `SURAKSHA_API`, `API_KEY`, `CLASS_ID_NEW`, `DEFAULT_INSTITUTE_PASSWORD`,
-  and the legacy `CLASS_ID_OLD` / `BASE_URL`.
-- Prompts for legacy student IDs, scrapes each detail page, then sends them to
-  `POST /students/bulk` in batches.
-- Legacy `password` concept → `institutePassword` (tenant login). All other legacy
-  fields (guardian, address, school, paymentType, barcode) go into `extraData`.
-- Prints a created / linked / failed summary (`console.table`).
+- Paste it → a **UI panel** appears (top-center). No file editing needed.
+- In the panel: paste the **API key**, optionally **Load classes** and pick a class to
+  auto-enroll into, set the legacy class ID + institute (tenant) password, paste the
+  legacy **student IDs** into the textarea, then **Migrate students**.
+- Scrapes each legacy detail page, then sends to `POST /students/bulk` in batches of 25.
+- The "Institute (tenant) password" → `institutePassword` (NOT global user.password).
+  All other legacy fields (guardian, address, school, paymentType, barcode) go into `extraData`.
+- Shows a live log + progress bar, prints a created / linked / failed summary
+  (`console.table`), and **downloads failures as CSV** (legacy id → reason).
+- `SURAKSHA_API` and the legacy `BASE_URL` are constants at the top if you ever need
+  to change the hosts; everything else is in the panel.
 
 ### `02-attendance-injector.js`
 - Edit the CONFIG block: `SURAKSHA_API`, `API_KEY` (needs CLASS_READ + SESSION_CREATE + ATTENDANCE_MARK).

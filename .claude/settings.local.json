@@ -51,7 +51,10 @@
       "PowerShell(Get-Process -Name \"node\" -ErrorAction SilentlyContinue)",
       "Bash(node -e \"const QR = require\\('qrcode'\\); console.log\\('default?', typeof QR.default\\); console.log\\('toCanvas?', typeof QR.toCanvas\\); console.log\\('toDataURL?', typeof QR.toDataURL\\);\")",
       "Bash(grep -oE \"\\(get|post|put|patch|delete\\)\\\\\\(['\\\\\\\\\\\\`][^'\\\\\\\\\\\\`]+\" lib/api.ts)",
-      "Bash(node --check 01-student-migrator.js)"
+      "Bash(node --check 01-student-migrator.js)",
+      "Bash(grep -E \"\\\\.env$|\\\\.env\\\\.\")",
+      "Bash(grep -nA8 \"handleDatabaseError\" \"lms-api-suraksha-lk/src/common/filters/global-exception.filter.ts\")",
+      "Bash(grep -rnE \"\\(secret|password|private_key|api_key\\)\\\\s*[:=]\\\\s*[\\\\\"'][A-Za-z0-9_/+=-]{16,}\" \"lms user frotend/src\" \"sysstemadminfrotend/src\")"
     ]
   }
 }
