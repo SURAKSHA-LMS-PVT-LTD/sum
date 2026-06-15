@@ -8,8 +8,8 @@ import { Mail, Phone, CheckCircle2, Loader2, RefreshCw, Lock, ArrowLeft } from '
 import { useToast } from '@/hooks/use-toast';
 import {
   requestEmailOtp, verifyEmailOtp, reRequestEmailOtp,
-  requestPhoneOtp, verifyPhoneOtp, reRequestPhoneOtp,
 } from '@/api/otpVerification.api';
+import WhatsAppPhoneVerify from './WhatsAppPhoneVerify';
 
 interface OtpVerificationStepProps {
   title: string;
@@ -44,13 +44,9 @@ const OtpVerificationStep: React.FC<OtpVerificationStepProps> = ({
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailTimer, setEmailTimer] = useState(0);
 
-  // Phone state
+  // Phone state — verification is now via WhatsApp (reverse-OTP), no SMS.
   const [phone, setPhone] = useState(initialPhone);
-  const [phoneOtp, setPhoneOtp] = useState('');
-  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
-  const [phoneLoading, setPhoneLoading] = useState(false);
-  const [phoneTimer, setPhoneTimer] = useState(0);
 
   // Timers
   useEffect(() => {
@@ -58,12 +54,6 @@ const OtpVerificationStep: React.FC<OtpVerificationStepProps> = ({
     const t = setInterval(() => setEmailTimer(s => s - 1), 1000);
     return () => clearInterval(t);
   }, [emailTimer]);
-
-  useEffect(() => {
-    if (phoneTimer <= 0) return;
-    const t = setInterval(() => setPhoneTimer(s => s - 1), 1000);
-    return () => clearInterval(t);
-  }, [phoneTimer]);
 
   // Check if can proceed
   const canProceed = useCallback(() => {
@@ -119,53 +109,8 @@ const OtpVerificationStep: React.FC<OtpVerificationStepProps> = ({
     }
   };
 
-  // Phone handlers
+  // Phone helpers — verification handled by WhatsAppPhoneVerify.
   const getCleanPhone = () => phone.replace(/\s/g, '');
-
-  const handleSendPhoneOtp = async () => {
-    const clean = getCleanPhone();
-    if (!clean || clean.length < 5) return;
-    setPhoneLoading(true);
-    try {
-      await requestPhoneOtp(clean);
-      setPhoneOtpSent(true);
-      setPhoneTimer(60);
-      toast({ title: 'OTP Sent', description: `Verification code sent via SMS` });
-    } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to send OTP', variant: 'destructive' });
-    } finally {
-      setPhoneLoading(false);
-    }
-  };
-
-  const handleVerifyPhone = async () => {
-    if (!phoneOtp || phoneOtp.length < 6) return;
-    setPhoneLoading(true);
-    try {
-      await verifyPhoneOtp(getCleanPhone(), phoneOtp);
-      setPhoneVerified(true);
-      toast({ title: 'Phone Verified', description: 'Your phone number has been verified successfully.' });
-    } catch (err) {
-      toast({ title: 'Verification Failed', description: err instanceof Error ? err.message : 'Invalid OTP', variant: 'destructive' });
-    } finally {
-      setPhoneLoading(false);
-    }
-  };
-
-  const handleResendPhoneOtp = async () => {
-    setPhoneLoading(true);
-    try {
-      const res = await reRequestPhoneOtp(getCleanPhone());
-      setPhoneTimer(60);
-      setPhoneOtp('');
-      toast({ title: 'OTP Resent', description: res.message });
-    } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to resend', variant: 'destructive' });
-    } finally {
-      setPhoneLoading(false);
-    }
-  };
-
   const phoneEntered = phone && phone.replace(/\D/g, '').length > 2;
 
   return (
@@ -268,58 +213,15 @@ const OtpVerificationStep: React.FC<OtpVerificationStepProps> = ({
               value={phone}
               onChange={setPhone}
               className="h-10 flex-1"
-              disabled={phoneVerified || phoneOtpSent}
+              disabled={phoneVerified}
             />
-            {!phoneVerified && !phoneOtpSent && phoneEntered && (
-              <Button
-                size="sm"
-                onClick={handleSendPhoneOtp}
-                disabled={phoneLoading}
-                className="h-10 px-4 shrink-0"
-              >
-                {phoneLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send OTP'}
-              </Button>
-            )}
           </div>
 
-          {phoneOtpSent && !phoneVerified && (
-            <div className="space-y-3">
-              <Label className="text-xs text-muted-foreground">Enter 6-digit code sent via SMS</Label>
-              <div className="flex items-center gap-3">
-                <InputOTP maxLength={6} value={phoneOtp} onChange={setPhoneOtp}>
-                  <InputOTPGroup>
-                    {[0, 1, 2, 3, 4, 5].map(i => (
-                      <InputOTPSlot key={i} index={i} />
-                    ))}
-                  </InputOTPGroup>
-                </InputOTP>
-                <Button
-                  size="sm"
-                  onClick={handleVerifyPhone}
-                  disabled={phoneOtp.length < 6 || phoneLoading}
-                  className="h-10 px-4"
-                >
-                  {phoneLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify'}
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                {phoneTimer > 0 ? (
-                  <span className="text-xs text-muted-foreground">Resend in {phoneTimer}s</span>
-                ) : (
-                  <Button variant="ghost" size="sm" onClick={handleResendPhoneOtp} disabled={phoneLoading} className="text-xs h-7 px-2">
-                    <RefreshCw className="h-3 w-3 mr-1" /> Resend OTP
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => { setPhoneOtpSent(false); setPhoneOtp(''); setPhoneTimer(0); }}
-                  className="text-xs h-7 px-2"
-                >
-                  Change Number
-                </Button>
-              </div>
-            </div>
+          {!phoneVerified && phoneEntered && (
+            <WhatsAppPhoneVerify
+              phoneNumber={getCleanPhone()}
+              onVerified={() => setPhoneVerified(true)}
+            />
           )}
 
           {phoneVerified && (

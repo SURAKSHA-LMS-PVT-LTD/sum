@@ -37,6 +37,19 @@ async function otpFetch<T>(path: string, body: Record<string, any>): Promise<T> 
   return data as T;
 }
 
+async function otpGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${getBaseUrl()}${path}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = typeof data.message === 'string' ? data.message : Array.isArray(data.message) ? data.message.join('. ') : 'Request failed';
+    throw new Error(msg);
+  }
+  return data as T;
+}
+
 // ========== EMAIL OTP ==========
 
 export const requestEmailOtp = (email: string) =>
@@ -58,3 +71,26 @@ export const verifyPhoneOtp = (phoneNumber: string, otpCode: string) =>
 
 export const reRequestPhoneOtp = (phoneNumber: string) =>
   otpFetch<OtpRequestResponse>('/users/create-phone-number-otp/re-request', { phoneNumber });
+
+// ========== PHONE OTP VIA WHATSAPP (reverse-OTP) ==========
+
+export interface WhatsAppOtpResponse {
+  success: boolean;
+  message: string;
+  waLink: string;
+  expiresAt?: string;
+  remainingAttempts?: number;
+}
+
+export interface OtpStatusResponse {
+  verified: boolean;
+  expired: boolean;
+}
+
+/** Request a wa.me link to verify a phone number via WhatsApp (no SMS). */
+export const requestPhoneOtpWhatsApp = (phoneNumber: string) =>
+  otpFetch<WhatsAppOtpResponse>('/users/create-phone-number-otp/request-whatsapp', { phoneNumber });
+
+/** One-shot status check (the "Next"/"I've sent it" click). */
+export const getPhoneOtpStatus = (phoneNumber: string) =>
+  otpGet<OtpStatusResponse>(`/users/create-phone-number-otp/status?phoneNumber=${encodeURIComponent(phoneNumber)}`);

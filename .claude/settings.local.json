@@ -54,7 +54,10 @@
       "Bash(node --check 01-student-migrator.js)",
       "Bash(grep -E \"\\\\.env$|\\\\.env\\\\.\")",
       "Bash(grep -nA8 \"handleDatabaseError\" \"lms-api-suraksha-lk/src/common/filters/global-exception.filter.ts\")",
-      "Bash(grep -rnE \"\\(secret|password|private_key|api_key\\)\\\\s*[:=]\\\\s*[\\\\\"'][A-Za-z0-9_/+=-]{16,}\" \"lms user frotend/src\" \"sysstemadminfrotend/src\")"
+      "Bash(grep -rnE \"\\(secret|password|private_key|api_key\\)\\\\s*[:=]\\\\s*[\\\\\"'][A-Za-z0-9_/+=-]{16,}\" \"lms user frotend/src\" \"sysstemadminfrotend/src\")",
+      "Bash(node --check index.js)",
+      "Bash(node -e \"console.log\\('PORT fallback chain:', process.env.PORT || 4000\\)\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('start script:', p.scripts.start\\); console.log\\('main:', p.main\\); console.log\\('node engine:', p.engines.node\\)\")"
     ]
   }
 }

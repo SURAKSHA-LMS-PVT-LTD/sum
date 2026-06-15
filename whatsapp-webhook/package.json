@@ -1,0 +1,19 @@
+{
+  "name": "suraksha-whatsapp-webhook",
+  "version": "1.0.0",
+  "description": "Lightweight WhatsApp webhook microservice for Suraksha LMS",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mysql2": "^3.11.0",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "UNLICENSED"
+}
