@@ -135,24 +135,27 @@ const qrSampleValue = (el: QrElement): string => {
   return el.pattern || 'https://example.com';
 };
 
-// ─── Live QR preview (canvas) for the designer ──────────────────────────────────
+// ─── Live QR preview (img) for the designer ─────────────────────────────────────
+// Rendered as a data-URL <img> (not a fixed-size <canvas>) so it scales cleanly
+// with its container when the element is resized — black modules + quiet zone
+// all grow together, exactly like the generated card.
 const QrPreview: React.FC<{ el: QrElement }> = ({ el }) => {
-  const ref = useRef<HTMLCanvasElement>(null);
+  const [src, setSrc] = useState<string>('');
   useEffect(() => {
     let cancelled = false;
     import('qrcode').then((QRmod: any) => {
       const QR = QRmod.default ?? QRmod;
-      if (cancelled || !ref.current) return;
-      QR.toCanvas(ref.current, qrSampleValue(el), {
+      QR.toDataURL(qrSampleValue(el), {
         margin: el.margin,
         color: { dark: el.fgColor, light: el.bgColor },
-        width: 240,
+        width: 600,
         errorCorrectionLevel: 'M',
-      }).catch(() => {});
+      }).then((url: string) => { if (!cancelled) setSrc(url); }).catch(() => {});
     });
     return () => { cancelled = true; };
   }, [el.valueMode, el.token, el.pattern, el.uuidLength, el.fgColor, el.bgColor, el.margin]);
-  return <canvas ref={ref} style={{ width: '100%', height: '100%', display: 'block' }} />;
+  if (!src) return null;
+  return <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', pointerEvents: 'none' }} />;
 };
 
 // ─── Token helpers ────────────────────────────────────────────────────────────
@@ -175,10 +178,17 @@ const DEFAULT_CARD_H = 400;
 
 interface DragState {
   elId: string;
+  mode: 'move' | 'resize';
   startMouseX: number;
   startMouseY: number;
   startElX: number;
   startElY: number;
+  /** element type + starting size, used in resize mode */
+  elType?: 'text' | 'image' | 'qr';
+  startWidth?: number;
+  startHeight?: number;
+  startSize?: number;
+  startFontSize?: number;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -381,7 +391,27 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   const onMouseDown = useCallback((e: React.MouseEvent, elId: string, elX: number, elY: number) => {
     e.stopPropagation();
     setSelectedElId(elId);
-    dragRef.current = { elId, startMouseX: e.clientX, startMouseY: e.clientY, startElX: elX, startElY: elY };
+    dragRef.current = { elId, mode: 'move', startMouseX: e.clientX, startMouseY: e.clientY, startElX: elX, startElY: elY };
+  }, []);
+
+  // Start a resize drag from the corner handle of the selected element.
+  const onResizeMouseDown = useCallback((e: React.MouseEvent, el: CardElement) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setSelectedElId(el.id);
+    dragRef.current = {
+      elId: el.id,
+      mode: 'resize',
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startElX: el.x,
+      startElY: el.y,
+      elType: el.type,
+      startWidth: el.type === 'image' || el.type === 'text' ? el.width : undefined,
+      startHeight: el.type === 'image' ? el.height : undefined,
+      startSize: el.type === 'qr' ? el.size : undefined,
+      startFontSize: el.type === 'text' ? el.fontSize : undefined,
+    };
   }, []);
 
   useEffect(() => {
@@ -389,11 +419,30 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
       const d = dragRef.current;
       if (!d || !canvasRef.current || !activeTemplate) return;
       const rect = canvasRef.current.getBoundingClientRect();
-      const dx = ((e.clientX - d.startMouseX) / rect.width) * 100;
-      const dy = ((e.clientY - d.startMouseY) / rect.height) * 100;
-      const nx = Math.max(0, Math.min(95, d.startElX + dx));
-      const ny = Math.max(0, Math.min(95, d.startElY + dy));
-      patchElement(d.elId, { x: parseFloat(nx.toFixed(2)), y: parseFloat(ny.toFixed(2)) });
+      const dxPct = ((e.clientX - d.startMouseX) / rect.width) * 100;
+      const dyPct = ((e.clientY - d.startMouseY) / rect.height) * 100;
+
+      if (d.mode === 'move') {
+        const nx = Math.max(0, Math.min(95, d.startElX + dxPct));
+        const ny = Math.max(0, Math.min(95, d.startElY + dyPct));
+        patchElement(d.elId, { x: parseFloat(nx.toFixed(2)), y: parseFloat(ny.toFixed(2)) });
+        return;
+      }
+
+      // resize mode — grow/shrink from the bottom-right handle
+      if (d.elType === 'qr' && d.startSize != null) {
+        const size = Math.max(5, Math.min(80, d.startSize + dxPct));
+        patchElement(d.elId, { size: parseFloat(size.toFixed(2)) });
+      } else if (d.elType === 'image' && d.startWidth != null && d.startHeight != null) {
+        const width = Math.max(5, Math.min(90, d.startWidth + dxPct));
+        const height = Math.max(5, Math.min(90, d.startHeight + dyPct));
+        patchElement(d.elId, { width: parseFloat(width.toFixed(2)), height: parseFloat(height.toFixed(2)) });
+      } else if (d.elType === 'text' && d.startWidth != null && d.startFontSize != null) {
+        // width follows horizontal drag; font size follows vertical drag
+        const width = Math.max(5, Math.min(100, d.startWidth + dxPct));
+        const fontSizePx = Math.max(8, Math.min(120, d.startFontSize + (((e.clientY - d.startMouseY) / rect.height) * activeTemplate.cardHeight)));
+        patchElement(d.elId, { width: parseFloat(width.toFixed(2)), fontSize: Math.round(fontSizePx) });
+      }
     };
     const onUp = () => { dragRef.current = null; };
     window.addEventListener('mousemove', onMove);
@@ -409,6 +458,26 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   };
 
   // ─── Canvas element renderer ───────────────────────────────────────────────
+
+  // Bottom-right resize handle, shown only on the selected element in interactive mode.
+  const resizeHandle = (el: CardElement, interactive: boolean) =>
+    interactive && selectedElId === el.id ? (
+      <div
+        onMouseDown={(e) => onResizeMouseDown(e, el)}
+        title="Drag to resize"
+        style={{
+          position: 'absolute',
+          right: -6, bottom: -6,
+          width: 12, height: 12,
+          background: '#6366f1',
+          border: '2px solid #fff',
+          borderRadius: '50%',
+          cursor: 'nwse-resize',
+          zIndex: 60,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+        }}
+      />
+    ) : null;
 
   const renderElement = (el: CardElement, interactive: boolean) => {
     if (el.type === 'image') {
@@ -437,6 +506,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
           }}>
             <span style={{ textAlign: 'center', padding: '4px' }}>User<br/>Photo</span>
           </div>
+          {resizeHandle(el, interactive)}
         </div>
       );
     }
@@ -455,9 +525,10 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
           onMouseDown={interactive ? (e) => onMouseDown(e, el.id, el.x, el.y) : undefined}
           onClick={(e) => { e.stopPropagation(); if (interactive) setSelectedElId(el.id); }}
         >
-          <div style={{ position: 'absolute', inset: 0, background: el.bgColor }}>
+          <div style={{ position: 'absolute', inset: 0, background: el.bgColor, pointerEvents: 'none' }}>
             <QrPreview el={el} />
           </div>
+          {resizeHandle(el, interactive)}
         </div>
       );
     }
@@ -488,6 +559,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
         onClick={(e) => { e.stopPropagation(); if (interactive) setSelectedElId(el.id); }}
       >
         {el.content}
+        {resizeHandle(el, interactive)}
       </div>
     );
   };
@@ -1027,7 +1099,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                 <div className="space-y-1">
                   <Label className="text-xs">Corner Radius</Label>
                   <div className="flex gap-1 items-center">
-                    <Input type="number" value={activeTemplate.cardBorderRadius ?? 8} min={0} max={100}
+                    <Input type="number" value={activeTemplate.cardBorderRadius ?? 0} min={0} max={100}
                       onChange={e => patchTemplate({ cardBorderRadius: +e.target.value })} className="h-7 sm:h-8 text-xs sm:text-sm flex-1" />
                     <span className="text-muted-foreground text-xs shrink-0">px</span>
                   </div>
@@ -1132,7 +1204,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                 style={{
                   width: activeTemplate.cardWidth,
                   height: activeTemplate.cardHeight,
-                  borderRadius: `${activeTemplate.cardBorderRadius ?? 8}px`,
+                  borderRadius: `${activeTemplate.cardBorderRadius ?? 0}px`,
                   background: activeTemplate.isBackgroundTransparent
                     ? 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 16px 16px'
                     : activeTemplate.backgroundImageUrl

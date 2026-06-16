@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +12,11 @@ import PageContainer from '@/components/layout/PageContainer';
 import EnrollTransportDialog from '@/components/forms/EnrollTransportDialog';
 
 const Transport: React.FC = () => {
-  const { user } = useAuth();
+  const { user, currentInstituteId } = useAuth();
   const navigate = useNavigate();
   const [enrollments, setEnrollments] = useState<TransportEnrollment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const loadEnrollments = async () => {
     if (!user?.id) return;
@@ -23,7 +24,8 @@ const Transport: React.FC = () => {
     try {
       setLoading(true);
       const response = await transportApi.getStudentEnrollments(user.id.toString());
-      setEnrollments(response.data.enrollments);
+      setEnrollments(response.data?.enrollments ?? []);
+      setHasLoaded(true);
     } catch (error: any) {
       console.error('Failed to load transport enrollments:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load transport enrollments';
@@ -41,6 +43,13 @@ const Transport: React.FC = () => {
   const handleEnrollmentSuccess = () => {
     loadEnrollments();
   };
+
+  // Auto-load the student's enrolments on mount / when the user resolves —
+  // no need to make the user click a button first.
+  useEffect(() => {
+    if (user?.id) loadEnrollments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleSelectTransport = (enrollment: TransportEnrollment) => {
     // Navigate to transport attendance page with state
@@ -80,20 +89,23 @@ const Transport: React.FC = () => {
                   View and manage your transport enrollments
                 </p>
               </div>
-              <EnrollTransportDialog 
-                studentId={user?.id?.toString() || ''} 
+              <EnrollTransportDialog
+                studentId={user?.id?.toString() || ''}
+                instituteId={currentInstituteId || undefined}
                 onEnrollmentSuccess={handleEnrollmentSuccess}
               />
             </div>
-            
+
             <div className="flex flex-col items-center justify-center min-h-[400px] py-12 px-4">
               <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Transport Enrollments</h3>
               <p className="text-muted-foreground mb-6 text-center">
-                Click the button below to load your transport enrollments.
+                {hasLoaded
+                  ? "You're not enrolled in any transport service yet. Use “Enroll Transport” to get started."
+                  : 'Loading your transport enrollments…'}
               </p>
-              <Button onClick={loadEnrollments} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-                {loading ? 'Loading...' : 'Load Transport Enrollments'}
+              <Button onClick={loadEnrollments} disabled={loading} variant="outline">
+                {loading ? 'Loading...' : 'Refresh'}
               </Button>
             </div>
           </div>
@@ -128,8 +140,9 @@ const Transport: React.FC = () => {
                 View and manage your transport enrollments
               </p>
             </div>
-            <EnrollTransportDialog 
-              studentId={user?.id?.toString() || ''} 
+            <EnrollTransportDialog
+              studentId={user?.id?.toString() || ''}
+              instituteId={currentInstituteId || undefined}
               onEnrollmentSuccess={handleEnrollmentSuccess}
             />
           </div>

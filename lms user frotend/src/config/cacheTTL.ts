@@ -62,6 +62,10 @@ export const CACHE_TTL: CacheTTLConfig = {
   STUDENTS: 30,
   ORGANIZATIONS: 60,
   UNVERIFIED_STUDENTS: 5,
+
+  // Transport (bookhire) — enrollments change rarely; attendance is more dynamic
+  TRANSPORT: 15,
+  TRANSPORT_ATTENDANCE: 5,
 };
 
 // Simple TTL resolver used by apiCache

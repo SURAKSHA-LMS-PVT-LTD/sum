@@ -271,8 +271,9 @@ async function renderCard(
 
   const W = tpl.cardWidth;
   const H = tpl.cardHeight;
+  const radius = (tpl as any).cardBorderRadius ?? 0;
   const host = document.createElement('div');
-  host.style.cssText = `position:fixed;left:-${W * 3}px;top:0;width:${W}px;height:${H}px;overflow:hidden;-webkit-font-smoothing:antialiased;`;
+  host.style.cssText = `position:fixed;left:-${W * 3}px;top:0;width:${W}px;height:${H}px;overflow:hidden;-webkit-font-smoothing:antialiased;${radius ? `border-radius:${radius}px;` : ''}`;
   document.body.appendChild(host);
 
   try {
@@ -383,8 +384,11 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
   const [filtersOpen, setFiltersOpen] = useState(true);
 
   // ID filter mode
-  const [filterMode, setFilterMode] = useState<'criteria' | 'ids'>('criteria');
+  const [filterMode, setFilterMode] = useState<'criteria' | 'ids' | 'count'>('criteria');
   const [manualIdText, setManualIdText] = useState('');
+  // Count-only mode (no real users — e.g. a batch of blank unique-QR cards)
+  const [batchCount, setBatchCount] = useState(100);
+  const [batchLabel, setBatchLabel] = useState('Card');
   // CSV/Excel import state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
@@ -584,6 +588,36 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
     } finally {
       setLoadingUsers(false);
     }
+  };
+
+  // ── Count-only mode: synthesize N placeholder "users" ─────────────────────
+  // No real student/teacher is bound to these — used for pre-printing a batch
+  // of unique-QR cards (e.g. 400 blank visitor passes) to assign to people later.
+  // Each gets a synthetic ID so the existing preview/commit/render pipeline
+  // (which is keyed on userIds) works completely unchanged.
+  const generateBatchPlaceholders = () => {
+    const count = Math.max(1, Math.min(5000, Math.floor(batchCount) || 0));
+    const batchTag = `BATCH-${Date.now().toString(36)}`;
+    const label = batchLabel.trim() || 'Card';
+    const placeholders: InstituteUser[] = Array.from({ length: count }, (_, i) => {
+      const seq = String(i + 1).padStart(String(count).length, '0');
+      const id = `${batchTag}-${seq}`;
+      return {
+        id,
+        name: `${label} ${seq}`,
+        firstName: label,
+        lastName: seq,
+        userIdByInstitute: seq,
+        instituteCardId: id,
+      };
+    });
+    setUsers(placeholders);
+    setTotalUsers(placeholders.length);
+    setSelectedIds(new Set(placeholders.map(u => u.id)));
+    setHasFetched(true);
+    setStep('filters');
+    setResults([]);
+    toastRef.current({ title: `${placeholders.length} placeholder card(s) ready`, description: 'No real users are linked — each card just gets a unique QR/ID.' });
   };
 
   // ── CSV/Excel file import ──────────────────────────────────────────────────
@@ -982,6 +1016,12 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                 >
                   <Hash className="h-3 w-3" />By ID List
                 </button>
+                <button
+                  onClick={() => setFilterMode('count')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${filterMode === 'count' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Layers className="h-3 w-3" />By Count
+                </button>
               </div>
 
               {/* ── ID LIST MODE ── */}
@@ -1055,6 +1095,40 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                     {loadingUsers ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
                     Fetch by IDs
                   </Button>
+                </div>
+              )}
+
+              {/* ── COUNT-ONLY MODE (no real users — e.g. 400 blank unique-QR cards) ── */}
+              {filterMode === 'count' && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Label className="text-xs font-medium">Generate by count</Label>
+                    <span className="text-[10px] text-muted-foreground">No student/teacher is linked — each card just gets a unique ID/QR code to hand out later.</span>
+                  </div>
+                  <div className="flex items-end gap-2 flex-wrap">
+                    <div className="space-y-1">
+                      <Label className="text-xs">How many cards *</Label>
+                      <Input
+                        type="number" min={1} max={5000} value={batchCount}
+                        onChange={e => setBatchCount(+e.target.value)}
+                        className="h-7 sm:h-8 text-xs sm:text-sm w-32"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Label (optional)</Label>
+                      <Input
+                        value={batchLabel} onChange={e => setBatchLabel(e.target.value)}
+                        placeholder="Card" className="h-7 sm:h-8 text-xs sm:text-sm w-40"
+                      />
+                    </div>
+                    <Button
+                      onClick={generateBatchPlaceholders}
+                      disabled={loadingUsers || !batchCount || batchCount < 1}
+                      className="gap-1.5 h-7 sm:h-8 text-xs px-3" size="sm"
+                    >
+                      <Layers className="h-3 w-3" />Create Batch
+                    </Button>
+                  </div>
                 </div>
               )}
 

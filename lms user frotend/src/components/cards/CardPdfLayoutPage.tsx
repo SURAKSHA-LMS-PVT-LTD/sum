@@ -132,8 +132,9 @@ async function renderCard(tpl: CardTemplate, user: InstituteUser, userImg: strin
   }
 
   const W = tpl.cardWidth, H = tpl.cardHeight;
+  const radius = (tpl as any).cardBorderRadius ?? 0;
   const host = document.createElement('div');
-  host.style.cssText = `position:fixed;left:-${W * 4}px;top:0;width:${W}px;height:${H}px;overflow:hidden;`;
+  host.style.cssText = `position:fixed;left:-${W * 4}px;top:0;width:${W}px;height:${H}px;overflow:hidden;${radius ? `border-radius:${radius}px;` : ''}`;
   document.body.appendChild(host);
 
   try {

@@ -109,6 +109,7 @@ const PRINT_SIZES: { id: PrintSize; label: string; widthMm: number }[] = [
 ];
 
 const LS_PRINT_SIZE = 'pos_print_size';
+const LS_ATT_ENABLED = 'pos_attendance_enabled';
 
 // ─── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -309,6 +310,16 @@ const CollectPhysicalPayment: React.FC = () => {
   const [attSessions, setAttSessions] = useState<AttendanceRow[]>([]);
   const [loadingAtt, setLoadingAtt] = useState(false);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
+  // Attendance widget is opt-in: only when enabled (and in class mode) do we call
+  // the attendance API or auto-select sessions. Persisted across sessions.
+  const [attendanceEnabled, setAttendanceEnabled] = useState<boolean>(
+    () => localStorage.getItem(LS_ATT_ENABLED) === '1'
+  );
+  const toggleAttendance = useCallback((on: boolean) => {
+    setAttendanceEnabled(on);
+    localStorage.setItem(LS_ATT_ENABLED, on ? '1' : '0');
+    if (!on) { setAttSessions([]); setSelectedSessionIds(new Set()); }
+  }, []);
 
   // ── student search
   const [searchMode, setSearchMode] = useState<SearchMode>('id');
@@ -442,6 +453,14 @@ const CollectPhysicalPayment: React.FC = () => {
       .finally(() => setLoadingSubMap(false));
 
     // 2. Attendance sessions + student status
+    //    Only when the attendance widget is enabled AND we're collecting at class
+    //    scope. Attendance is class-bound, so in institute-payment mode (no class
+    //    context) we never call the attendance API — same as class mode requires a class.
+    if (!attendanceEnabled || paymentMode !== 'class') {
+      setAttSessions([]);
+      setSelectedSessionIds(new Set());
+      return;
+    }
     setLoadingAtt(true);
     try {
       const sessions = await classAttendanceSessionsApi.getSessions(instituteId, effectiveClassId, {
@@ -471,7 +490,7 @@ const CollectPhysicalPayment: React.FC = () => {
     } catch {
       setAttSessions([]);
     } finally { setLoadingAtt(false); }
-  }, [instituteId, effectiveClassId, ATT_START, ATT_END]);
+  }, [instituteId, effectiveClassId, ATT_START, ATT_END, attendanceEnabled, paymentMode]);
 
   // Pre-load student from URL param (redirected from attendance view)
   useEffect(() => {
@@ -500,6 +519,14 @@ const CollectPhysicalPayment: React.FC = () => {
       } catch { /* silent — user can search manually */ }
     })();
   }, [urlStudentId, instituteId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When the attendance toggle is switched ON (or payment mode returns to class)
+  // while a student is already loaded, fetch their attendance now.
+  useEffect(() => {
+    if (!student || !attendanceEnabled || paymentMode !== 'class' || !effectiveClassId) return;
+    loadStudentData(student);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendanceEnabled, paymentMode]);
 
   // ─────────────────────────────────────────────────────────────────
   // Student search
@@ -1573,12 +1600,22 @@ const CollectPhysicalPayment: React.FC = () => {
               <div className="px-3 py-2 bg-muted/40 flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-blue-600" />
                 <span className="font-semibold text-sm">Attendance (30 days)</span>
-                {loadingAtt && <Loader2 className="h-3.5 w-3.5 animate-spin ml-auto" />}
-                {selectedSessionIds.size > 0 && (
-                  <Badge className="ml-auto bg-blue-100 text-blue-800 border-blue-200 text-[10px]">{selectedSessionIds.size} sel.</Badge>
+                <label className="ml-auto flex items-center gap-1.5 cursor-pointer select-none" title="Enable attendance marking">
+                  <input type="checkbox" checked={attendanceEnabled}
+                    onChange={e => toggleAttendance(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-blue-600" />
+                  <span className="text-[11px] text-muted-foreground">Enable</span>
+                </label>
+                {attendanceEnabled && loadingAtt && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {attendanceEnabled && selectedSessionIds.size > 0 && (
+                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">{selectedSessionIds.size} sel.</Badge>
                 )}
               </div>
-              {loadingAtt ? (
+              {!attendanceEnabled ? (
+                <div className="p-4 text-center text-xs text-muted-foreground">Tick <span className="font-medium">Enable</span> to load attendance.</div>
+              ) : paymentMode !== 'class' ? (
+                <div className="p-4 text-center text-xs text-muted-foreground">Attendance is class-based — switch to Class payments.</div>
+              ) : loadingAtt ? (
                 <div className="p-4 text-center text-sm text-muted-foreground">Loading…</div>
               ) : attSessions.length === 0 ? (
                 <div className="p-4 text-center text-sm text-muted-foreground">No sessions in range</div>
@@ -1915,12 +1952,29 @@ const CollectPhysicalPayment: React.FC = () => {
               <CalendarDays className="h-4 w-4 text-blue-600" />
               <span className="font-semibold text-sm">Attendance</span>
               <span className="text-[10px] text-muted-foreground ml-0.5">30-day</span>
-              {selectedSessionIds.size > 0 && (
-                <Badge className="ml-auto bg-blue-100 text-blue-800 border-blue-200 text-xs">{selectedSessionIds.size} sel.</Badge>
+              {/* Enable toggle — attendance API is only called when this is on */}
+              <label className="ml-auto flex items-center gap-1.5 cursor-pointer select-none" title="Enable attendance marking">
+                <input type="checkbox" checked={attendanceEnabled}
+                  onChange={e => toggleAttendance(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-blue-600" />
+                <span className="text-[11px] text-muted-foreground">Enable</span>
+              </label>
+              {attendanceEnabled && selectedSessionIds.size > 0 && (
+                <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">{selectedSessionIds.size} sel.</Badge>
               )}
             </div>
             <div className="flex-1 overflow-y-auto min-h-0">
-              {!student ? (
+              {!attendanceEnabled ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
+                  <CalendarDays className="h-8 w-8 text-muted-foreground/20" />
+                  <p className="text-xs text-muted-foreground">Tick <span className="font-medium">Enable</span> to load attendance for the searched student.</p>
+                </div>
+              ) : paymentMode !== 'class' ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
+                  <CalendarDays className="h-8 w-8 text-muted-foreground/20" />
+                  <p className="text-xs text-muted-foreground">Attendance is class-based. Switch to <span className="font-medium">Class</span> payments to mark it.</p>
+                </div>
+              ) : !student ? (
                 <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
                   <User className="h-8 w-8 text-muted-foreground/20" />
                   <p className="text-xs text-muted-foreground">Find a student to see attendance</p>

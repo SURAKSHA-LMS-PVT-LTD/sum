@@ -59,7 +59,8 @@
       "Bash(node -e \"console.log\\('PORT fallback chain:', process.env.PORT || 4000\\)\")",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('start script:', p.scripts.start\\); console.log\\('main:', p.main\\); console.log\\('node engine:', p.engines.node\\)\")",
       "Bash(find . -maxdepth 1 -name \".env*\")",
-      "Bash(grep -rn \"VITE_.*BASE_URL\\\\|API_BASE\" .env*)"
+      "Bash(grep -rn \"VITE_.*BASE_URL\\\\|API_BASE\" .env*)",
+      "Bash(grep -iE \"\\\\.env$|tsbuildinfo\")"
     ]
   }
 }

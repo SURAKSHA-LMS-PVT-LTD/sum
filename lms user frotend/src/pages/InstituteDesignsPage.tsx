@@ -18,7 +18,7 @@ function apiToUi(dt: DesignTemplate): CardTemplate & { status: DesignTemplateSta
     overlayImageUrl: '',
     backgroundColor: '',
     isBackgroundTransparent: false,
-    cardBorderRadius: 8,
+    cardBorderRadius: 0,
     cardWidth: 640,
     cardHeight: 400,
     elements: [],
@@ -159,7 +159,7 @@ const InstituteDesignsPage: React.FC = () => {
     try {
       const blankDefinition = {
         backgroundImageUrl: '', overlayImageUrl: '',
-        backgroundColor: '', isBackgroundTransparent: false, cardBorderRadius: 8,
+        backgroundColor: '', isBackgroundTransparent: false, cardBorderRadius: 0,
         cardWidth: 640, cardHeight: 400, elements: [],
       };
       const created = await instituteDesignsApi.createTemplate(currentInstituteId, {
