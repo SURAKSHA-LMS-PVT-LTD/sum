@@ -1,0 +1,49 @@
+name: Deploy WhatsApp Webhook (Cloud Run)
+
+# Builds the webhook container and deploys to Cloud Run.
+# The bot is fully stateless (DB-backed + access-checked by sender phone),
+# so it can scale freely — no instance pinning required.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'whatsapp-webhook/**'
+      - '.github/workflows/deploy-webhook.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-webhook
+  cancel-in-progress: false
+
+env:
+  APP_DIR: whatsapp-webhook
+  SERVICE: lms-whatsapp-webhook
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build & push image
+        run: |
+          gcloud builds submit "${{ env.APP_DIR }}" \
+            --tag "${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/lms/${{ env.SERVICE }}:${{ github.sha }}"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "${{ env.SERVICE }}" \
+            --image "${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/lms/${{ env.SERVICE }}:${{ github.sha }}" \
+            --region "${{ secrets.GCP_REGION }}" \
+            --platform managed \
+            --port 8080 \
+            --allow-unauthenticated \
+            --set-env-vars "WHATSAPP_ACCESS_TOKEN=${{ secrets.WHATSAPP_ACCESS_TOKEN }},WHATSAPP_PHONE_NUMBER_ID=${{ secrets.WHATSAPP_PHONE_NUMBER_ID }},WHATSAPP_VERIFY_TOKEN=${{ secrets.WHATSAPP_VERIFY_TOKEN }},WHATSAPP_APP_SECRET=${{ secrets.WHATSAPP_APP_SECRET }},WHATSAPP_BUSINESS_NUMBER=${{ secrets.WHATSAPP_BUSINESS_NUMBER }},DB_HOST=${{ secrets.DB_HOST }},DB_PORT=${{ secrets.DB_PORT }},DB_USERNAME=${{ secrets.DB_USERNAME }},DB_PASSWORD=${{ secrets.DB_PASSWORD }},DB_DATABASE=${{ secrets.DB_DATABASE }}"

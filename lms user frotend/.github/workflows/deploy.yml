@@ -1,0 +1,42 @@
+name: Deploy User Frontend
+
+# This workflow lives IN the user-frontend repo (Sanula1/suraksha-lms123).
+# Typechecks in CI, then builds ON the VM and rsyncs into the Nginx web roots
+# (reuses deploy/scripts/03-deploy-frontend.sh on the server).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-user-frontend
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH build + deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_SSH_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            set -e
+            bash ~/apps/lms-api/deploy/scripts/03-deploy-frontend.sh

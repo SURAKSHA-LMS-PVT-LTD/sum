@@ -328,7 +328,10 @@ async function renderCard(
       host.appendChild(ov);
     }
 
-    await new Promise(r => setTimeout(r, 120));
+    // Wait for one paint frame so layout/images settle, instead of a fixed
+    // 120ms sleep (which cost ~48s of pure idle time across a 400-card batch).
+    // Fonts are preloaded above and images are data-URLs, so a single rAF is enough.
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     const canvas = await html2canvas(host, { width: W, height: H, scale: 2, useCORS: true, allowTaint: false, backgroundColor: null, logging: false });
     return { canvas, qrValues };
   } finally {
@@ -736,9 +739,10 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
     // userId → { elementId → generated uuid }
     const uuidRows: { user: InstituteUser; uuids: Record<string, string> }[] = [];
 
-    for (let i = 0; i < targets.length; i++) {
-      if (abortRef.current) break;
-      const user = targets[i];
+    // Render one card → blob → zip, then RELEASE the canvas immediately.
+    // Releasing (zeroing dimensions) frees the backing bitmap so 400 cards
+    // don't accumulate hundreds of MB of canvas memory.
+    const renderOne = async (user: InstituteUser): Promise<void> => {
       try {
         const rawImg = user.imageUrl ? getImageUrl(user.imageUrl) : '';
         const userImgDataUrl = rawImg ? (userImgCache.get(rawImg) ?? null) : null;
@@ -748,18 +752,37 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
 
         if (zip) {
           const blob = await new Promise<Blob>((res, rej) =>
-            canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), mimeMap[fileType], fileType === 'jpg' ? 0.92 : undefined)
+            canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), mimeMap[fileType], fileType === 'jpg' ? 0.92 : undefined),
           );
-          const fileName = resolveFileName(namingPattern, user, fileType);
-          zip.file(fileName, blob);
+          zip.file(resolveFileName(namingPattern, user, fileType), blob);
         }
+        // Free the canvas bitmap now that we have the blob.
+        canvas.width = 0; canvas.height = 0;
         log.push({ userId: user.id, userName: user.name, status: 'ok' });
       } catch (err: any) {
         log.push({ userId: user.id, userName: user.name, status: 'error', error: err?.message });
       }
-      setProgress({ done: i + 1, total: targets.length });
-      setResults([...log]);
-    }
+      setProgress({ done: log.length, total: targets.length });
+    };
+
+    // Bounded concurrency: a few in flight overlaps the toBlob/settle waits
+    // without spiking memory (html2canvas itself is main-thread CPU-bound, so
+    // a small pool is the sweet spot — large pools OOM, sequential idles).
+    const CONCURRENCY = 3;
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < targets.length && !abortRef.current) {
+        const idx = cursor++;
+        await renderOne(targets[idx]);
+        // Yield to the event loop so progress paints and the tab stays responsive.
+        if (idx % CONCURRENCY === 0) {
+          setResults([...log]);
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker));
+    setResults([...log]);
 
     // 3a. Build the generated-UUID CSV and add it to the ZIP (and standalone download)
     if (uuidQrEls.length > 0 && uuidRows.length > 0) {

@@ -1,0 +1,54 @@
+name: Deploy Admin Frontend
+
+# This workflow lives IN the system-admin frontend repo (Sanula1/shop-first-steps).
+# Builds in CI (keeps the small VM free) and rsyncs the static bundle to the
+# admin.suraksha.lk Nginx web root over SSH.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-admin-frontend
+  cancel-in-progress: true
+
+env:
+  WEB_ROOT: /var/www/admin
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.ADMIN_VITE_API_BASE_URL }}
+        run: npm run build
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Rsync build to admin web root
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" \
+            dist/ "${{ secrets.VM_SSH_USER }}@${{ secrets.VM_HOST }}:${{ env.WEB_ROOT }}/"
+
+      - name: Reload Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_SSH_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: sudo nginx -t && sudo systemctl reload nginx

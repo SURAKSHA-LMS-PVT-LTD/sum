@@ -6,7 +6,6 @@ const express = require('express');
 const crypto = require('crypto');
 const db = require('./db');
 const wa = require('./whatsapp');
-const state = require('./state');
 
 const app = express();
 
@@ -107,8 +106,27 @@ async function handleStudent(from, user) {
 }
 
 /**
+ * Send a child's last-7-day attendance. Shared by the parent + selection flows.
+ */
+async function sendChildAttendance(from, child) {
+  const institutes = await db.findStudentInstitutes(child.userId);
+  if (institutes.length === 0) {
+    await wa.sendText(from, `⚠️ ${child.firstName} is not enrolled in any active institute.`);
+    return;
+  }
+  const inst = institutes[0];
+  const records = await db.getAttendanceLast7Days(child.userId, inst.instituteId);
+  const name = `${child.firstName} ${child.lastName}`.trim();
+  await wa.sendText(from, buildAttendanceMessage(records, name, inst.instituteName));
+}
+
+/**
  * Handle a greeting from a registered parent (USER_WITHOUT_STUDENT).
- * Lists children; waits for the parent to pick one.
+ *
+ * STATELESS: instead of remembering a "waiting for choice" session, we send a
+ * tappable WhatsApp list where each row's id is `child:<userId>`. When the
+ * parent taps one, the reply carries that id back to us (handleChildSelection),
+ * so nothing has to be stored server-side. A typed fallback also works.
  */
 async function handleParent(from, user) {
   const children = await db.findChildrenOfParent(user.id);
@@ -121,62 +139,79 @@ async function handleParent(from, user) {
     return;
   }
 
-  // Save state so we know we're waiting for child selection
-  state.set(from, {
-    step: 'AWAIT_STUDENT_CHOICE',
-    userId: user.id,
-    userType: user.userType,
-    children,
-  });
-
-  const lines = children.map((c, i) => `${i + 1}. ${c.firstName} ${c.lastName}`);
-  const msg =
-    `👋 Hello! Please reply with the *number* of the student whose attendance you want to view:\n\n` +
-    lines.join('\n') +
-    `\n\nReply *0* to cancel.`;
-
-  await wa.sendText(from, msg);
-}
-
-/**
- * Handle the parent's student selection reply.
- */
-async function handleStudentChoice(from, text, session) {
-  const trimmed = text.trim();
-
-  if (trimmed === '0') {
-    state.clear(from);
-    await wa.sendText(from, '✅ Cancelled. Send *hi* any time to start again.');
+  // Single child — skip selection, just send it.
+  if (children.length === 1) {
+    await sendChildAttendance(from, children[0]);
     return;
   }
 
-  const choice = parseInt(trimmed, 10);
-  const { children } = session;
+  // Multiple children — tappable list. Friendly title; the row id carries the
+  // child's user id and is access-checked by sender phone on tap (a parent can
+  // only resolve children actually linked to their own account).
+  const rows = children.map((c, i) => {
+    const name = `${c.firstName} ${c.lastName}`.trim() || `Student ${i + 1}`;
+    return {
+      id: `child:${c.userId}`,
+      title: `${c.firstName || name} — Attendance`.slice(0, 24),
+      description: name,
+    };
+  });
 
-  if (isNaN(choice) || choice < 1 || choice > children.length) {
+  const res = await wa.sendList(
+    from,
+    '👋 Hello! Tap below to choose a student and view their attendance.',
+    'Choose student',
+    rows,
+    'Your students',
+  );
+
+  // Fallback to a numbered text menu if the interactive send failed
+  // (e.g. older client). The parent can reply with the number.
+  if (!res.success) {
     const lines = children.map((c, i) => `${i + 1}. ${c.firstName} ${c.lastName}`);
     await wa.sendText(
       from,
-      `Please reply with a number between 1 and ${children.length}:\n\n${lines.join('\n')}\n\nReply *0* to cancel.`,
+      `👋 Hello! Reply with the *number* of the student whose attendance you want:\n\n${lines.join('\n')}`,
     );
-    return;
+  }
+}
+
+/**
+ * Resolve a parent's child selection — works for BOTH:
+ *   • an interactive list tap  → selectionId = "child:<userId>"
+ *   • a typed number           → selectionId = "3"
+ * Re-queries the parent's children by phone (stateless), so it always matches
+ * the same deterministic order the list was built from.
+ * Returns true if handled.
+ */
+async function handleChildSelection(from, selectionId) {
+  // Interactive row id: child:<userId>
+  const idMatch = /^child:(\d+)$/.exec(selectionId.trim());
+  // Typed number fallback: "2"
+  const numMatch = /^([1-9]\d?)$/.exec(selectionId.trim());
+  if (!idMatch && !numMatch) return false;
+
+  const user = await db.findUserByPhone(from);
+  if (!user || user.userType !== 'USER_WITHOUT_STUDENT') return false;
+
+  const children = await db.findChildrenOfParent(user.id);
+  if (children.length === 0) return false;
+
+  let child;
+  if (idMatch) {
+    child = children.find((c) => String(c.userId) === idMatch[1]);
+  } else {
+    const n = parseInt(numMatch[1], 10);
+    if (n >= 1 && n <= children.length) child = children[n - 1];
   }
 
-  const child = children[choice - 1];
-  state.clear(from);
-
-  const institutes = await db.findStudentInstitutes(child.userId);
-  if (institutes.length === 0) {
-    await wa.sendText(from, `⚠️ ${child.firstName} is not enrolled in any active institute.`);
-    return;
+  if (!child) {
+    await wa.sendText(from, '⚠️ That student is no longer linked to your account. Send *hi* to see the current list.');
+    return true;
   }
 
-  const inst = institutes[0];
-  const records = await db.getAttendanceLast7Days(child.userId, inst.instituteId);
-  const name = `${child.firstName} ${child.lastName}`.trim();
-  const msg = buildAttendanceMessage(records, name, inst.instituteName);
-
-  await wa.sendText(from, msg);
+  await sendChildAttendance(from, child);
+  return true;
 }
 
 // ─── Main message dispatcher ──────────────────────────────────────────────────
@@ -224,20 +259,22 @@ async function handleOtpMessage(from, text) {
   return false;
 }
 
-async function handleIncomingMessage(from, text) {
-  const trimmed = text.trim();
+async function handleIncomingMessage(from, text, interactiveId) {
+  const trimmed = (text || '').trim();
 
-  // 1) OTP confirmation takes priority — a user sending "OTP 123456" is never
-  //    a greeting or a child-selection reply.
+  // 1) Interactive list tap (parent chose a child). Fully stateless — the row
+  //    id carries the child's user id.
+  if (interactiveId) {
+    const handled = await handleChildSelection(from, interactiveId);
+    if (handled) return;
+  }
+
+  // 2) OTP confirmation — a user sending "OTP 123456" is never a greeting.
   const handledAsOtp = await handleOtpMessage(from, trimmed);
   if (handledAsOtp) return;
 
-  // Check if this sender is mid-conversation (parent selecting a child)
-  const session = state.get(from);
-  if (session && session.step === 'AWAIT_STUDENT_CHOICE') {
-    await handleStudentChoice(from, trimmed, session);
-    return;
-  }
+  // 3) Typed child-selection fallback (parent replied "2" instead of tapping).
+  if (await handleChildSelection(from, trimmed)) return;
 
   // Only respond to trigger words — ignore everything else
   if (!GREETING_PATTERN.test(trimmed)) {
@@ -315,16 +352,25 @@ app.post('/webhook', async (req, res) => {
         if (!messages || messages.length === 0) continue;
 
         for (const msg of messages) {
-          // Only handle text messages
-          if (msg.type !== 'text') continue;
-
           const from = msg.from; // sender's phone number (digits, no +)
-          const text = msg.text?.body || '';
+          let text = '';
+          let interactiveId; // row id from a tapped list / button reply
 
-          console.log(`[msg] from=${from} text="${text}"`);
+          if (msg.type === 'text') {
+            text = msg.text?.body || '';
+          } else if (msg.type === 'interactive') {
+            // Tappable list / reply-button selections carry their id here.
+            const it = msg.interactive || {};
+            interactiveId = it.list_reply?.id || it.button_reply?.id || '';
+            text = it.list_reply?.title || it.button_reply?.title || '';
+          } else {
+            continue; // ignore media/location/etc.
+          }
+
+          console.log(`[msg] from=${from} type=${msg.type} text="${text}" id="${interactiveId || ''}"`);
 
           // Process async — errors must not bubble up past here
-          handleIncomingMessage(from, text).catch((err) => {
+          handleIncomingMessage(from, text, interactiveId).catch((err) => {
             console.error(`[msg] Error handling message from ${from}:`, err);
           });
         }

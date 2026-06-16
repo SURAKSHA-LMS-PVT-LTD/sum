@@ -50,21 +50,17 @@ gcloud run deploy suraksha-wa-webhook \
   --source . \
   --region <your-region> \
   --allow-unauthenticated \
-  --min-instances 1 \
-  --max-instances 1 \
-  --set-env-vars "WHATSAPP_ACCESS_TOKEN=...,WHATSAPP_PHONE_NUMBER_ID=...,WHATSAPP_VERIFY_TOKEN=...,WHATSAPP_BUSINESS_NUMBER=947...,DB_USERNAME=...,DB_PASSWORD=...,DB_DATABASE=..." \
+  --set-env-vars "WHATSAPP_ACCESS_TOKEN=...,WHATSAPP_PHONE_NUMBER_ID=...,WHATSAPP_VERIFY_TOKEN=...,WHATSAPP_APP_SECRET=...,WHATSAPP_BUSINESS_NUMBER=947...,DB_USERNAME=...,DB_PASSWORD=...,DB_DATABASE=..." \
   --add-cloudsql-instances <project:region:instance>
 ```
 
 ### ⚠️ Important Cloud Run notes
 
-- **`--min-instances 1 --max-instances 1` is recommended.** The parent → child
-  selection step keeps short-lived conversation state **in memory** (`state.js`).
-  With scale-to-zero or multiple instances that state is lost or split across
-  instances, so a parent's "pick a student" reply could hit an instance that
-  never showed them the list. The **OTP flow is unaffected** (it's fully
-  DB-backed) — only the parent menu needs sticky single-instance behavior.
-  If you must scale out later, move `state.js` to Redis/DB.
+- **The service is fully stateless — it can scale freely** (no `--max-instances 1`
+  needed). The parent → child step uses a tappable WhatsApp list whose row id
+  carries the child's id; on tap the bot re-verifies access by the sender's
+  phone and re-queries the DB. Nothing is kept in memory between messages, so
+  any instance can handle any message. The OTP flow is likewise fully DB-backed.
 - **Cloud SQL:** connect via the Cloud SQL connector (`--add-cloudsql-instances`)
   and set `DB_HOST=127.0.0.1` / `DB_PORT=3306` (or the unix socket path), the
   same way the main backend connects.

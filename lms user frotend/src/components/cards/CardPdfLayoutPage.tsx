@@ -169,7 +169,8 @@ async function renderCard(tpl: CardTemplate, user: InstituteUser, userImg: strin
     }
     if (ov) { const img = document.createElement('img'); img.src=ov; img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;'; host.appendChild(img); }
 
-    await new Promise(r => setTimeout(r, 80));
+    // One paint frame is enough — fonts are preloaded and images are data-URLs.
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     const canvas = await html2canvas(host, { width: W, height: H, scale: 2, useCORS: true, allowTaint: false, backgroundColor: null, logging: false });
     return { canvas, qrValues };
   } finally {
@@ -293,29 +294,45 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
     ]);
     const userImgCache = new Map<string, string | null>(uniqueImgUrls.map((url, i) => [url, userImgResults[i]]));
 
-    // Render all canvases
-    const canvases: { canvas: HTMLCanvasElement; ok: boolean }[] = [];
+    // Render each card to a PNG data-URL and RELEASE the canvas immediately.
+    // Storing lightweight data-URL strings (not live canvases) keeps peak memory
+    // flat across hundreds of cards — jsPDF consumes the strings below.
+    // Order is preserved (page layout depends on it) by writing into fixed indices.
+    const pngs: (string | null)[] = new Array(targetUsers.length).fill(null);
     const uuidQrEls = (tplFromServer.elements as any[]).filter(
       el => el.type === 'qr' && (el.valueMode === 'uuid' || (el.valueMode === 'url' && (el.pattern || '').includes('{uuid}'))),
     );
     const uuidRows: { user: InstituteUser; uuids: Record<string, string> }[] = [];
     let okCount = 0, failCount = 0;
-    for (let i = 0; i < targetUsers.length; i++) {
-      if (abortRef.current) break;
+    let done = 0;
+
+    const renderOne = async (i: number): Promise<void> => {
       const user = targetUsers[i];
       try {
         const rawImg = user.imageUrl ? getImageUrl(user.imageUrl) : '';
         const userImg = rawImg ? (userImgCache.get(rawImg) ?? null) : null;
         const { canvas, qrValues } = await renderCard(tplFromServer, user, userImg, bgData, ovData);
         if (uuidQrEls.length > 0) uuidRows.push({ user, uuids: qrValues });
-        canvases.push({ canvas, ok: true });
+        pngs[i] = canvas.toDataURL('image/png');
+        canvas.width = 0; canvas.height = 0;   // free the bitmap now
         okCount++;
       } catch {
-        canvases.push({ canvas: document.createElement('canvas'), ok: false });
         failCount++;
       }
-      setProgress({ done: i + 1, total: targetUsers.length });
-    }
+      done++;
+      setProgress({ done, total: targetUsers.length });
+    };
+
+    const CONCURRENCY = 3;
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < targetUsers.length && !abortRef.current) {
+        const idx = cursor++;
+        await renderOne(idx);
+        if (idx % CONCURRENCY === 0) await new Promise(r => setTimeout(r, 0));
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, targetUsers.length) }, worker));
 
     // Export the generated-UUID CSV alongside the PDF
     if (uuidQrEls.length > 0 && uuidRows.length > 0) {
@@ -342,8 +359,8 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
     try {
       const { default: jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: page.w > page.h ? 'l' : 'p', unit: 'mm', format: [page.w, page.h] });
-      const okCanvases = canvases.filter(c => c.ok && c.canvas.width > 0);
-      const pagesNeeded = Math.max(1, Math.ceil(okCanvases.length / perPage));
+      const okPngs = pngs.filter((p): p is string => !!p);
+      const pagesNeeded = Math.max(1, Math.ceil(okPngs.length / perPage));
 
       // Draws the header text + page number on the current page
       const drawPageChrome = (pageNo: number) => {
@@ -362,7 +379,7 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
       const gridTop = marginMm + headerH;
       drawPageChrome(1);
 
-      for (let i = 0; i < okCanvases.length; i++) {
+      for (let i = 0; i < okPngs.length; i++) {
         const slot = i % perPage;
         if (slot === 0 && i > 0) { pdf.addPage(); drawPageChrome(Math.floor(i / perPage) + 1); }
         const col = slot % cols;
@@ -383,9 +400,7 @@ const CardPdfLayoutPage: React.FC<CardPdfLayoutPageProps> = ({
         const x = cellX + (cellW - drawW) / 2;
         const y = cellY + (cellH - drawH) / 2;
 
-        const { canvas } = okCanvases[i];
-        const imgData = canvas.toDataURL('image/png');
-        pdf.addImage(imgData, 'PNG', x, y, drawW, drawH);
+        pdf.addImage(okPngs[i], 'PNG', x, y, drawW, drawH);
       }
 
       const pdfBlob = pdf.output('blob');

@@ -81,7 +81,8 @@ async function findChildrenOfParent(parentUserId) {
      FROM students s
      JOIN users u ON u.id = s.user_id AND u.is_deleted = 0
      WHERE s.is_active = 1
-       AND (s.father_id = ? OR s.mother_id = ? OR s.guardian_id = ?)`,
+       AND (s.father_id = ? OR s.mother_id = ? OR s.guardian_id = ?)
+     ORDER BY s.user_id ASC`,
     [parentUserId, parentUserId, parentUserId],
   );
   return rows;
