@@ -15,13 +15,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
 import {
-  Loader2, CheckCircle2, XCircle, PauseCircle, Clock,
+  Loader2, CheckCircle2, XCircle, PauseCircle, Clock, FileEdit,
   LayoutGrid, Activity, RefreshCw, Search, ChevronDown, ChevronUp,
 } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type TemplateStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+type TemplateStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
 interface DesignTemplate {
   id: string;
@@ -65,6 +65,7 @@ interface GenerationRecord {
 // ─── Status config ─────────────────────────────────────────────────────────────
 
 const STATUS: Record<TemplateStatus, { label: string; color: string; icon: React.ReactNode }> = {
+  DRAFT:     { label: 'Draft',     color: 'bg-slate-50 text-slate-700 border-slate-200',   icon: <FileEdit className="h-3 w-3" /> },
   PENDING:   { label: 'Pending',   color: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: <Clock className="h-3 w-3" /> },
   APPROVED:  { label: 'Approved',  color: 'bg-green-50 text-green-700 border-green-200',   icon: <CheckCircle2 className="h-3 w-3" /> },
   REJECTED:  { label: 'Rejected',  color: 'bg-red-50 text-red-700 border-red-200',         icon: <XCircle className="h-3 w-3" /> },
@@ -542,10 +543,11 @@ export default function InstituteDesignApprovalsPage() {
           <TabsContent value="templates" className="mt-4 space-y-3">
             <div className="flex flex-wrap gap-2 items-center">
               {/* Status quick-filter */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter || 'ALL'} onValueChange={v => setStatusFilter(v === 'ALL' ? '' : v)}>
                 <SelectTrigger className="h-8 text-xs w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
+                  <SelectItem value="ALL">All statuses</SelectItem>
+                  <SelectItem value="DRAFT">Draft</SelectItem>
                   <SelectItem value="PENDING">Pending</SelectItem>
                   <SelectItem value="APPROVED">Approved</SelectItem>
                   <SelectItem value="REJECTED">Rejected</SelectItem>

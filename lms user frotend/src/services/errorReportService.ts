@@ -22,7 +22,6 @@ export interface SubmitErrorReportPayload {
   appVersion?: string;
   platform?: string;
   context?: Record<string, any>;
-  screenshotDataUrl?: string;
 }
 
 async function submit(payload: SubmitErrorReportPayload): Promise<void> {

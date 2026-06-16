@@ -61,6 +61,7 @@ export interface ImageElement {
   shape: 'circle' | 'square';
   borderColor: string;
   borderWidth: number;
+  borderRadius: number;     // px, used when shape === 'square' (0 = sharp corners)
 }
 
 /**
@@ -95,6 +96,9 @@ export interface CardTemplate {
   name: string;
   backgroundImageUrl: string;
   overlayImageUrl: string;
+  backgroundColor: string;       // used when no image, or layered beneath a transparent image
+  isBackgroundTransparent: boolean; // true = card renders with no background fill (for overlay-only / transparent exports)
+  cardBorderRadius: number;      // px, rounds the card canvas corners
   cardWidth: number;        // px (preview canvas width)
   cardHeight: number;
   elements: CardElement[];
@@ -191,6 +195,9 @@ interface CardTemplateDesignerProps {
   /** Called with the chosen name — parent creates + saves + navigates into editor. */
   onCreate?: (name: string) => Promise<void>;
   creating?: boolean;
+  /** Move the active (DRAFT) template into the admin review queue. */
+  onSubmitForReview?: (id: string) => Promise<void>;
+  submittingForReview?: boolean;
 }
 
 const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
@@ -203,6 +210,8 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   apiTemplates = [],
   onCreate,
   creating,
+  onSubmitForReview,
+  submittingForReview,
 }) => {
   const { toast } = useToast();
 
@@ -241,6 +250,12 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
   const activeTemplate = templates.find(t => t.id === activeTemplateId) ?? null;
 
   const selectedEl = activeTemplate?.elements.find(e => e.id === selectedElId) ?? null;
+
+  // Status governs editability: PENDING is locked (admin is actively reviewing it);
+  // DRAFT/REJECTED/SUSPENDED/APPROVED/untracked are editable (editing drops non-draft back to DRAFT).
+  const activeApiTpl = apiTemplates.find(a => a.id === activeTemplateId);
+  const isLocked = activeApiTpl?.status === 'PENDING';
+  const isDraft = !activeApiTpl || activeApiTpl.status === 'DRAFT';
 
   // Load Google Fonts for active template elements
   useEffect(() => {
@@ -318,7 +333,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
     const el: ImageElement = {
       id: makeId(), type: 'image', token: '{userImage}',
       x: 5, y: 10, width: 20, height: 33,
-      shape: 'circle', borderColor: '#ffffff', borderWidth: 2,
+      shape: 'circle', borderColor: '#ffffff', borderWidth: 2, borderRadius: 6,
     };
     patchTemplate({ elements: [...(activeTemplate.elements ?? []), el] });
     setSelectedElId(el.id);
@@ -414,7 +429,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
           <div style={{
             position: 'absolute', inset: 0,
             background: '#ccc',
-            borderRadius: el.shape === 'circle' ? '50%' : '6px',
+            borderRadius: el.shape === 'circle' ? '50%' : `${el.borderRadius ?? 6}px`,
             border,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             overflow: 'hidden',
@@ -510,14 +525,21 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
               <Input type="number" value={selectedEl.height} min={5} max={80} step={1}
                 onChange={e => patchElement(selectedEl.id, { height: +e.target.value })} className="h-7 sm:h-8 text-xs" /></div>
           </div>
-          <div className="space-y-1"><Label className="text-xs">Shape</Label>
-            <Select value={selectedEl.shape} onValueChange={v => patchElement(selectedEl.id, { shape: v as any })}>
-              <SelectTrigger className="h-7 sm:h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="circle">Circle</SelectItem>
-                <SelectItem value="square">Square</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="space-y-1"><Label className="text-xs">Shape</Label>
+              <Select value={selectedEl.shape} onValueChange={v => patchElement(selectedEl.id, { shape: v as any })}>
+                <SelectTrigger className="h-7 sm:h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="circle">Circle</SelectItem>
+                  <SelectItem value="square">Square</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1"><Label className="text-xs">Corner Radius</Label>
+              <Input type="number" value={selectedEl.borderRadius ?? 6} min={0} max={200} step={1}
+                disabled={selectedEl.shape === 'circle'}
+                onChange={e => patchElement(selectedEl.id, { borderRadius: +e.target.value })}
+                className="h-7 sm:h-8 text-xs disabled:opacity-40" /></div>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div className="space-y-1"><Label className="text-xs">Border Color</Label>
@@ -807,12 +829,17 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                 className="group relative rounded-lg sm:rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-md transition-all active:scale-95"
                 onClick={() => { onTemplateSelect?.(t.id); setSelectedElId(null); }}>
                 {/* Preview thumbnail */}
-                <div className="relative overflow-hidden bg-muted/40" style={{ paddingBottom: `${((t.cardHeight ?? 400) / (t.cardWidth ?? 640)) * 100}%` }}>
+                <div className="relative overflow-hidden bg-muted/40" style={{
+                  paddingBottom: `${((t.cardHeight ?? 400) / (t.cardWidth ?? 640)) * 100}%`,
+                  borderRadius: t.cardBorderRadius ? `${t.cardBorderRadius}px` : undefined,
+                }}>
                   <div className="absolute inset-0"
                     style={{
-                      background: t.backgroundImageUrl
-                        ? `url(${t.backgroundImageUrl}) center/cover no-repeat`
-                        : 'linear-gradient(135deg,#1a237e,#283593)',
+                      background: t.isBackgroundTransparent
+                        ? 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 12px 12px'
+                        : t.backgroundImageUrl
+                          ? `url(${t.backgroundImageUrl}) center/cover no-repeat`
+                          : (t.backgroundColor || 'linear-gradient(135deg,#1a237e,#283593)'),
                     }}>
                     {/* Render text elements as tiny preview */}
                     {(t.elements ?? []).map(el => {
@@ -851,7 +878,7 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                           <div style={{
                             position: 'absolute', inset: 0,
                             background: '#aaa', opacity: 0.5,
-                            borderRadius: el.shape === 'circle' ? '50%' : '6px',
+                            borderRadius: el.shape === 'circle' ? '50%' : `${el.borderRadius ?? 6}px`,
                             border: `${el.borderWidth}px solid ${el.borderColor}`,
                           }} />
                         </div>
@@ -914,7 +941,6 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
     );
   }
 
-  const activeApiTpl = apiTemplates.find(a => a.id === activeTemplate.id) ?? null;
   return (
     <div className="space-y-2 sm:space-y-4 pb-20 sm:pb-12">
       {/* Re-approval warning when editing an approved template */}
@@ -938,17 +964,39 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
             <Eye className="h-3 w-3 sm:h-4 sm:w-4" /><span className="hidden sm:inline">{showPreview ? 'Hide Preview' : 'Preview'}</span><span className="sm:hidden">{showPreview ? 'Hide' : 'Show'}</span>
           </Button>
           <Button size="sm" variant="ghost" className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 text-destructive"
+            disabled={isLocked}
             onClick={() => { if (confirm(`Delete "${activeTemplate.name}"?`)) { deleteTemplate(activeTemplate.id); } }}>
             <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
-          <Button size="sm" onClick={() => saveTemplates(templates)} disabled={saving} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 gap-1">
+          <Button size="sm" onClick={() => saveTemplates(templates)} disabled={saving || isLocked} className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 gap-1">
             {saving ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Save className="h-3 w-3 sm:h-4 sm:w-4" />}
             <span className="hidden sm:inline">Save</span>
           </Button>
+          {isDraft && onSubmitForReview && (
+            <Button size="sm" variant="default" disabled={submittingForReview}
+              onClick={() => { if (confirm('Submit this template for admin review? You will not be able to edit it until reviewed.')) onSubmitForReview(activeTemplate.id); }}
+              className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3 gap-1">
+              {submittingForReview ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Check className="h-3 w-3 sm:h-4 sm:w-4" />}
+              <span className="hidden sm:inline">Submit for Review</span><span className="sm:hidden">Submit</span>
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_280px] gap-3 sm:gap-4">
+      {isLocked && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs sm:text-sm">
+          <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          This template is pending admin review and is locked from editing until reviewed.
+        </div>
+      )}
+      {activeApiTpl?.status === 'REJECTED' && activeApiTpl.rejectionReason && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm">
+          <X className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 mt-0.5" />
+          <span><strong>Rejected:</strong> {activeApiTpl.rejectionReason}. Edit and resubmit to request review again.</span>
+        </div>
+      )}
+
+      <div className={`grid lg:grid-cols-[1fr_280px] gap-3 sm:gap-4 ${isLocked ? 'opacity-60 pointer-events-none' : ''}`}>
         {/* Left: canvas + layer list */}
         <div className="space-y-3 sm:space-y-4">
           {/* Template settings */}
@@ -976,8 +1024,37 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
                     <span className="text-muted-foreground text-xs shrink-0 whitespace-nowrap">px</span>
                   </div>
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Corner Radius</Label>
+                  <div className="flex gap-1 items-center">
+                    <Input type="number" value={activeTemplate.cardBorderRadius ?? 8} min={0} max={100}
+                      onChange={e => patchTemplate({ cardBorderRadius: +e.target.value })} className="h-7 sm:h-8 text-xs sm:text-sm flex-1" />
+                    <span className="text-muted-foreground text-xs shrink-0">px</span>
+                  </div>
+                </div>
               </div>
               <div className="space-y-2 sm:space-y-3">
+                {/* Background color / transparency */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Background Color</Label>
+                  <div className="flex gap-1.5 items-center">
+                    <input type="color" value={activeTemplate.backgroundColor || '#1a237e'}
+                      disabled={activeTemplate.isBackgroundTransparent}
+                      onChange={e => patchTemplate({ backgroundColor: e.target.value })}
+                      className="h-7 sm:h-8 w-12 rounded cursor-pointer border shrink-0 disabled:opacity-40 disabled:cursor-not-allowed" />
+                    <Input value={activeTemplate.backgroundColor || ''}
+                      disabled={activeTemplate.isBackgroundTransparent}
+                      onChange={e => patchTemplate({ backgroundColor: e.target.value })}
+                      placeholder="#1a237e or linear-gradient(...)"
+                      className="h-7 sm:h-8 text-xs sm:text-sm flex-1 min-w-0" />
+                  </div>
+                  <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                    <Switch checked={!!activeTemplate.isBackgroundTransparent}
+                      onCheckedChange={v => patchTemplate({ isBackgroundTransparent: v })} />
+                    <span className="text-xs text-muted-foreground">Transparent background (no fill — for overlay-only exports)</span>
+                  </label>
+                </div>
+
                 {/* Background image */}
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1"><Image className="h-3 w-3" />Background</Label>
@@ -1051,13 +1128,16 @@ const CardTemplateDesigner: React.FC<CardTemplateDesignerProps> = ({
             <div className="overflow-auto rounded-xl border border-border shadow-inner bg-muted/20 p-2">
               <div
                 ref={canvasRef}
-                className="relative mx-auto rounded-lg overflow-hidden select-none"
+                className="relative mx-auto overflow-hidden select-none"
                 style={{
                   width: activeTemplate.cardWidth,
                   height: activeTemplate.cardHeight,
-                  background: activeTemplate.backgroundImageUrl
-                    ? `url(${activeTemplate.backgroundImageUrl}) center/cover no-repeat`
-                    : 'linear-gradient(135deg,#1a237e,#283593)',
+                  borderRadius: `${activeTemplate.cardBorderRadius ?? 8}px`,
+                  background: activeTemplate.isBackgroundTransparent
+                    ? 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 16px 16px'
+                    : activeTemplate.backgroundImageUrl
+                      ? `url(${activeTemplate.backgroundImageUrl}) center/cover no-repeat`
+                      : (activeTemplate.backgroundColor || 'linear-gradient(135deg,#1a237e,#283593)'),
                   cursor: 'default',
                 }}
                 onClick={() => setSelectedElId(null)}

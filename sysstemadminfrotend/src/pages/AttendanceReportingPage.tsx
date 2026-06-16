@@ -19,6 +19,14 @@ interface ClassOption {
   grade?: number;
 }
 
+interface EventOption {
+  id: string;
+  title?: string;
+  name?: string;
+  eventDate?: string;
+  date?: string;
+}
+
 interface DailyCount {
   date: string;
   day?: number;
@@ -59,6 +67,8 @@ export default function AttendanceReportingPage() {
   const [selectedInstituteId, setSelectedInstituteId] = useState("");
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [selectedClassId, setSelectedClassId] = useState("");
+  const [events, setEvents] = useState<EventOption[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState(currentMonth);
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
@@ -78,9 +88,18 @@ export default function AttendanceReportingPage() {
 
   useEffect(() => {
     if (selectedInstituteId) {
+      fetchEvents();
+    } else {
+      setEvents([]);
+      setSelectedEventId("");
+    }
+  }, [selectedInstituteId, year, month]);
+
+  useEffect(() => {
+    if (selectedInstituteId) {
       fetchData();
     }
-  }, [selectedInstituteId, selectedClassId, year, month, viewMode]);
+  }, [selectedInstituteId, selectedClassId, selectedEventId, year, month, viewMode]);
 
   const fetchClasses = async () => {
     try {
@@ -91,13 +110,29 @@ export default function AttendanceReportingPage() {
     }
   };
 
+  const fetchEvents = async () => {
+    try {
+      const lastDay = new Date(year, month, 0).getDate();
+      const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+      const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const response = await api.listCalendarEvents(selectedInstituteId, { startDate, endDate, limit: 200 });
+      const list = response.data || response.events || response || [];
+      setEvents(Array.isArray(list) ? list : []);
+      setSelectedEventId("");
+    } catch {
+      setEvents([]);
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
+      const effectiveClassId = selectedClassId && selectedClassId !== "all" ? selectedClassId : "";
+      const eventId = selectedEventId && selectedEventId !== "all" ? selectedEventId : undefined;
       if (viewMode === "daily") {
-        const fn = selectedClassId
-          ? api.getAttendanceClassDailyCount(selectedInstituteId, selectedClassId, { year, month })
-          : api.getAttendanceDailyCount(selectedInstituteId, { year, month });
+        const fn = effectiveClassId
+          ? api.getAttendanceClassDailyCount(selectedInstituteId, effectiveClassId, { year, month, eventId })
+          : api.getAttendanceDailyCount(selectedInstituteId, { year, month, eventId });
         const response = await fn;
         const items = response.days || response.data || response.dailyCounts || [];
         setDailyData(
@@ -117,9 +152,9 @@ export default function AttendanceReportingPage() {
         );
         setMonthlySummary(null);
       } else {
-        const fn = selectedClassId
-          ? api.getAttendanceClassMonthlyCount(selectedInstituteId, selectedClassId, { year, month })
-          : api.getAttendanceMonthlyCount(selectedInstituteId, { year, month });
+        const fn = effectiveClassId
+          ? api.getAttendanceClassMonthlyCount(selectedInstituteId, effectiveClassId, { year, month, eventId })
+          : api.getAttendanceMonthlyCount(selectedInstituteId, { year, month, eventId });
         const response = await fn;
         const summary = response.summary || response.data || response;
         setMonthlySummary({
@@ -177,7 +212,7 @@ export default function AttendanceReportingPage() {
       />
 
       {/* Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
         <div className="space-y-2">
           <Label className="text-sm font-medium">Institute</Label>
           <InstituteSelector
@@ -203,6 +238,26 @@ export default function AttendanceReportingPage() {
               {classes.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.className} {c.grade ? `(Grade ${c.grade})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Event (optional)</Label>
+          <Select
+            value={selectedEventId || "all"}
+            onValueChange={(v) => setSelectedEventId(v === "all" ? "" : v)}
+            disabled={!selectedInstituteId || events.length === 0}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All events" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Events</SelectItem>
+              {events.map((e) => (
+                <SelectItem key={e.id} value={e.id}>
+                  {e.title || e.name || e.id} {e.eventDate || e.date ? `(${(e.eventDate || e.date)?.slice(0, 10)})` : ""}
                 </SelectItem>
               ))}
             </SelectContent>

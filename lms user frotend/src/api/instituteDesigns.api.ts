@@ -2,7 +2,7 @@ import { apiClient } from './client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type DesignTemplateStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+export type DesignTemplateStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 export type DesignOutputType = 'PNG' | 'PDF' | 'WHATSAPP' | 'PRINT';
 
 export interface DesignTemplate {
@@ -63,6 +63,10 @@ export const instituteDesignsApi = {
 
   deleteTemplate: (instituteId: string, templateId: string): Promise<void> =>
     apiClient.delete(`/institutes/${instituteId}/design-templates/${templateId}`),
+
+  submitForReview: (instituteId: string, templateId: string): Promise<DesignTemplate> =>
+    apiClient.put(`/institutes/${instituteId}/design-templates/${templateId}/submit-for-review`, {})
+      .then((r: any) => r?.data ?? r),
 
   previewCost: (
     instituteId: string,

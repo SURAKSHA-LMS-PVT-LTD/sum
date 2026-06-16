@@ -1,6 +1,6 @@
 import { apiClient } from './client';
 
-export type ApiKeyScope = 'ATTENDANCE_MARK';
+export type ApiKeyScope = 'ATTENDANCE_MARK' | 'STUDENT_CREATE' | 'CLASS_READ' | 'SESSION_CREATE';
 
 export interface InstituteApiKey {
   id: number;
@@ -33,15 +33,15 @@ export interface CreateApiKeyResponse {
 
 class InstituteApiKeysApi {
   async list(instituteId: string): Promise<InstituteApiKey[]> {
-    return apiClient.get(`/institutes/${instituteId}/api-keys`);
+    return apiClient.get(`/api/institutes/${instituteId}/api-keys`);
   }
 
   async create(instituteId: string, dto: CreateApiKeyDto): Promise<CreateApiKeyResponse> {
-    return apiClient.post(`/institutes/${instituteId}/api-keys`, dto);
+    return apiClient.post(`/api/institutes/${instituteId}/api-keys`, dto);
   }
 
   async revoke(instituteId: string, keyId: number): Promise<void> {
-    return apiClient.delete(`/institutes/${instituteId}/api-keys/${keyId}`);
+    return apiClient.delete(`/api/institutes/${instituteId}/api-keys/${keyId}`);
   }
 }
 

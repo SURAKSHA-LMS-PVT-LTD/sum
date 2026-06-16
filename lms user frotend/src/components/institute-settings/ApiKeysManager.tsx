@@ -19,9 +19,19 @@ import { getErrorMessage } from '@/api/apiError';
 
 const SCOPE_LABELS: Record<ApiKeyScope, string> = {
   ATTENDANCE_MARK: 'Attendance Marking',
+  STUDENT_CREATE: 'Create Students',
+  CLASS_READ: 'Read Classes & Sessions',
+  SESSION_CREATE: 'Create Attendance Sessions',
 };
 
-const ALL_SCOPES: ApiKeyScope[] = ['ATTENDANCE_MARK'];
+const SCOPE_DESCRIPTIONS: Record<ApiKeyScope, string> = {
+  ATTENDANCE_MARK: 'Mark attendance (present/absent/late) for students in bulk.',
+  STUDENT_CREATE: 'Register new students into the institute via the external API.',
+  CLASS_READ: 'List institute classes and their attendance sessions (read-only).',
+  SESSION_CREATE: 'Create new attendance sessions for a class.',
+};
+
+const ALL_SCOPES: ApiKeyScope[] = ['ATTENDANCE_MARK', 'STUDENT_CREATE', 'CLASS_READ', 'SESSION_CREATE'];
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -132,7 +142,7 @@ export const ApiKeysManager: React.FC<Props> = ({ instituteId, isAdmin }) => {
         <div>
           <h2 className="text-lg font-semibold">API Keys</h2>
           <p className="text-sm text-muted-foreground">
-            Generate API keys for external systems to mark attendance via the REST API.
+            Generate API keys for external systems to mark attendance, create students, or manage classes & sessions via the REST API.
           </p>
         </div>
         {isAdmin && (
@@ -225,10 +235,14 @@ export const ApiKeysManager: React.FC<Props> = ({ instituteId, isAdmin }) => {
             <Shield className="h-4 w-4 text-muted-foreground" />
             How to use
           </CardTitle>
+          <CardDescription>
+            Send the API key in the <code className="bg-muted px-1 rounded text-xs">Authorization</code> header on every request. Each endpoint below requires the matching scope.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>Send the API key in the <code className="bg-muted px-1 rounded text-xs">Authorization</code> header:</p>
-          <pre className="bg-muted rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap break-all">
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-foreground">Attendance Marking — requires <code className="bg-muted px-1 rounded">ATTENDANCE_MARK</code></p>
+            <pre className="bg-muted rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap break-all">
 {`POST /api/external/v1/attendance/sessions/{sessionId}/mark-bulk
 Authorization: Bearer sk_<your-key>
 Content-Type: application/json
@@ -239,8 +253,45 @@ Content-Type: application/json
     { "studentId": "def456", "status": 2, "remarks": "Late arrival" }
   ]
 }`}
-          </pre>
-          <p className="text-xs">Status codes: <code className="bg-muted px-1 rounded text-xs">0</code>=Absent&nbsp; <code className="bg-muted px-1 rounded text-xs">1</code>=Present&nbsp; <code className="bg-muted px-1 rounded text-xs">2</code>=Late&nbsp; <code className="bg-muted px-1 rounded text-xs">3</code>=Left&nbsp; <code className="bg-muted px-1 rounded text-xs">4</code>=Left Early&nbsp; <code className="bg-muted px-1 rounded text-xs">5</code>=Left Late</p>
+            </pre>
+            <p className="text-xs">Status codes: <code className="bg-muted px-1 rounded text-xs">0</code>=Absent&nbsp; <code className="bg-muted px-1 rounded text-xs">1</code>=Present&nbsp; <code className="bg-muted px-1 rounded text-xs">2</code>=Late&nbsp; <code className="bg-muted px-1 rounded text-xs">3</code>=Left&nbsp; <code className="bg-muted px-1 rounded text-xs">4</code>=Left Early&nbsp; <code className="bg-muted px-1 rounded text-xs">5</code>=Left Late</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-foreground">Create Students — requires <code className="bg-muted px-1 rounded">STUDENT_CREATE</code></p>
+            <pre className="bg-muted rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap break-all">
+{`POST /api/external/v1/students/bulk
+Authorization: Bearer sk_<your-key>
+Content-Type: application/json
+
+{
+  "students": [
+    { "firstName": "Jane", "lastName": "Doe", "phoneNumber": "0771234567" }
+  ]
+}`}
+            </pre>
+            <p className="text-xs">Matches existing users by <code className="bg-muted px-1 rounded text-xs">userId</code> or phone and links them; otherwise creates a new student.</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-foreground">Read Classes &amp; Sessions — requires <code className="bg-muted px-1 rounded">CLASS_READ</code></p>
+            <pre className="bg-muted rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap break-all">
+{`GET /api/external/v1/classes
+GET /api/external/v1/classes/{classId}/sessions
+Authorization: Bearer sk_<your-key>`}
+            </pre>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-foreground">Create Attendance Sessions — requires <code className="bg-muted px-1 rounded">SESSION_CREATE</code></p>
+            <pre className="bg-muted rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap break-all">
+{`POST /api/external/v1/classes/{classId}/sessions
+Authorization: Bearer sk_<your-key>
+Content-Type: application/json
+
+{ "name": "Morning Session", "date": "2026-06-16" }`}
+            </pre>
+          </div>
         </CardContent>
       </Card>
 
@@ -264,15 +315,22 @@ Content-Type: application/json
 
             <div className="space-y-2">
               <Label>Permissions (scopes)</Label>
-              {ALL_SCOPES.map(s => (
-                <label key={s} className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox
-                    checked={scopes.includes(s)}
-                    onCheckedChange={() => toggleScope(s)}
-                  />
-                  <span className="text-sm">{SCOPE_LABELS[s]}</span>
-                </label>
-              ))}
+              <p className="text-xs text-muted-foreground">Grant only what this system needs — least privilege.</p>
+              <div className="space-y-2.5">
+                {ALL_SCOPES.map(s => (
+                  <label key={s} className="flex items-start gap-2 cursor-pointer rounded-lg border px-3 py-2 hover:bg-muted/40">
+                    <Checkbox
+                      checked={scopes.includes(s)}
+                      onCheckedChange={() => toggleScope(s)}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="text-sm font-medium block">{SCOPE_LABELS[s]}</span>
+                      <span className="text-xs text-muted-foreground">{SCOPE_DESCRIPTIONS[s]}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-1.5">

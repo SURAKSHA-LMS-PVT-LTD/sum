@@ -473,12 +473,12 @@ export default function GatewayPaymentsPage() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <Select value={providerFilter} onValueChange={setProviderFilter}>
+          <Select value={providerFilter || 'ALL'} onValueChange={v => setProviderFilter(v === 'ALL' ? '' : v)}>
             <SelectTrigger className="w-36 h-8 text-xs">
               <SelectValue placeholder="All providers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All providers</SelectItem>
+              <SelectItem value="ALL">All providers</SelectItem>
               <SelectItem value="PAYHERE">PayHere</SelectItem>
             </SelectContent>
           </Select>

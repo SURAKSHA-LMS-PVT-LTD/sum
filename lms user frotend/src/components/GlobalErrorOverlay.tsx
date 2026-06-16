@@ -5,14 +5,13 @@
  */
 import React, { useEffect, useState } from 'react';
 import { isChunkLoadError } from '@/main';
-import { classifyError, captureScreenshot, sendErrorReport, ErrorKind } from './ErrorBoundary';
+import { classifyError, sendErrorReport, ErrorKind } from './ErrorBoundary';
 
 type GlobalError = {
   id: number;
   message: string;
   kind: ErrorKind;
   stack?: string;
-  screenshotDataUrl?: string | null;
   reportSent?: boolean;
 };
 
@@ -38,9 +37,7 @@ export function installGlobalErrorHandlers() {
     const kind = classifyError(undefined, msg);
     const err: GlobalError = { id: nextId++, message: msg, kind, stack: (e.error as Error)?.stack };
     emitError(err);
-    captureScreenshot().then(dataUrl => {
-      emitError({ ...err, screenshotDataUrl: dataUrl });
-    });
+    sendErrorReport({ errorMessage: err.message, errorStack: err.stack, pageUrl: location.href, userAgent: navigator.userAgent });
   }, true);
 
   window.addEventListener('unhandledrejection', (e) => {
@@ -51,9 +48,7 @@ export function installGlobalErrorHandlers() {
     const kind = classifyError(reason instanceof Error ? reason : undefined, msg);
     const err: GlobalError = { id: nextId++, message: msg, kind, stack: reason?.stack };
     emitError(err);
-    captureScreenshot().then(dataUrl => {
-      emitError({ ...err, screenshotDataUrl: dataUrl });
-    });
+    sendErrorReport({ errorMessage: err.message, errorStack: err.stack, pageUrl: location.href, userAgent: navigator.userAgent });
   });
 }
 
@@ -74,13 +69,6 @@ export function GlobalErrorOverlay() {
   useEffect(() => {
     const handler = (err: GlobalError) => {
       setErrors(prev => {
-        // update existing entry if same id (screenshot arrived later)
-        const idx = prev.findIndex(e => e.id === err.id);
-        if (idx !== -1) {
-          const next = [...prev];
-          next[idx] = err;
-          return next;
-        }
         // deduplicate by message — don't spam
         if (prev.some(e => e.message === err.message)) return prev;
         return [...prev.slice(-2), err]; // keep at most 3
@@ -91,17 +79,6 @@ export function GlobalErrorOverlay() {
   }, []);
 
   const dismiss = (id: number) => setErrors(prev => prev.filter(e => e.id !== id));
-
-  const handleReport = async (err: GlobalError) => {
-    await sendErrorReport({
-      errorMessage: err.message,
-      errorStack: err.stack,
-      screenshotDataUrl: err.screenshotDataUrl,
-      pageUrl: location.href,
-      userAgent: navigator.userAgent,
-    });
-    setErrors(prev => prev.map(e => e.id === err.id ? { ...e, reportSent: true } : e));
-  };
 
   if (errors.length === 0) return null;
 
@@ -133,25 +110,6 @@ export function GlobalErrorOverlay() {
             </div>
 
             <div className="flex items-center gap-2">
-              {!err.reportSent ? (
-                <button
-                  onClick={() => handleReport(err)}
-                  className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition ${meta.border} ${meta.color} hover:opacity-80`}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  {err.screenshotDataUrl === undefined ? 'Preparing…' : 'Send Screenshot'}
-                </button>
-              ) : (
-                <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Sent!
-                </span>
-              )}
-
               {(err.kind === 'network' || err.kind === 'generic') && (
                 <button
                   onClick={() => window.location.reload()}

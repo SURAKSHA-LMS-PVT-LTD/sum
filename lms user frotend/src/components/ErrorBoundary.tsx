@@ -1,6 +1,5 @@
 import React from 'react';
 import { isChunkLoadError } from '@/main';
-import html2canvas from 'html2canvas';
 import { errorReportService, ERROR_REPORT_KINDS } from '@/services/errorReportService';
 
 const RELOAD_TS_KEY = '__lms_last_chunk_reload';
@@ -72,50 +71,41 @@ const ERROR_CONTENT: Record<ErrorKind, { title: string; message: string; action:
   },
 };
 
-// ── Screenshot & report ───────────────────────────────────────────────────────
-
-async function captureScreenshot(): Promise<string | null> {
-  try {
-    const canvas = await html2canvas(document.body, {
-      useCORS: true,
-      allowTaint: true,
-      scale: 0.5,
-      logging: false,
-    });
-    return canvas.toDataURL('image/jpeg', 0.7);
-  } catch {
-    return null;
-  }
-}
-
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const a = document.createElement('a');
-  a.href = dataUrl;
-  a.download = filename;
-  a.click();
-}
-
 // ── ErrorBoundary state UI ────────────────────────────────────────────────────
 
 type ErrorBoundaryState = {
   hasError: boolean;
   error?: Error;
   info?: React.ErrorInfo;
-  screenshotDataUrl?: string | null;
-  screenshotTaken: boolean;
-  screenshotLoading: boolean;
   reportSent: boolean;
 };
 
 class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBoundaryState> {
   constructor(props: React.PropsWithChildren<{}>) {
     super(props);
-    this.state = { hasError: false, screenshotTaken: false, screenshotLoading: false, reportSent: false };
+    this.state = { hasError: false, reportSent: false };
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error };
   }
+
+  componentDidMount() {
+    // This boundary sits above <BrowserRouter>, so it never sees route changes
+    // on its own. history.back()/forward() (and the "Go back" action below)
+    // only fire a popstate — without this listener hasError stays true forever
+    // and the boundary keeps rendering the same error UI under the new URL.
+    window.addEventListener('popstate', this.handlePopState);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('popstate', this.handlePopState);
+  }
+
+  handlePopState = () => {
+    if (!this.state.hasError) return;
+    this.setState({ hasError: false, error: undefined, info: undefined, reportSent: false });
+  };
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     if (isChunkLoadError(error?.message ?? '')) {
@@ -129,16 +119,8 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBo
       }
     }
     this.setState({ info });
-    // Auto-capture screenshot after React renders the error UI (next tick)
-    setTimeout(() => this.handleTakeScreenshot(), 500);
+    this.handleSendReport();
   }
-
-  handleTakeScreenshot = async () => {
-    if (this.state.screenshotLoading || this.state.screenshotTaken) return;
-    this.setState({ screenshotLoading: true });
-    const dataUrl = await captureScreenshot();
-    this.setState({ screenshotDataUrl: dataUrl, screenshotTaken: true, screenshotLoading: false });
-  };
 
   handleAction = (kind: ErrorKind) => {
     if (kind === 'access-denied' || kind === 'session-expired') {
@@ -157,20 +139,23 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBo
   };
 
   handleSendReport = async () => {
-    const { error, info, screenshotDataUrl } = this.state;
+    if (this.state.reportSent) return;
+    const { error, info } = this.state;
     const appVersion = typeof __APP_BUILD_HASH__ !== 'undefined' ? __APP_BUILD_HASH__.substring(0, 8) : undefined;
-    await errorReportService.submit({
-      kind: ERROR_REPORT_KINDS.REACT_BOUNDARY,
-      errorMessage: (error?.message ?? 'Unknown error').slice(0, 500),
-      errorStack: error?.stack,
-      componentStack: info?.componentStack ?? undefined,
-      screenshotDataUrl: screenshotDataUrl ?? undefined,
-      pageUrl: location.href,
-      userAgent: navigator.userAgent,
-      appVersion,
-      platform: typeof window !== 'undefined' && (window as any).__capacitor ? 'native' : 'web',
-    });
-    this.setState({ reportSent: true });
+    try {
+      await errorReportService.submit({
+        kind: ERROR_REPORT_KINDS.REACT_BOUNDARY,
+        errorMessage: (error?.message ?? 'Unknown error').slice(0, 500),
+        errorStack: error?.stack,
+        componentStack: info?.componentStack ?? undefined,
+        pageUrl: location.href,
+        userAgent: navigator.userAgent,
+        appVersion,
+        platform: typeof window !== 'undefined' && (window as any).__capacitor ? 'native' : 'web',
+      });
+    } finally {
+      this.setState({ reportSent: true });
+    }
   };
 
   render() {
@@ -178,7 +163,6 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBo
 
     const kind = classifyError(this.state.error);
     const content = ERROR_CONTENT[kind];
-    const { screenshotLoading, screenshotTaken, screenshotDataUrl, reportSent } = this.state;
 
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-50 to-blue-50">
@@ -222,33 +206,7 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBo
               </details>
             )}
 
-            {/* Screenshot preview */}
-            {screenshotTaken && screenshotDataUrl && (
-              <div className="rounded-xl border border-slate-200 overflow-hidden">
-                <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200">
-                  <span className="text-xs font-semibold text-slate-600">Screenshot captured</span>
-                  <button
-                    onClick={() => downloadDataUrl(screenshotDataUrl, `lms-error-${Date.now()}.jpg`)}
-                    className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    Download
-                  </button>
-                </div>
-                <img src={screenshotDataUrl} alt="Error screenshot" className="w-full max-h-32 object-cover object-top" />
-              </div>
-            )}
-
-            {screenshotLoading && (
-              <div className="flex items-center gap-2 text-xs text-slate-400 px-1">
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Capturing screenshot…
-              </div>
-            )}
-
-            {/* Action buttons */}
+            {/* Action button */}
             <div className="space-y-2.5">
               <button
                 onClick={() => this.handleAction(kind)}
@@ -257,25 +215,8 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBo
                 {content.action}
               </button>
 
-              {/* Send report */}
-              {!reportSent ? (
-                <button
-                  onClick={this.handleSendReport}
-                  disabled={screenshotLoading}
-                  className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium text-sm hover:bg-slate-50 transition flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  {screenshotLoading ? 'Preparing…' : 'Send Error Report with Screenshot'}
-                </button>
-              ) : (
-                <div className="flex items-center justify-center gap-2 py-2.5 text-sm text-emerald-600 font-medium">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Report sent — thank you!
-                </div>
+              {this.state.reportSent && (
+                <p className="text-center text-xs text-slate-400">This error was reported automatically.</p>
               )}
             </div>
 
@@ -329,7 +270,6 @@ function ErrorIcon({ kind }: { kind: ErrorKind }) {
 async function sendErrorReport(args: {
   errorMessage: string;
   errorStack?: string;
-  screenshotDataUrl?: string | null;
   pageUrl: string;
   userAgent: string;
 }) {
@@ -337,12 +277,11 @@ async function sendErrorReport(args: {
     kind: ERROR_REPORT_KINDS.REACT_BOUNDARY,
     errorMessage: (args.errorMessage || 'Unknown error').slice(0, 500),
     errorStack: args.errorStack,
-    screenshotDataUrl: args.screenshotDataUrl ?? undefined,
     pageUrl: args.pageUrl,
     userAgent: args.userAgent,
   });
 }
 
 export default ErrorBoundary;
-export { classifyError, captureScreenshot, sendErrorReport };
+export { classifyError, sendErrorReport };
 export type { ErrorKind };

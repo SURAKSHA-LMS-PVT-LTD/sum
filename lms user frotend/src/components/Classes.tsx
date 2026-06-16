@@ -312,7 +312,17 @@ const Classes = () => {
       setAssigningTeacherId(null);
     }
   };
-  const handleViewCode = async (classId: string) => {
+  const handleViewCode = async (classId: string, enrollmentEnabled?: boolean) => {
+    // Enrollment-disabled classes always 400 on this endpoint — skip the request
+    // when we already know the answer from the list data.
+    if (enrollmentEnabled === false) {
+      toast({
+        title: "Enrollment not enabled",
+        description: "Enable enrollment for this class first to generate a code.",
+        variant: "destructive"
+      });
+      return;
+    }
     setLoadingCodeId(classId);
     try {
       const data = await enhancedCachedClient.get(`/institute-classes/${classId}/enrollment-code`, {}, {
@@ -471,8 +481,9 @@ const Classes = () => {
                 )}
                 <Button
                   size="sm"
-                  onClick={() => handleViewCode(row.id)}
-                  disabled={loadingCodeId === row.id}
+                  onClick={() => handleViewCode(row.id, row.enrollmentEnabled)}
+                  disabled={loadingCodeId === row.id || row.enrollmentEnabled === false}
+                  title={row.enrollmentEnabled === false ? 'Enrollment is not enabled for this class' : undefined}
                   className="h-8 px-3 hover:opacity-90"
                   style={{ backgroundColor: '#06923E' }}
                 >
@@ -748,10 +759,11 @@ const Classes = () => {
                           </Button>
                         )
                       )}
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleViewCode(cls.id)} 
-                        disabled={loadingCodeId === cls.id} 
+                      <Button
+                        size="sm"
+                        onClick={() => handleViewCode(cls.id, cls.enrollmentEnabled)}
+                        disabled={loadingCodeId === cls.id || cls.enrollmentEnabled === false}
+                        title={cls.enrollmentEnabled === false ? 'Enrollment is not enabled for this class' : undefined}
                         style={{ backgroundColor: '#06923E' }}
                         className="flex-1 text-[10px] h-7 hover:opacity-90"
                       >

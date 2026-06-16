@@ -1146,6 +1146,15 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // List calendar events (for event filter dropdowns)
+  listCalendarEvents: (instituteId: string, params: { startDate?: string; endDate?: string; limit?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (params.startDate) q.append("startDate", params.startDate);
+    if (params.endDate) q.append("endDate", params.endDate);
+    q.append("limit", String(params.limit || 100));
+    return apiRequest(`/institutes/${instituteId}/calendar/events?${q.toString()}`);
+  },
+
   // Update calendar event
   updateCalendarEvent: (instituteId: string, eventId: string, data: Record<string, any>) =>
     apiRequest(`/institutes/${instituteId}/calendar/events/${eventId}`, {
@@ -2353,40 +2362,48 @@ export const api = {
   getAttendanceDailyCount: (instituteId: string, params: {
     year?: number;
     month?: number;
+    eventId?: string;
   } = {}) => {
     const q = new URLSearchParams();
     if (params.year) q.append("year", String(params.year));
     if (params.month) q.append("month", String(params.month));
+    if (params.eventId) q.append("eventId", params.eventId);
     return apiRequest(`/api/attendance/institute/${instituteId}/daily-count?${q.toString()}`);
   },
 
   getAttendanceClassDailyCount: (instituteId: string, classId: string, params: {
     year?: number;
     month?: number;
+    eventId?: string;
   } = {}) => {
     const q = new URLSearchParams();
     if (params.year) q.append("year", String(params.year));
     if (params.month) q.append("month", String(params.month));
+    if (params.eventId) q.append("eventId", params.eventId);
     return apiRequest(`/api/attendance/institute/${instituteId}/class/${classId}/daily-count?${q.toString()}`);
   },
 
   getAttendanceMonthlyCount: (instituteId: string, params: {
     year?: number;
     month?: number;
+    eventId?: string;
   } = {}) => {
     const q = new URLSearchParams();
     if (params.year) q.append("year", String(params.year));
     if (params.month) q.append("month", String(params.month));
+    if (params.eventId) q.append("eventId", params.eventId);
     return apiRequest(`/api/attendance/institute/${instituteId}/monthly-count?${q.toString()}`);
   },
 
   getAttendanceClassMonthlyCount: (instituteId: string, classId: string, params: {
     year?: number;
     month?: number;
+    eventId?: string;
   } = {}) => {
     const q = new URLSearchParams();
     if (params.year) q.append("year", String(params.year));
     if (params.month) q.append("month", String(params.month));
+    if (params.eventId) q.append("eventId", params.eventId);
     return apiRequest(`/api/attendance/institute/${instituteId}/class/${classId}/monthly-count?${q.toString()}`);
   },
 

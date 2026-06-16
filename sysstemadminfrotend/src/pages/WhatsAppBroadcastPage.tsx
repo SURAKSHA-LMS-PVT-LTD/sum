@@ -200,7 +200,7 @@ export default function WhatsAppBroadcastPage() {
 
   return (
     <DashboardLayout>
-      <PageHeader title="WhatsApp Broadcast" description="Filter an audience, preview the count, personalize, and send in one click." />
+      <PageHeader title="WhatsApp Broadcast" description="Filter an audience, preview the count, personalize, and send in one click." icon={Send} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* ── Audience filter ── */}

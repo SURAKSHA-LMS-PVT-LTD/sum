@@ -311,14 +311,14 @@ export function CreateLectureForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Class (optional — leave empty for institute-wide)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select onValueChange={v => field.onChange(v === "ALL" ? "" : v)} value={field.value || "ALL"}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="All classes" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">All classes (institute-wide)</SelectItem>
+                          <SelectItem value="ALL">All classes (institute-wide)</SelectItem>
                           {classes.map((cls) => (
                             <SelectItem key={cls.id} value={String(cls.id)}>
                               {cls.name}

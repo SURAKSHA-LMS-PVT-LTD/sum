@@ -1060,6 +1060,7 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
 
               {/* ── CRITERIA MODE ── */}
               {filterMode === 'criteria' && (
+              <div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
 
                 {/* User Type */}
@@ -1175,8 +1176,9 @@ const CardTemplateBulkGenerate: React.FC<CardTemplateBulkGenerateProps> = ({
                 {loadingUsers ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
                 Fetch Users
               </Button>
-              </div> {/* end criteria grid */}
-              )} {/* end criteria mode */}
+              </div>
+              )}
+              {/* end criteria mode */}
 
             </CardContent>
           </CollapsibleContent>

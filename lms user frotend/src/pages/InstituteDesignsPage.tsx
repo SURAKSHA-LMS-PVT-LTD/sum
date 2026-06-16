@@ -16,6 +16,9 @@ function apiToUi(dt: DesignTemplate): CardTemplate & { status: DesignTemplateSta
   return {
     backgroundImageUrl: '',
     overlayImageUrl: '',
+    backgroundColor: '',
+    isBackgroundTransparent: false,
+    cardBorderRadius: 8,
     cardWidth: 640,
     cardHeight: 400,
     elements: [],
@@ -36,6 +39,7 @@ function apiToUi(dt: DesignTemplate): CardTemplate & { status: DesignTemplateSta
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<DesignTemplateStatus, { label: string; color: string; icon: React.ReactNode }> = {
+  DRAFT:     { label: 'Draft',          color: 'text-slate-600 bg-slate-50 border-slate-200',   icon: <Palette className="h-3 w-3" /> },
   PENDING:   { label: 'Pending Review', color: 'text-yellow-600 bg-yellow-50 border-yellow-200', icon: <Clock className="h-3 w-3" /> },
   APPROVED:  { label: 'Approved',       color: 'text-green-600 bg-green-50 border-green-200',   icon: <CheckCircle2 className="h-3 w-3" /> },
   REJECTED:  { label: 'Rejected',       color: 'text-red-600 bg-red-50 border-red-200',         icon: <XCircle className="h-3 w-3" /> },
@@ -155,6 +159,7 @@ const InstituteDesignsPage: React.FC = () => {
     try {
       const blankDefinition = {
         backgroundImageUrl: '', overlayImageUrl: '',
+        backgroundColor: '', isBackgroundTransparent: false, cardBorderRadius: 8,
         cardWidth: 640, cardHeight: 400, elements: [],
       };
       const created = await instituteDesignsApi.createTemplate(currentInstituteId, {
@@ -168,6 +173,23 @@ const InstituteDesignsPage: React.FC = () => {
       setCreating(false);
     }
   }, [currentInstituteId, navigate, toast]);
+
+  // ── Submit a DRAFT template for admin review ──────────────────────────────
+  const [submittingForReview, setSubmittingForReview] = useState(false);
+
+  const submitForReview = useCallback(async (templateId: string) => {
+    if (!currentInstituteId) return;
+    setSubmittingForReview(true);
+    try {
+      const updated = await instituteDesignsApi.submitForReview(currentInstituteId, templateId);
+      setApiTemplates(prev => prev.map(t => t.id === templateId ? updated : t));
+      toast({ title: 'Submitted for review', description: 'An admin will review this template shortly.' });
+    } catch {
+      toast({ title: 'Could not submit for review', variant: 'destructive' });
+    } finally {
+      setSubmittingForReview(false);
+    }
+  }, [currentInstituteId, toast]);
 
   // ── URL navigation helpers ────────────────────────────────────────────────
   const goTab  = (t: Tab)             => navigate(buildSearch(t, 'list'), { replace: true });
@@ -247,7 +269,7 @@ const InstituteDesignsPage: React.FC = () => {
           {/* Status overview pills (list view) */}
           {!loading && (view === 'list') && apiTemplates.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
-              {(['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'] as DesignTemplateStatus[]).map(s => {
+              {(['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'] as DesignTemplateStatus[]).map(s => {
                 const count = apiTemplates.filter(t => t.status === s).length;
                 if (!count) return null;
                 return <StatusBadge key={s} status={s} />;
@@ -289,6 +311,8 @@ const InstituteDesignsPage: React.FC = () => {
               apiTemplates={apiTemplates}
               onCreate={createAndEdit}
               creating={creating}
+              onSubmitForReview={submitForReview}
+              submittingForReview={submittingForReview}
             />
           ) : (
             <CardTemplateBulkGenerate

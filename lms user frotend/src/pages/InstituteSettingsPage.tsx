@@ -130,7 +130,7 @@ const SECTION_ITEMS: Array<{
   { id: 'session-limits', label: 'Session Limits', description: 'Device limits per user, session controls', icon: ShieldCheck, color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' },
   { id: 'features', label: 'Feature Management', description: 'Enable or disable institute features', icon: Zap, color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
   { id: 'user-types', label: 'User Types & Permissions', description: 'Manage roles, permissions per feature', icon: Shield, color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' },
-  { id: 'api-keys', label: 'API Keys', description: 'External system access for attendance marking', icon: Key, color: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300' },
+  { id: 'api-keys', label: 'API Keys', description: 'External system access for attendance, students & classes', icon: Key, color: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300' },
   { id: 'bank-accounts', label: 'Bank Accounts', description: 'Institute bank accounts for payment collection', icon: CreditCard, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
 ];
 

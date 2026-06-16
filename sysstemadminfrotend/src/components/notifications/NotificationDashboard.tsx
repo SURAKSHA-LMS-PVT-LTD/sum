@@ -1063,14 +1063,14 @@ const NotificationDashboard = () => {
                 <div>
                   <Label className="text-xs">Scope</Label>
                   <Select
-                    value={filters.scope}
-                    onValueChange={(value) => setFilters({ ...filters, scope: value as NotificationScope })}
+                    value={filters.scope || 'ALL'}
+                    onValueChange={(value) => setFilters({ ...filters, scope: (value === 'ALL' ? '' : value) as NotificationScope })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="All scopes" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All scopes</SelectItem>
+                      <SelectItem value="ALL">All scopes</SelectItem>
                       <SelectItem value={NotificationScope.GLOBAL}>Global</SelectItem>
                       <SelectItem value={NotificationScope.INSTITUTE}>Institute</SelectItem>
                       <SelectItem value={NotificationScope.CLASS}>Class</SelectItem>
@@ -1081,14 +1081,14 @@ const NotificationDashboard = () => {
                 <div>
                   <Label className="text-xs">Status</Label>
                   <Select
-                    value={filters.status}
-                    onValueChange={(value) => setFilters({ ...filters, status: value as NotificationStatus })}
+                    value={filters.status || 'ALL'}
+                    onValueChange={(value) => setFilters({ ...filters, status: (value === 'ALL' ? '' : value) as NotificationStatus })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="All statuses" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All statuses</SelectItem>
+                      <SelectItem value="ALL">All statuses</SelectItem>
                       <SelectItem value={NotificationStatus.DRAFT}>Draft</SelectItem>
                       <SelectItem value={NotificationStatus.SCHEDULED}>Scheduled</SelectItem>
                       <SelectItem value={NotificationStatus.SENDING}>Sending</SelectItem>
@@ -1101,14 +1101,14 @@ const NotificationDashboard = () => {
                 <div>
                   <Label className="text-xs">Priority</Label>
                   <Select
-                    value={filters.priority}
-                    onValueChange={(value) => setFilters({ ...filters, priority: value as NotificationPriority })}
+                    value={filters.priority || 'ALL'}
+                    onValueChange={(value) => setFilters({ ...filters, priority: (value === 'ALL' ? '' : value) as NotificationPriority })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="All priorities" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All priorities</SelectItem>
+                      <SelectItem value="ALL">All priorities</SelectItem>
                       <SelectItem value={NotificationPriority.LOW}>Low</SelectItem>
                       <SelectItem value={NotificationPriority.NORMAL}>Normal</SelectItem>
                       <SelectItem value={NotificationPriority.HIGH}>High</SelectItem>
@@ -1118,14 +1118,14 @@ const NotificationDashboard = () => {
                 <div>
                   <Label className="text-xs">Institute</Label>
                   <Select
-                    value={filters.instituteId}
-                    onValueChange={(value) => setFilters({ ...filters, instituteId: value })}
+                    value={filters.instituteId || 'ALL'}
+                    onValueChange={(value) => setFilters({ ...filters, instituteId: value === 'ALL' ? '' : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="All institutes" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All institutes</SelectItem>
+                      <SelectItem value="ALL">All institutes</SelectItem>
                       {institutes.map((inst) => (
                         <SelectItem key={inst.id} value={inst.id}>{inst.name}</SelectItem>
                       ))}

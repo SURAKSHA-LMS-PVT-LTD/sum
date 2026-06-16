@@ -3,12 +3,38 @@
 require('dotenv').config();
 
 const express = require('express');
+const crypto = require('crypto');
 const db = require('./db');
 const wa = require('./whatsapp');
 const state = require('./state');
 
 const app = express();
-app.use(express.json());
+
+// Parse raw body so we can verify Meta's HMAC signature before touching the JSON.
+app.use(express.json({
+  verify: (req, _res, buf) => { req.rawBody = buf; },
+}));
+
+/**
+ * Verify the X-Hub-Signature-256 header Meta sends on every POST.
+ * If WHATSAPP_APP_SECRET is unset we skip verification (dev mode only).
+ */
+function verifyMetaSignature(req) {
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (!appSecret) return true; // skip in dev — warn on startup
+
+  const sig = req.headers['x-hub-signature-256'];
+  if (!sig || !sig.startsWith('sha256=')) return false;
+
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', appSecret)
+    .update(req.rawBody)
+    .digest('hex');
+
+  // Constant-time comparison prevents timing attacks
+  return sig.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+}
 
 // ─── Trigger words ────────────────────────────────────────────────────────────
 const GREETING_PATTERN = /^(hi|hello|me|මෙ|හායි|හෙලෝ)$/iu;
@@ -266,6 +292,12 @@ app.get('/webhook', (req, res) => {
 
 // POST — incoming messages
 app.post('/webhook', async (req, res) => {
+  // Reject requests that don't carry a valid Meta HMAC signature.
+  if (!verifyMetaSignature(req)) {
+    console.warn('[webhook] Rejected — invalid X-Hub-Signature-256');
+    return res.sendStatus(403);
+  }
+
   // Always respond 200 immediately so Meta doesn't retry
   res.sendStatus(200);
 
@@ -310,4 +342,10 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 const PORT = Number(process.env.PORT) || 4000;
 app.listen(PORT, () => {
   console.log(`[suraksha-wa-webhook] Listening on port ${PORT}`);
+  if (!process.env.WHATSAPP_APP_SECRET) {
+    console.warn('[security] WHATSAPP_APP_SECRET is not set — Meta signature verification is DISABLED');
+  }
+  if (!process.env.WHATSAPP_VERIFY_TOKEN) {
+    console.warn('[security] WHATSAPP_VERIFY_TOKEN is not set — webhook GET verification will fail');
+  }
 });

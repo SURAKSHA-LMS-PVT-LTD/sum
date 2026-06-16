@@ -11,7 +11,7 @@ export default defineConfig(({ command }) => ({
       "Content-Security-Policy": 
         command === "serve"
           ? // Development: Allow inline scripts for HMR and React plugin
-            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://lmsapi.suraksha.lk https://*.s3.us-east-1.amazonaws.com wss: ws: localhost:*; worker-src 'self' blob:; font-src 'self' data: https://fonts.gstatic.com;"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://lmsapi.suraksha.lk https://*.s3.us-east-1.amazonaws.com wss: ws: localhost:* 127.0.0.1:*; worker-src 'self' blob:; font-src 'self' data: https://fonts.gstatic.com;"
           : // Production: Strict CSP
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://lmsapi.suraksha.lk https://*.s3.us-east-1.amazonaws.com wss:; worker-src 'self' blob:; font-src 'self' data: https://fonts.gstatic.com;",
     },
