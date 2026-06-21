@@ -46,7 +46,7 @@ async function findUserByPhone(rawPhone) {
     `SELECT id, first_name AS firstName, last_name AS lastName, user_type AS userType
      FROM users
      WHERE phone_number IN (${placeholders})
-       AND is_deleted = 0
+       AND is_active = 1
      LIMIT 1`,
     [...variants],
   );
@@ -79,7 +79,7 @@ async function findChildrenOfParent(parentUserId) {
             u.first_name AS firstName,
             u.last_name  AS lastName
      FROM students s
-     JOIN users u ON u.id = s.user_id AND u.is_deleted = 0
+     JOIN users u ON u.id = s.user_id AND u.is_active = 1
      WHERE s.is_active = 1
        AND (s.father_id = ? OR s.mother_id = ? OR s.guardian_id = ?)
      ORDER BY s.user_id ASC`,
@@ -97,8 +97,8 @@ async function findStudentInstitutes(studentUserId) {
   const [rows] = await db.execute(
     `SELECT iu.institute_id AS instituteId,
             i.name          AS instituteName
-     FROM institute_users iu
-     JOIN institutes i ON i.id = iu.institute_id AND i.is_deleted = 0
+     FROM institute_user iu
+     JOIN institutes i ON i.id = iu.institute_id AND i.is_active = 1
      WHERE iu.user_id = ?
        AND iu.status = 'ACTIVE'
      LIMIT 10`,
@@ -124,7 +124,7 @@ async function getAttendanceLast7Days(studentUserId, instituteId) {
   const [rows] = await db.execute(
     `SELECT ar.date,
             ar.status,
-            ar.check_in_time AS checkInTime
+            ar.timestamp AS checkInTime
      FROM attendance_records ar
      WHERE ar.student_id = ?
        AND ar.institute_id = ?

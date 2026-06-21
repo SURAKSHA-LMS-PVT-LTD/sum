@@ -312,23 +312,36 @@ async function handleIncomingMessage(from, text, interactiveId) {
 
 // ─── Webhook endpoints ────────────────────────────────────────────────────────
 
-// GET — Meta verification challenge
-app.get('/webhook', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
+/**
+ * Shared verification handler — Meta sends the challenge to whatever URL is
+ * configured in the developer console. Some configurations hit `/` (root) and
+ * some hit `/webhook`, so we handle both.
+ */
+function handleVerification(req, res) {
+  // Meta sends both `hub.mode` and `hub_mode` (underscore variant) — accept either.
+  const mode = req.query['hub.mode'] || req.query['hub_mode'];
+  const token = req.query['hub.verify_token'] || req.query['hub_verify_token'];
+  const challenge = req.query['hub.challenge'] || req.query['hub_challenge'];
 
-  if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
-    console.log('[webhook] Verified by Meta');
+  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+
+  if (mode === 'subscribe' && token === verifyToken) {
+    console.log('[webhook] Verified by Meta ✓');
     return res.status(200).send(challenge);
   }
 
-  console.warn('[webhook] Verification failed — token mismatch');
+  console.warn(`[webhook] Verification failed — expected "${verifyToken}", got "${token}"`);
   res.sendStatus(403);
-});
+}
 
-// POST — incoming messages
-app.post('/webhook', async (req, res) => {
+// GET — Meta verification challenge (root path — Meta hits this when the webhook URL has no path)
+app.get('/', handleVerification);
+
+// GET — Meta verification challenge (explicit /webhook path)
+app.get('/webhook', handleVerification);
+
+// POST — incoming messages (handles both root and /webhook path)
+async function handleWebhookPost(req, res) {
   // Reject requests that don't carry a valid Meta HMAC signature.
   if (!verifyMetaSignature(req)) {
     console.warn('[webhook] Rejected — invalid X-Hub-Signature-256');
@@ -379,7 +392,10 @@ app.post('/webhook', async (req, res) => {
   } catch (err) {
     console.error('[webhook] Unexpected error:', err);
   }
-});
+}
+
+app.post('/', handleWebhookPost);
+app.post('/webhook', handleWebhookPost);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));

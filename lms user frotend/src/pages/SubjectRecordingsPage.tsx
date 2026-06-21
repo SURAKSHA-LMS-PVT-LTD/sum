@@ -544,7 +544,7 @@ const SubjectRecordingsPage: React.FC = () => {
       setDeleteDialog({ open: false, item: null });
       load(true);
     } catch (e: any) {
-      toast({ title: 'Delete failed', description: e?.response?.data?.message ?? String(e), variant: 'destructive' });
+      toast({ title: 'Delete failed', description: e?.message ?? String(e), variant: 'destructive' });
     } finally { setIsDeleting(false); }
   };
 

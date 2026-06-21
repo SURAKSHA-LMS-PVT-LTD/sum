@@ -133,13 +133,12 @@ const SubjectDashboard = () => {
     if (!deleteDialog.item) return;
     setIsDeleting(true);
     try {
-      // Data loaded from /institute-class-subject-lectures — use PATCH to soft-deactivate (DELETE is SUPERADMIN-only)
-      await cachedApiClient.patch(`/institute-class-subject-lectures/${deleteDialog.item.id}`, { isActive: false });
+      await cachedApiClient.delete(`/institute-class-subject-lectures/${deleteDialog.item.id}/permanent`);
       toast({ title: "Deleted", description: `Lecture "${deleteDialog.item.title}" deleted.`, variant: "destructive" });
       setDeleteDialog({ open: false, item: null, type: '' });
       lecturesTable.actions.refresh();
-    } catch {
-      toast({ title: "Failed", description: "Could not delete lecture.", variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Failed", description: e?.message ?? "Could not delete lecture.", variant: "destructive" });
     } finally {
       setIsDeleting(false);
     }

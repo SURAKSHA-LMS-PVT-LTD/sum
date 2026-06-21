@@ -19,11 +19,12 @@ import { cn } from '@/lib/utils';
 
 // Parse URL params manually since we use catch-all routes
 const parseUrlParams = (pathname: string) => {
-  const instituteMatch = pathname.match(/\/institute\/(\d+)/);
-  const classMatch = pathname.match(/\/class\/(\d+)/);
-  const subjectMatch = pathname.match(/\/subject\/(\d+)/);
-  const examMatch = pathname.match(/\/exam\/(\d+)/);
-  
+  // IDs can be numeric or UUID — match any non-slash sequence
+  const instituteMatch = pathname.match(/\/institute\/([^/]+)/);
+  const classMatch = pathname.match(/\/class\/([^/]+)/);
+  const subjectMatch = pathname.match(/\/subject\/([^/]+)/);
+  const examMatch = pathname.match(/\/exam\/([^/]+)/);
+
   return {
     instituteId: instituteMatch?.[1] || null,
     classId: classMatch?.[1] || null,
