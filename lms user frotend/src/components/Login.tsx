@@ -163,6 +163,11 @@ const Login = ({
   // First login and forgot password states
   // 🏢 Multi-tenant: always start at 'login', then switch to 'institute-login' AFTER branding is confirmed valid
   const [loginStep, setLoginStep] = useState<LoginStep>('login');
+  const loginPanelRef = React.useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    loginPanelRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [loginStep]);
   const [otp, setOtp] = useState('');
   const [verificationToken, setVerificationToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -896,7 +901,7 @@ const Login = ({
       )}
 
       {/* Left Side - Form */}
-      <div className="w-full md:w-3/5 lg:w-1/2 flex flex-col items-center justify-center px-5 py-7 sm:p-7 md:p-10 bg-background -mt-8 md:mt-0 rounded-t-[3rem] md:rounded-none relative z-10 flex-1 md:min-h-screen overflow-y-auto" onFocusCapture={scrollInputIntoView}>
+      <div ref={loginPanelRef} className="w-full md:w-3/5 lg:w-1/2 flex flex-col items-center justify-center px-5 py-7 sm:p-7 md:p-10 bg-background -mt-8 md:mt-0 rounded-t-[3rem] md:rounded-none relative z-10 flex-1 md:min-h-screen overflow-y-auto" onFocusCapture={scrollInputIntoView}>
         <div className="w-full max-w-md md:max-w-lg space-y-6 md:space-y-7">
           {/* Logo and Header — hidden while tenant branding is loading to avoid default flash */}
           {!(isTenantLogin && tenantLoading) && (
