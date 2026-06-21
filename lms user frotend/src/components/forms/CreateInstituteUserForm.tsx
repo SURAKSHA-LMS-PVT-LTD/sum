@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeatures } from '@/contexts/FeaturesContext';
 import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { instituteApi } from '@/api/institute.api';
 import { instituteClassesApi, InstituteClass } from '@/api/instituteClasses.api';
@@ -203,6 +204,8 @@ type Lang = keyof typeof FORM_LABELS;
 const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSubmit, onCancel, mode = 'dialog' }) => {
   const { toast } = useToast();
   const { currentInstituteId } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
+  const smartCardsEnabled = isFeatureEnabled('smart-cards');
   const { subjectsLabel } = useInstituteLabels();
   const navigate = useNavigate();
   const isPageMode = mode === 'page';
@@ -243,6 +246,10 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
   const [postalCode, setPostalCode] = useState('');
   const [userIdByInstitute, setUserIdByInstitute] = useState('');
   const [instituteCardId, setInstituteCardId] = useState('');
+  // Smart-card assignment (only when the 'smart-cards' feature is enabled)
+  const [autoAssignInstituteCard, setAutoAssignInstituteCard] = useState(false);
+  const [autoAssignSurakshaCard, setAutoAssignSurakshaCard] = useState(false);
+  const [surakshaCardId, setSurakshaCardId] = useState('');
   const [password, setPassword] = useState('');
   const [sendWelcomeNotifications, setSendWelcomeNotifications] = useState(true);
 
@@ -512,6 +519,12 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
         password: password || undefined,
         userIdByInstitute: userIdByInstitute || undefined,
         instituteCardId: instituteCardId || undefined,
+        // Smart-card assignment (ignored server-side unless the feature is enabled)
+        ...(smartCardsEnabled ? {
+          autoAssignInstituteCard: autoAssignInstituteCard || undefined,
+          autoAssignSurakshaCard: autoAssignSurakshaCard || undefined,
+          surakshaCardId: surakshaCardId || undefined,
+        } : {}),
         instituteUserImageUrl: instituteImageUrl || undefined,
         globalImageUrl: globalImageUrl || undefined,
         sendWelcomeNotifications,
@@ -741,9 +754,47 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm">{L.cardId}</Label>
-                  <Input value={instituteCardId} onChange={e => setInstituteCardId(e.target.value)} placeholder={L.cardIdPlaceholder} maxLength={100} />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={instituteCardId}
+                      onChange={e => setInstituteCardId(e.target.value)}
+                      placeholder={L.cardIdPlaceholder}
+                      maxLength={smartCardsEnabled ? 30 : 100}
+                      disabled={smartCardsEnabled && autoAssignInstituteCard}
+                    />
+                  </div>
+                  {smartCardsEnabled && (
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                      <Checkbox
+                        checked={autoAssignInstituteCard}
+                        onCheckedChange={v => { setAutoAssignInstituteCard(!!v); if (v) setInstituteCardId(''); }}
+                      />
+                      Auto-assign next available institute smart card
+                    </label>
+                  )}
                 </div>
               </div>
+
+              {/* ── Suraksha (global) smart card — only when feature enabled ── */}
+              {smartCardsEnabled && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Suraksha Smart Card ID</Label>
+                  <Input
+                    value={surakshaCardId}
+                    onChange={e => setSurakshaCardId(e.target.value)}
+                    placeholder="Type a Suraksha card id (or auto-assign)"
+                    maxLength={30}
+                    disabled={autoAssignSurakshaCard}
+                  />
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <Checkbox
+                      checked={autoAssignSurakshaCard}
+                      onCheckedChange={v => { setAutoAssignSurakshaCard(!!v); if (v) setSurakshaCardId(''); }}
+                    />
+                    Auto-assign next available Suraksha smart card
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* ── Address (collapsible) ── */}

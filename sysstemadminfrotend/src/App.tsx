@@ -47,6 +47,7 @@ import CollectPhysicalPaymentPage from "./pages/CollectPhysicalPaymentPage";
 import ErrorReportsPage from "./pages/ErrorReportsPage";
 import PackageDefinitionsPage from "./pages/PackageDefinitionsPage";
 import InstituteDesignApprovalsPage from "./pages/InstituteDesignApprovalsPage";
+import SmartCardsPage from "./pages/SmartCardsPage";
 import GatewayPaymentsPage from "./pages/GatewayPaymentsPage";
 import WhatsAppMessagingPage from "./pages/WhatsAppMessagingPage";
 import WhatsAppBroadcastPage from "./pages/WhatsAppBroadcastPage";
@@ -115,6 +116,7 @@ const App = () => (
             <Route path="/dashboard/error-reports" element={<ErrorReportsPage />} />
             <Route path="/dashboard/package-definitions" element={<PackageDefinitionsPage />} />
             <Route path="/dashboard/design-approvals" element={<InstituteDesignApprovalsPage />} />
+            <Route path="/dashboard/smart-cards" element={<SmartCardsPage />} />
             <Route path="/dashboard/gateway-payments" element={<GatewayPaymentsPage />} />
             <Route path="/dashboard/whatsapp-messaging" element={<WhatsAppMessagingPage />} />
             <Route path="/dashboard/whatsapp-broadcast" element={<WhatsAppBroadcastPage />} />

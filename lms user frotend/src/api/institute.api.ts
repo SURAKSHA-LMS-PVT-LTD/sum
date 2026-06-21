@@ -37,6 +37,11 @@ export interface CreateInstituteUserDto {
   userIdByInstitute?: string;
   instituteCardId?: string;
 
+  // Smart-card assignment (requires the 'smart-cards' feature)
+  autoAssignInstituteCard?: boolean;
+  autoAssignSurakshaCard?: boolean;
+  surakshaCardId?: string;
+
   // Images
   instituteUserImageUrl?: string;
   globalImageUrl?: string;

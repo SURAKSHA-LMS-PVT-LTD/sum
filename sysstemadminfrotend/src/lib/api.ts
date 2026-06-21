@@ -2683,4 +2683,43 @@ export const api = {
     q.append('limit', '200');
     return apiRequest(`/api/attendance/admin/whatsapp/institutes?${q}`);
   },
+
+  // ── Smart Cards (system admin) ─────────────────────────────────────────────
+  smartCardsList: (params?: {
+    scope?: string; cardType?: string; status?: string; search?: string;
+    instituteId?: string; classId?: string; page?: number; limit?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.scope)       q.set('scope', params.scope);
+    if (params?.cardType)    q.set('cardType', params.cardType);
+    if (params?.status)      q.set('status', params.status);
+    if (params?.search)      q.set('search', params.search);
+    if (params?.instituteId) q.set('instituteId', params.instituteId);
+    if (params?.classId)     q.set('classId', params.classId);
+    if (params?.page)        q.set('page', String(params.page));
+    if (params?.limit)       q.set('limit', String(params.limit));
+    return apiRequest(`/admin/smart-cards?${q}`);
+  },
+
+  smartCardCreate: (data: { cardName: string; cardId: string; cardType: string; scope: string }) =>
+    apiRequest(`/admin/smart-cards`, { method: 'POST', body: JSON.stringify(data) }),
+
+  smartCardBulkCreate: (data: {
+    cardType: string; scope: string; namePrefix?: string;
+    cardIds?: string[]; rangePrefix?: string; rangeStart?: number; rangeEnd?: number; pad?: number;
+  }) => apiRequest(`/admin/smart-cards/bulk`, { method: 'POST', body: JSON.stringify(data) }),
+
+  smartCardUpdate: (id: string, data: { cardName?: string; cardType?: string; status?: string }) =>
+    apiRequest(`/admin/smart-cards/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  smartCardDelete: (id: string) =>
+    apiRequest(`/admin/smart-cards/${id}`, { method: 'DELETE' }),
+
+  smartCardAssignToInstitute: (data: { instituteId: string; cardRowIds: string[] }) =>
+    apiRequest(`/admin/smart-cards/assign-to-institute`, { method: 'POST', body: JSON.stringify(data) }),
+
+  smartCardAssignToClass: (instituteId: string, data: { classId: string; cardRowIds: string[] }) =>
+    apiRequest(`/admin/smart-cards/institutes/${instituteId}/assign-to-class`, {
+      method: 'POST', body: JSON.stringify(data),
+    }),
 };

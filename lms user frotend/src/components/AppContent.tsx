@@ -125,6 +125,7 @@ const DeviceManagement = React.lazy(() => import('@/pages/DeviceManagement'));
 const Feedback = React.lazy(() => import('@/components/Feedback'));
 const GlobalIdCardsPage = React.lazy(() => import('@/pages/GlobalIdCardsPage'));
 const InstituteDesignsPage = React.lazy(() => import('@/pages/InstituteDesignsPage'));
+const ManageSmartCardsPage = React.lazy(() => import('@/pages/ManageSmartCardsPage'));
 const Payments = React.lazy(() => import('@/pages/Payments'));
 const InstituteHouses = React.lazy(() => import('@/pages/InstituteHouses'));
 const HouseDetail = React.lazy(() => import('@/pages/HouseDetail'));
@@ -1501,6 +1502,8 @@ const AppContent = ({ initialPage }: AppContentProps) => {
         return <FeatureGatedPage featureKey="teacher-finance" component={<TeacherFinancePage />} />;
       case 'institute-designs':
         return <InstituteDesignsPage />;
+      case 'manage-smart-cards':
+        return <FeatureGatedPage featureKey="smart-cards" component={<ManageSmartCardsPage />} />;
       default:
         return <Dashboard />;
     }

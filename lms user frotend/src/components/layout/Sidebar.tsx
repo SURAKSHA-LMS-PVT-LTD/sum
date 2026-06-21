@@ -671,6 +671,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             items: [{ id: FEATURE_KEYS.INSTITUTE_DESIGNS, label: 'Designs', icon: Palette }] });
         }
 
+        // Smart Cards — InstituteAdmin only, gated on the (off-by-default) 'smart-cards' feature.
+        if (!selectedClass) {
+          groups.push({ id: 'smart-cards-group', label: 'Smart Cards', icon: CreditCard,
+            defaultOpen: activePage === 'manage-smart-cards',
+            items: [{ id: 'manage-smart-cards', label: 'Manage Smart Cards', icon: CreditCard, featureKey: 'smart-cards' }] });
+        }
+
         // Fees & Payments
         const paymentItems: NavItem[] = [];
         if (!selectedClass) {

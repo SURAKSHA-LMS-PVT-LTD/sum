@@ -98,6 +98,7 @@ const navItems = [
   { to: "/dashboard/account-deletion", icon: UserX, label: "Account Deletion" },
   { to: "/dashboard/error-reports",     icon: AlertTriangle, label: "Error Reports" },
   { to: "/dashboard/design-approvals", icon: LayoutGrid,    label: "Design Approvals" },
+  { to: "/dashboard/smart-cards",      icon: CreditCard,    label: "Smart Cards" },
   { to: "/dashboard/gateway-payments", icon: Zap,          label: "Gateway Payments" },
   { to: "/dashboard/whatsapp-messaging", icon: MessageCircle, label: "WhatsApp Messaging" },
   { to: "/dashboard/whatsapp-broadcast", icon: Send, label: "WhatsApp Broadcast" },
