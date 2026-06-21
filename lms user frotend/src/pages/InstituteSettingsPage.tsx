@@ -36,7 +36,7 @@ import {
   Palette, Save, Loader2, Eye, Image, Settings, RefreshCw,
   CheckCircle, AlertCircle, ChevronRight, Server, Link2, Sparkles,
   MessageSquare, Shield, Crown, Zap, Lock, ArrowLeft, Layers,
-  ShieldCheck, Search, Users, Printer, Camera, Key, CreditCard,
+  ShieldCheck, Search, Users, Printer, Camera, Key, KeyRound, CreditCard,
 } from 'lucide-react';
 import { instituteSettingsApi, type PrinterSettings } from '@/api/instituteSettings.api';
 import InstituteDriveSettings from '@/components/institute-settings/InstituteDriveSettings';

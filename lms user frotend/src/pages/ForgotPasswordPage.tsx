@@ -27,40 +27,80 @@ type Step =
 
 function WaVerifyPanel({ waLink, verified }: { waLink: string; verified: boolean }) {
   const [qr, setQr] = React.useState('');
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+  const [showQr, setShowQr] = React.useState(isDesktop);
   React.useEffect(() => {
     if (!waLink) { setQr(''); return; }
     import('qrcode').then((m: any) => {
-      (m.default || m).toDataURL(waLink, { width: 200, margin: 1 }).then(setQr).catch(() => setQr(''));
+      (m.default || m).toDataURL(waLink, { width: 180, margin: 1 }).then(setQr).catch(() => setQr(''));
     });
   }, [waLink]);
+
+  if (verified) {
+    return (
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400">
+        <CheckCircle2 className="h-5 w-5 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold">WhatsApp verified!</p>
+          <p className="text-xs opacity-80">Now set your new password below.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground bg-primary/10 p-3 rounded-lg leading-relaxed">
-        On your <b>phone</b>: tap the green button — WhatsApp opens with the code ready, press Send.<br />
-        On a <b>computer</b>: scan the QR with your phone camera, then press Send in WhatsApp.
-      </p>
+      {/* Step badge */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground font-bold text-[10px]">1</span>
+        Send the code from WhatsApp
+      </div>
+
       {waLink && (
-        <>
-          <a
-            href={waLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-[#25D366] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+        <a
+          href={waLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-[#25D366] text-white text-sm font-semibold hover:opacity-90 active:scale-[.98] transition-all shadow-sm"
+        >
+          <Phone className="h-4 w-4" />
+          Open WhatsApp &amp; Send Code
+        </a>
+      )}
+
+      {/* QR toggle — only show on desktop hint */}
+      {qr && (
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => setShowQr(v => !v)}
+            className="text-xs text-primary underline underline-offset-2"
           >
-            Open WhatsApp &amp; Send Code
-          </a>
-          {qr && (
-            <div className="flex flex-col items-center gap-1.5 mt-1">
-              <img src={qr} alt="WhatsApp QR" className="rounded-xl border p-1.5 bg-white shadow-sm" width={160} height={160} />
-              <span className="text-[11px] text-muted-foreground">Scan from your phone</span>
+            {showQr ? 'Hide QR code' : 'Show QR code (optional)'}
+          </button>
+          {showQr && (
+            <div className="flex flex-col items-center gap-1 mt-2 p-3 rounded-xl bg-white border shadow-sm">
+              <img src={qr} alt="WhatsApp QR" width={140} height={140} />
+              <span className="text-[10px] text-muted-foreground">Scan with your phone camera</span>
             </div>
           )}
-        </>
+        </div>
       )}
-      <div className={`flex items-center gap-2 text-sm p-3 rounded-lg ${verified ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
-        {verified
-          ? <><CheckCircle2 className="h-4 w-4 shrink-0" /> Verified — set your new password below.</>
-          : <><RotateCcw className="h-4 w-4 animate-spin shrink-0" /> Waiting for your WhatsApp message…</>}
+
+      {/* Waiting status */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 rounded-lg bg-muted/60">
+        <RotateCcw className="h-3.5 w-3.5 animate-spin shrink-0" />
+        Waiting for your WhatsApp message…
+      </div>
+
+      {/* Divider before password section */}
+      <div className="flex items-center gap-2 pt-1">
+        <div className="flex-1 border-t" />
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-muted font-bold text-[10px]">2</span>
+          Then set new password
+        </span>
+        <div className="flex-1 border-t" />
       </div>
     </div>
   );
@@ -70,8 +110,14 @@ const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const baseUrl = getBaseUrl();
+  const panelRef = React.useRef<HTMLDivElement>(null);
 
   const [step, setStep] = useState<Step>('identify');
+
+  useEffect(() => {
+    panelRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step]);
   const [identifier, setIdentifier] = useState('');
   const [contacts, setContacts] = useState<MainResetContact[]>([]);
   const [selectedContact, setSelectedContact] = useState<MainResetContact | null>(null);
@@ -237,14 +283,15 @@ const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col md:flex-row overflow-x-hidden bg-background">
-      <div className="block md:hidden w-full relative h-[40vw] max-h-[35vh] shrink-0 overflow-hidden">
+    <div className="min-h-[100dvh] flex flex-col md:flex-row overflow-x-hidden bg-background md:bg-none">
+      <div className="block md:hidden w-full relative h-[45vw] max-h-[40vh] shrink-0 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
         <img src={loginIllustration} alt="" className="absolute inset-0 w-full h-full object-cover object-top" loading="lazy" />
       </div>
 
-      <div className="w-full md:w-3/5 lg:w-1/2 flex flex-col items-center justify-center px-5 py-7 sm:p-7 md:p-10 bg-background -mt-8 md:mt-0 rounded-t-[3rem] md:rounded-none relative z-10 flex-1">
-        <div className="w-full max-w-md space-y-6">
+      {/* Left panel — matches Login.tsx sizing exactly */}
+      <div ref={panelRef} className="w-full md:w-3/5 lg:w-1/2 flex flex-col items-center justify-center px-5 py-7 sm:p-7 md:p-10 bg-background -mt-8 md:mt-0 rounded-t-[3rem] md:rounded-none relative z-10 flex-1 md:min-h-screen overflow-y-auto">
+        <div className="w-full max-w-md md:max-w-lg space-y-6 md:space-y-7">
           <div className="text-center space-y-1">
             <div className="flex justify-center mb-3">
               <div className="w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden">
@@ -255,8 +302,8 @@ const ForgotPasswordPage: React.FC = () => {
             <p className="text-sm text-muted-foreground">{stepTitle[step]}</p>
           </div>
 
-          <Card className="border-border/50 shadow-md">
-            <CardContent className="p-5 md:p-8 space-y-5">
+          <Card className="border-border/50 shadow-md lg:shadow-lg">
+            <CardContent className="p-5 md:p-8 lg:p-10 space-y-5">
 
               {step === 'identify' && (
                 <form onSubmit={handleIdentifySubmit} className="space-y-4">
@@ -394,36 +441,45 @@ const ForgotPasswordPage: React.FC = () => {
               )}
 
               {step === 'wa-verify' && (
-                <form onSubmit={handleWaVerifySubmit} className="space-y-4">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
                     <Key className="h-4 w-4 text-primary" />
-                    <h2 className="text-base font-semibold">Verify &amp; set new password</h2>
+                    <h2 className="text-base font-semibold">WhatsApp Verification</h2>
                   </div>
+
+                  {/* Always-visible WA action panel */}
                   <WaVerifyPanel waLink={waLink} verified={waVerified} />
-                  <div className="space-y-3 pt-1">
-                    <div className="space-y-1.5">
-                      <Label className="text-sm">New Password</Label>
-                      <div className="relative">
-                        <Input type={showNewPwd ? 'text' : 'password'} placeholder="Min 8 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={8} className="h-11 text-sm pr-16 rounded-lg" autoComplete="new-password" />
-                        <button type="button" onClick={() => setShowNewPwd(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">{showNewPwd ? 'Hide' : 'Show'}</button>
+
+                  {/* Password section — only shown after verification */}
+                  {waVerified && (
+                    <form onSubmit={handleWaVerifySubmit} className="space-y-4 pt-1">
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm">New Password</Label>
+                          <div className="relative">
+                            <Input type={showNewPwd ? 'text' : 'password'} placeholder="Min 8 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={8} className="h-11 text-sm pr-16 rounded-lg" autoComplete="new-password" />
+                            <button type="button" onClick={() => setShowNewPwd(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">{showNewPwd ? 'Hide' : 'Show'}</button>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm">Confirm Password</Label>
+                          <div className="relative">
+                            <Input type={showConfirmPwd ? 'text' : 'password'} placeholder="Repeat new password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={8} className="h-11 text-sm pr-16 rounded-lg" autoComplete="new-password" />
+                            <button type="button" onClick={() => setShowConfirmPwd(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">{showConfirmPwd ? 'Hide' : 'Show'}</button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-sm">Confirm Password</Label>
-                      <div className="relative">
-                        <Input type={showConfirmPwd ? 'text' : 'password'} placeholder="Repeat new password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={8} className="h-11 text-sm pr-16 rounded-lg" autoComplete="new-password" />
-                        <button type="button" onClick={() => setShowConfirmPwd(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">{showConfirmPwd ? 'Hide' : 'Show'}</button>
-                      </div>
-                    </div>
-                  </div>
-                  {error && <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</p>}
-                  <Button type="submit" className="w-full h-11 text-sm font-semibold rounded-lg" disabled={isLoading || !waVerified}>
-                    {isLoading ? 'Resetting…' : 'Reset Password'}
-                  </Button>
+                      {error && <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</p>}
+                      <Button type="submit" className="w-full h-11 text-sm font-semibold rounded-lg" disabled={isLoading}>
+                        {isLoading ? 'Resetting…' : 'Reset Password'}
+                      </Button>
+                    </form>
+                  )}
+
                   <Button type="button" variant="ghost" onClick={() => { setStep('pick-contact'); setError(''); setWaLink(''); setWaVerified(false); setWaPolling(false); }} className="w-full h-9 text-sm">
                     <ArrowLeft className="h-4 w-4 mr-1" /> Back
                   </Button>
-                </form>
+                </div>
               )}
 
             </CardContent>
@@ -431,7 +487,8 @@ const ForgotPasswordPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="hidden md:flex md:w-2/5 lg:w-1/2 relative min-h-screen">
+      {/* Right illustration — sticky so it stays fixed while left panel scrolls */}
+      <div className="hidden md:flex md:w-1/2 lg:w-3/5 relative min-h-[300px] md:min-h-screen">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5" />
         <img src={loginIllustration} alt="" className="absolute inset-0 w-full h-full object-cover mix-blend-multiply" loading="lazy" />
       </div>
