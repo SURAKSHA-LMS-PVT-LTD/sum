@@ -39,12 +39,12 @@
     padding-right: var(--spacing-sm);
   }
   
-  /* Make modals full-width on mobile */
-  dialog,
-  [role="dialog"] {
-    width: 95vw !important;
-    max-width: 95vw !important;
-  }
+  /* NOTE: Do NOT force width:95vw on dialog/[role="dialog"] here.
+     Components like vaul Drawer and Radix Sheet use position:fixed with
+     inset-x-0 (left:0;right:0) for full-bleed layouts — an explicit width
+     on [role="dialog"] overrides the right inset and leaves a dead gap on
+     one side of the screen on mobile. Each component handles its own width
+     via Tailwind classes. */
   
   /* Stack flex items vertically on mobile */
   .flex-responsive {
