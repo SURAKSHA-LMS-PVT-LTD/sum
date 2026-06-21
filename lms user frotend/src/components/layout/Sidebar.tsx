@@ -394,6 +394,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           { id: FEATURE_KEYS.LECTURE_RECORDING_ATTENDANCE, label: 'Recording Activity', icon: BarChart3 },
           { id: FEATURE_KEYS.MY_ATTENDANCE, label: 'My Attendance', icon: UserCheck },
           { id: FEATURE_KEYS.CALENDAR_VIEW, label: 'Calendar', icon: Calendar },
+          { id: FEATURE_KEYS.STUDY_MATERIALS, label: 'Study Materials', icon: FileText, featureKey: FEATURE_KEYS.CLASS_STUDY_MATERIALS },
         ]});
         groups.push({ id: 'payments-class', label: 'Fees & Payments', icon: CreditCard, items: [
           { id: FEATURE_KEYS.CLASS_PAYMENTS, label: 'Class Fees', icon: Banknote },
@@ -493,6 +494,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           ...(!selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectsLabel}`, icon: BookOpen }] : []),
           ...(!selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video }] : []),
           ...(selectedClass && !selectedSubject ? [{ id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video }] : []),
+          ...(selectedClass && !selectedSubject ? [{ id: FEATURE_KEYS.STUDY_MATERIALS, label: 'Study Materials', icon: FileText, featureKey: FEATURE_KEYS.CLASS_STUDY_MATERIALS }] : []),
           ...(!selectedClass && !isTuitionInstitute ? [{ id: FEATURE_KEYS.HOUSES, label: 'Houses', icon: Flag }] : []),
         ].filter(i => i !== undefined) as NavItem[]});
 
@@ -616,6 +618,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           ...(selectedClass && !selectedSubject ? [
             { id: FEATURE_KEYS.CLASS_LECTURES, label: 'Class Lectures', icon: Video },
             { id: FEATURE_KEYS.CLASS_SUBJECTS, label: `Class ${subjectsLabel}`, icon: BookOpen },
+            { id: FEATURE_KEYS.STUDY_MATERIALS, label: 'Study Materials', icon: FileText, featureKey: FEATURE_KEYS.CLASS_STUDY_MATERIALS },
           ] : []),
           ...(selectedClass && selectedSubject ? [
             { id: FEATURE_KEYS.LECTURES, label: 'Lectures', icon: Video },
@@ -623,12 +626,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             { id: FEATURE_KEYS.SUBJECT_RECORDINGS, label: 'Recordings', icon: Video },
             { id: FEATURE_KEYS.HOMEWORK, label: 'Homework', icon: Notebook },
             { id: FEATURE_KEYS.EXAMS, label: 'Exams', icon: Award },
-            { id: FEATURE_KEYS.STUDY_MATERIALS, label: 'Study Materials', icon: FileText },
           ] : []),
           ...(!isTuitionInstitute && !selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_ORGANIZATIONS, label: 'Organization', icon: Building2 }] : []),
         ];
         groups.push({ id: 'academics', label: 'Academics', icon: BookOpen,
-          defaultOpen: hasActiveInGroup(['classes','institute-subjects','institute-lectures','class-lectures','class-subjects','lectures','subject-recordings','homework','exams','study-materials'], activePage),
+          defaultOpen: hasActiveInGroup(['classes','institute-subjects','institute-lectures','class-lectures','class-subjects','study-materials','lectures','subject-recordings','homework','exams'], activePage),
           items: academicItems });
 
         // Attendance

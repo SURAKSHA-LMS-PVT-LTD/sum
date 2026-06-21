@@ -79,6 +79,9 @@ export const FEATURE_KEYS = {
   CLASS_PAYMENTS: 'class-payments',
   CLASS_COLLECT_PAYMENT: 'class-collect-payment',
 
+  // Class scope - Academics (content)
+  CLASS_STUDY_MATERIALS: 'class-study-materials',
+
   // Class scope - Communication
   CLASS_NOTIFICATIONS: 'class-notifications',
 

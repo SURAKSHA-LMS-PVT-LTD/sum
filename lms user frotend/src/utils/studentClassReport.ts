@@ -268,10 +268,6 @@ export async function getImageDims(url: string): Promise<{ w: number; h: number 
   });
 }
 
-// Precomputed aspect-ratio heights for each section banner
-// Key = dataUrl reference, value = height in mm that preserves aspect ratio at CONTENT_W
-const bannerHeightCache = new Map<string, number>();
-
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export async function generateStudentClassReport(
@@ -371,6 +367,9 @@ export async function generateStudentClassReport(
   // ── Cover header ─────────────────────────────────────────────────────────────
   if (headerPosition === 'left') {
     const blockH = headerBanner ? 20 : 16;
+    if (logoData) {
+      doc.addImage(logoData, 'PNG', LEFT_MARGIN, y, 36, 12);
+    }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.setTextColor(...C.hdrBlue);
@@ -385,8 +384,10 @@ export async function generateStudentClassReport(
     const HEADER_W = PAGE_W;
     const HEADER_H = headerDims ? Math.min(45, Math.max(15, HEADER_W * (headerDims.h / headerDims.w))) : 28;
     doc.addImage(headerBanner, 'PNG', 0, y, HEADER_W, HEADER_H);
+    if (logoData) doc.addImage(logoData, 'PNG', PAGE_W - RIGHT_MARGIN - 22, y + 2, 20, 7);
     y += HEADER_H + 5;
   } else {
+    if (logoData) doc.addImage(logoData, 'PNG', LEFT_MARGIN, y, 40, 13);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(17);
     doc.setTextColor(...C.hdrBlue);
@@ -405,7 +406,7 @@ export async function generateStudentClassReport(
   y += 5;
 
   // ── Student Info Card (Enhanced) ───────────────────────────────────────────
-  const CARD_H = 38; // Reduced from 46 to match image height + margins
+  const CARD_H = 46;
   const PHOTO_S = 34;
   const photoX = PAGE_W - RIGHT_MARGIN - PHOTO_S - 2;
   const photoY = y + 2;
@@ -445,22 +446,22 @@ export async function generateStudentClassReport(
   doc.setFontSize(12);
   doc.setTextColor(15, 23, 42);
   const primaryName = sf.showNameWithInitials ? (payload.student.name || payload.student.fullName || 'Student') : (payload.student.fullName || payload.student.name || 'Student');
-  doc.text(primaryName, infoX, y + 9, { maxWidth: textW }); // y+10 -> y+9
+  doc.text(primaryName, infoX, y + 10, { maxWidth: textW });
   if (sf.showFullName && payload.student.fullName && payload.student.fullName !== primaryName) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(100, 116, 139);
-    doc.text(payload.student.fullName, infoX, y + 13, { maxWidth: textW }); // y+15 -> y+13
+    doc.text(payload.student.fullName, infoX, y + 15, { maxWidth: textW });
   }
   
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
-  doc.text(`STUDENT ${payload.className.toUpperCase()} PROGRESS REPORT`, infoX, y + 17); // y+20 -> y+17
+  doc.text('STUDENT CLASS PROGRESS REPORT', infoX, y + 20);
 
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.2);
-  doc.line(infoX, y + 20, infoX + textW, y + 20); // y+23 -> y+20
+  doc.line(infoX, y + 23, infoX + textW, y + 23);
 
   // Dynamic Grid Info
   const details: string[] = [];
@@ -478,46 +479,38 @@ export async function generateStudentClassReport(
   const row2 = details.slice(3, 6);
   const row3 = details.slice(6, 9);
 
-  row1.forEach((t, i) => doc.text(t, infoX + (i * 42), y + 25)); // y+29 -> y+25
-  row2.forEach((t, i) => doc.text(t, infoX + (i * 42), y + 29)); // y+34 -> y+29
-  row3.forEach((t, i) => doc.text(t, infoX + (i * 42), y + 33)); // y+39 -> y+33
+  row1.forEach((t, i) => doc.text(t, infoX + (i * 42), y + 29));
+  row2.forEach((t, i) => doc.text(t, infoX + (i * 42), y + 34));
+  row3.forEach((t, i) => doc.text(t, infoX + (i * 42), y + 39));
 
   doc.setFontSize(7);
   doc.setTextColor(148, 163, 184);
-  doc.text(`Period: ${fmtDate(payload.dateRange.start)} - ${fmtDate(payload.dateRange.end)}   ·   Generated: ${new Date().toLocaleDateString('en-LK')}`, infoX, y + 37); // y+44 -> y+37
+  doc.text(`Period: ${fmtDate(payload.dateRange.start)} - ${fmtDate(payload.dateRange.end)}   ·   Generated: ${new Date().toLocaleDateString('en-LK')}`, infoX, y + 44);
 
   y += CARD_H + 8;
 
-  const getBannerH = async (dataUrl: string | null): Promise<number> => {
-    // Strictly enforce 14:1 aspect ratio as requested
-    return CONTENT_W / 14;
-  };
-
-  const addBanner = async (
-    bannerData: string | null,
-    fallbackTitle: string,
-    colorRgb: [number, number, number] = [30, 58, 138],
-  ) => {
-    if (y > 240) { doc.addPage(); y = 14; }
-    const bh = await getBannerH(bannerData);
-
+  // ── Helper: add section banner ────────────────────────────────────────────────
+  const addBanner = (bannerData: string | null, fallbackTitle: string, colorRgb: [number, number, number] = [30, 58, 138]) => {
+    if (y > 245) { doc.addPage(); y = 14; }
+    const BANNER_HEIGHT = 22;
     if (bannerData) {
-      doc.addImage(bannerData, 'PNG', LEFT_MARGIN, y, CONTENT_W, bh);
-      y += bh + 6; // Increased breathing room
+      doc.addImage(bannerData, 'PNG', LEFT_MARGIN, y, CONTENT_W, BANNER_HEIGHT);
+      y += BANNER_HEIGHT + 4;
     } else {
+      // Fallback text banner — designer can replace with styled block
       doc.setFillColor(...colorRgb);
-      doc.roundedRect(LEFT_MARGIN, y, CONTENT_W, 10, 1.2, 1.2, 'F');
+      doc.roundedRect(LEFT_MARGIN, y, CONTENT_W, 10, 1, 1, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(255, 255, 255);
-      doc.text(fallbackTitle.toUpperCase(), LEFT_MARGIN + 6, y + 6.5);
-      y += 16;
+      doc.text(fallbackTitle, LEFT_MARGIN + 5, y + 6.5);
+      y += 14;
     }
   };
 
   // ── Physical Attendance ───────────────────────────────────────────────────────
   if (options.physical) {
-    await addBanner(attBanner, 'Physical / General Attendance', [30, 58, 138]);
+    addBanner(attBanner, 'Physical / General Attendance', [30, 58, 138]);
 
     if (payload.physicalAttendance.length === 0) {
       // Section enabled but no records in date range — show placeholder
@@ -527,12 +520,11 @@ export async function generateStudentClassReport(
       doc.text('No attendance records in the selected date range.', LEFT_MARGIN, y + 4);
       y += 12;
     } else {
-      // Adjusted Summary Calculation
-      const validRecords = payload.physicalAttendance.filter(r => (r.status || '').toLowerCase() !== 'left');
-      const present = validRecords.filter(r => (r.status || '').toLowerCase() === 'present').length;
-      const late = validRecords.filter(r => (r.status || '').toLowerCase() === 'late').length;
-      const absent = validRecords.filter(r => (r.status || '').toLowerCase() === 'absent').length;
-
+      // Logic to exclude 'Left' status and handle different total count modes
+      const validRecords = payload.physicalAttendance.filter(r => r.status.toLowerCase() !== 'left');
+      const present = validRecords.filter(r => r.status.toLowerCase() === 'present').length;
+      const late = validRecords.filter(r => r.status.toLowerCase() === 'late').length;
+      
       let total = validRecords.length;
       if (options.physicalTotalMode === 'GROUP') {
         total = new Set(validRecords.map(r => r.group)).size;
@@ -544,32 +536,14 @@ export async function generateStudentClassReport(
         total = options.physicalTotalValue || total;
       }
 
-      const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 0;
-
-      // Render Stat Cards
-      const stats = [
-        { label: 'TOTAL', value: total, color: [30, 58, 138] as RGB },
-        { label: 'PRESENT', value: present, color: [22, 163, 74] as RGB },
-        { label: 'ABSENT', value: absent, color: [220, 38, 38] as RGB },
-        { label: 'LATE', value: late, color: [217, 119, 6] as RGB },
-        { label: 'RATE', value: `${rate}%`, color: [124, 58, 237] as RGB },
-      ];
-
-      const CARD_W = (CONTENT_W - 8) / 5;
-      stats.forEach((s, i) => {
-        const sx = LEFT_MARGIN + i * (CARD_W + 2);
-        doc.setFillColor(248, 250, 252);
-        doc.setDrawColor(226, 232, 240);
-        doc.roundedRect(sx, y, CARD_W, 11, 1, 1, 'FD');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.5);
-        doc.setTextColor(100, 116, 139);
-        doc.text(s.label, sx + CARD_W / 2, y + 4, { align: 'center' });
-        doc.setFontSize(8.5);
-        doc.setTextColor(...s.color);
-        doc.text(String(s.value), sx + CARD_W / 2, y + 8.5, { align: 'center' });
-      });
-      y += 16;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(
+        `Total Sessions: ${total}   Present: ${present}   Absent: ${validRecords.filter(r => r.status.toLowerCase() === 'absent').length}   Late: ${late}   Rate: ${total > 0 ? Math.round((present + late) / total * 100) : 0}%`,
+        LEFT_MARGIN, y,
+      );
+      y += 5;
 
       autoTable(doc, {
         startY: y,
@@ -585,7 +559,7 @@ export async function generateStudentClassReport(
           r.status.toUpperCase(),
         ]),
         styles: { fontSize: 8.5, cellPadding: 3.5, textColor: [30, 41, 59] },
-        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 8.5, cellPadding: 3.5 },
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 8.5, cellPadding: 4 },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         didDrawCell: (data: any) => {
           if (data.section === 'body' && data.column.index === 6) {
@@ -610,7 +584,7 @@ export async function generateStudentClassReport(
   // ── Live Lecture Attendance ───────────────────────────────────────────────────
   if (options.live) {
     if (y > 230) { doc.addPage(); y = 14; }
-    await addBanner(liveBanner, 'Live Lecture Attendance', [5, 150, 105]);
+    addBanner(liveBanner, 'Live Lecture Attendance', [5, 150, 105]);
 
     if (payload.liveAttendance.length === 0) {
       doc.setFont('helvetica', 'italic');
@@ -620,30 +594,14 @@ export async function generateStudentClassReport(
       y += 12;
     } else {
       const attended = payload.liveAttendance.filter(a => a.totalDurationMinutes > 0).length;
-      const rate = payload.liveAttendance.length > 0 ? Math.round((attended / payload.liveAttendance.length) * 100) : 0;
-
-      const stats = [
-        { label: 'TOTAL', value: payload.liveAttendance.length, color: [30, 58, 138] as RGB },
-        { label: 'ATTENDED', value: attended, color: [22, 163, 74] as RGB },
-        { label: 'ABSENT', value: payload.liveAttendance.length - attended, color: [220, 38, 38] as RGB },
-        { label: 'RATE', value: `${rate}%`, color: [124, 58, 237] as RGB },
-      ];
-
-      const CARD_W = (CONTENT_W - 6) / 4;
-      stats.forEach((s, i) => {
-        const sx = LEFT_MARGIN + i * (CARD_W + 2);
-        doc.setFillColor(248, 250, 252);
-        doc.setDrawColor(226, 232, 240);
-        doc.roundedRect(sx, y, CARD_W, 11, 1, 1, 'FD');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.5);
-        doc.setTextColor(100, 116, 139);
-        doc.text(s.label, sx + CARD_W / 2, y + 4, { align: 'center' });
-        doc.setFontSize(8.5);
-        doc.setTextColor(...s.color);
-        doc.text(String(s.value), sx + CARD_W / 2, y + 8.5, { align: 'center' });
-      });
-      y += 16;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(
+        `Lectures: ${payload.liveAttendance.length}   Attended: ${attended}   Absent: ${payload.liveAttendance.length - attended}`,
+        LEFT_MARGIN, y,
+      );
+      y += 5;
 
       autoTable(doc, {
         startY: y,
@@ -657,12 +615,12 @@ export async function generateStudentClassReport(
           a.totalDurationMinutes > 0 ? 'PRESENT' : 'ABSENT',
         ]),
         styles: { fontSize: 8.5, cellPadding: 3.5, textColor: [30, 41, 59] },
-        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 8.5, cellPadding: 3.5 },
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 8.5, cellPadding: 4 },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         didDrawCell: (data: any) => {
           if (data.section === 'body' && data.column.index === 4) {
             const isPresent = payload.liveAttendance[data.row.index]?.totalDurationMinutes > 0;
-            const rgb = (isPresent ? [22, 163, 74] : [220, 38, 38]) as [number, number, number];
+            const rgb = isPresent ? [22, 163, 74] : [220, 38, 38] as [number, number, number];
             const lightRgb = mixWithWhite(rgb);
             const cell = data.cell;
             doc.setFillColor(...lightRgb);
@@ -681,7 +639,7 @@ export async function generateStudentClassReport(
   // ── Recording Attendance ──────────────────────────────────────────────────────
   if (options.recording) {
     if (y > 230) { doc.addPage(); y = 14; }
-    await addBanner(recBanner, 'Recording Attendance', [124, 58, 237]);
+    addBanner(recBanner, 'Recording Attendance', [124, 58, 237]);
 
     if (payload.recordingAttendance.length === 0) {
       doc.setFont('helvetica', 'italic');
@@ -691,30 +649,14 @@ export async function generateStudentClassReport(
       y += 12;
     } else {
       const watched = payload.recordingAttendance.filter(r => r.totalWatchedSeconds > 0).length;
-      const rate = payload.recordingAttendance.length > 0 ? Math.round((watched / payload.recordingAttendance.length) * 100) : 0;
-
-      const stats = [
-        { label: 'TOTAL', value: payload.recordingAttendance.length, color: [30, 58, 138] as RGB },
-        { label: 'WATCHED', value: watched, color: [124, 58, 237] as RGB },
-        { label: 'NOT WATCHED', value: payload.recordingAttendance.length - watched, color: [107, 114, 128] as RGB },
-        { label: 'RATE', value: `${rate}%`, color: [14, 165, 233] as RGB },
-      ];
-
-      const CARD_W = (CONTENT_W - 6) / 4;
-      stats.forEach((s, i) => {
-        const sx = LEFT_MARGIN + i * (CARD_W + 2);
-        doc.setFillColor(248, 250, 252);
-        doc.setDrawColor(226, 232, 240);
-        doc.roundedRect(sx, y, CARD_W, 11, 1, 1, 'FD');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.5);
-        doc.setTextColor(100, 116, 139);
-        doc.text(s.label, sx + CARD_W / 2, y + 4, { align: 'center' });
-        doc.setFontSize(8.5);
-        doc.setTextColor(...s.color);
-        doc.text(String(s.value), sx + CARD_W / 2, y + 8.5, { align: 'center' });
-      });
-      y += 16;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(
+        `Recordings: ${payload.recordingAttendance.length}   Watched: ${watched}   Not watched: ${payload.recordingAttendance.length - watched}`,
+        LEFT_MARGIN, y,
+      );
+      y += 5;
 
       autoTable(doc, {
         startY: y,
@@ -729,12 +671,12 @@ export async function generateStudentClassReport(
           r.totalWatchedSeconds > 0 ? 'WATCHED' : 'NOT WATCHED',
         ]),
         styles: { fontSize: 8.5, cellPadding: 3.5, textColor: [30, 41, 59] },
-        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 8.5, cellPadding: 3.5 },
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 8.5, cellPadding: 4 },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         didDrawCell: (data: any) => {
           if (data.section === 'body' && data.column.index === 5) {
             const isWatched = payload.recordingAttendance[data.row.index]?.totalWatchedSeconds > 0;
-            const rgb = (isWatched ? [124, 58, 237] : [107, 114, 128]) as [number, number, number];
+            const rgb = isWatched ? [124, 58, 237] : [107, 114, 128] as [number, number, number];
             const lightRgb = mixWithWhite(rgb);
             const cell = data.cell;
             doc.setFillColor(...lightRgb);
@@ -753,7 +695,7 @@ export async function generateStudentClassReport(
   // ── Payments ──────────────────────────────────────────────────────────────────
   if (options.payments) {
     if (y > 230) { doc.addPage(); y = 14; }
-    await addBanner(payBanner, 'Payments', [217, 119, 6]);
+    addBanner(payBanner, 'Payments', [217, 119, 6]);
 
     if (payload.payments.length === 0) {
       doc.setFont('helvetica', 'italic');
@@ -765,30 +707,11 @@ export async function generateStudentClassReport(
       const paid = payload.payments.filter(
         p => p.submissionStatus === 'VERIFIED' || p.submissionStatus === 'HALF_VERIFIED' || p.submissionStatus === 'QUARTER_VERIFIED',
       ).length;
-      const rate = payload.payments.length > 0 ? Math.round((paid / payload.payments.length) * 100) : 0;
-
-      const stats = [
-        { label: 'TOTAL', value: payload.payments.length, color: [30, 58, 138] as RGB },
-        { label: 'VERIFIED', value: paid, color: [22, 163, 74] as RGB },
-        { label: 'OUTSTANDING', value: payload.payments.length - paid, color: [220, 38, 38] as RGB },
-        { label: 'RATE', value: `${rate}%`, color: [217, 119, 6] as RGB },
-      ];
-
-      const CARD_W = (CONTENT_W - 6) / 4;
-      stats.forEach((s, i) => {
-        const sx = LEFT_MARGIN + i * (CARD_W + 2);
-        doc.setFillColor(248, 250, 252);
-        doc.setDrawColor(226, 232, 240);
-        doc.roundedRect(sx, y, CARD_W, 11, 1, 1, 'FD');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.5);
-        doc.setTextColor(100, 116, 139);
-        doc.text(s.label, sx + CARD_W / 2, y + 4, { align: 'center' });
-        doc.setFontSize(8.5);
-        doc.setTextColor(...s.color);
-        doc.text(String(s.value), sx + CARD_W / 2, y + 8.5, { align: 'center' });
-      });
-      y += 16;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Total: ${payload.payments.length}   Verified/paid: ${paid}`, LEFT_MARGIN, y);
+      y += 5;
 
       autoTable(doc, {
         startY: y,
@@ -800,7 +723,7 @@ export async function generateStudentClassReport(
           p.submissionStatus ?? 'NOT PAID',
         ]),
         styles: { fontSize: 8.5, cellPadding: 3.5, textColor: [30, 41, 59] },
-        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 8.5, cellPadding: 3.5 },
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold', fontSize: 8.5, cellPadding: 4 },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         didDrawCell: (data: any) => {
           if (data.section === 'body' && data.column.index === 2) {
@@ -856,10 +779,11 @@ export async function generateStudentClassReport(
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
     doc.text(`Page ${displayPage}`, PAGE_W - RIGHT_MARGIN, PAGE_H - 5, { align: 'right' });
+    doc.text('Suraksha LMS — Confidential', LEFT_MARGIN, PAGE_H - 5);
   }
 
   if (printOptions.returnUint8Array) {
-    return (doc as any).output('uint8array');
+    return doc.output('uint8array');
   }
 
   const safe = (payload.student.name ?? 'student').replace(/[^a-z0-9]/gi, '_').toLowerCase();

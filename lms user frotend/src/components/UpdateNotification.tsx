@@ -14,7 +14,7 @@
 //     already (S3 deployed the new bundle); user just needs a full page reload.
 import React, { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { startVersionChecker, detectUpdate, UpdateInfo } from '@/utils/versionChecker';
+import { startVersionChecker, detectUpdate, UpdateInfo, forceRefreshToLatestBuild } from '@/utils/versionChecker';
 
 // 'booting'  = startup version check in progress — app is BLOCKED
 // 'idle'     = check passed, app runs normally
@@ -27,10 +27,35 @@ const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=lk.suraksh
 // How long to wait for the boot check before letting the user through (offline safety valve)
 const BOOT_CHECK_TIMEOUT_MS = 3_000;
 
-function forceRefreshToLatestBuild() {
-  // Both native (local bundle) and web: a plain reload fetches the latest
-  // index.html and picks up new hashed bundle URLs.
-  window.location.reload();
+// Guards against an infinite "Updating app…" loop.
+//
+// Failure mode without this: on a CDN-served (custom-domain) frontend, the CDN
+// can keep serving a STALE index.html after a deploy. detectUpdate() fetches a
+// no-cache version.json (always fresh) and compares it to the hash baked into
+// the stale bundle → mismatch → reload → same stale bundle → mismatch → ∞.
+//
+// Fix: reload at most ONCE per target version. We remember which remote version
+// we already reloaded for (sessionStorage). If we boot and STILL see that same
+// version as "needing update", the reload didn't help (CDN still stale) → we do
+// NOT reload again; the caller shows a manual "hard refresh" hint instead.
+const RELOAD_FOR_VERSION_KEY = '__lms_update_reload_for';
+
+function alreadyReloadedFor(targetSemver: string): boolean {
+  try { return sessionStorage.getItem(RELOAD_FOR_VERSION_KEY) === targetSemver; }
+  catch { return false; }
+}
+
+/**
+ * Reload to pick up the latest build — but only once per target version.
+ * Returns false if we already tried (and it didn't take) → caller must NOT loop.
+ */
+function reloadForUpdateOnce(targetSemver: string): boolean {
+  if (alreadyReloadedFor(targetSemver)) return false;
+  try { sessionStorage.setItem(RELOAD_FOR_VERSION_KEY, targetSemver); } catch { /* ignore */ }
+  // Cache-busting reload (?_app_update=…) so CDN-cached custom domains re-fetch
+  // index.html instead of replaying the stale cached response.
+  forceRefreshToLatestBuild();
+  return true;
 }
 
 const UpdateNotification: React.FC = () => {
@@ -61,16 +86,25 @@ const UpdateNotification: React.FC = () => {
             setMajorInfo(update);
             setState('major'); // HARD BLOCK — stays until app is updated
           } else {
-            // Web: new bundle already on S3 — just reload
-            setState('reloading');
-            setTimeout(() => forceRefreshToLatestBuild(), 1200);
+            // Web: reload to the latest bundle — but only once per version so a
+            // stale CDN can't trap us in a reload loop.
+            if (alreadyReloadedFor(update.newSemver)) {
+              setState('idle'); // reload already attempted & didn't take → run anyway
+            } else {
+              setState('reloading');
+              setTimeout(() => reloadForUpdateOnce(update.newSemver), 1200);
+            }
           }
           return;
         }
 
         if (update?.kind === 'patch') {
-          setState('reloading');
-          setTimeout(() => forceRefreshToLatestBuild(), 1200);
+          if (alreadyReloadedFor(update.newSemver)) {
+            setState('idle'); // already tried reloading for this version → don't loop
+          } else {
+            setState('reloading');
+            setTimeout(() => reloadForUpdateOnce(update.newSemver), 1200);
+          }
           return;
         }
 
@@ -90,22 +124,25 @@ const UpdateNotification: React.FC = () => {
     if (state !== 'idle') return;
 
     startVersionChecker({
-      // PATCH / MINOR → show "Updating..." for 1.2s then reload (both platforms)
-      onPatchUpdate: () => {
+      // PATCH / MINOR → show "Updating..." for 1.2s then reload (both platforms),
+      // but only once per version so a stale CDN can't cause a reload loop.
+      onPatchUpdate: (info) => {
+        if (alreadyReloadedFor(info.newSemver)) return; // already tried — don't loop
         setState('reloading');
-        setTimeout(() => forceRefreshToLatestBuild(), 1200);
+        setTimeout(() => reloadForUpdateOnce(info.newSemver), 1200);
       },
 
       // MAJOR →
       //   Native app : block UI, user must go to Play Store for new APK
-      //   Web browser: just reload — the new bundle is already on S3
+      //   Web browser: reload once to the latest bundle
       onMajorUpdate: (info) => {
         if (isNative) {
           setMajorInfo(info);
           setState('major');
         } else {
+          if (alreadyReloadedFor(info.newSemver)) return;
           setState('reloading');
-          setTimeout(() => forceRefreshToLatestBuild(), 1200);
+          setTimeout(() => reloadForUpdateOnce(info.newSemver), 1200);
         }
       },
     });

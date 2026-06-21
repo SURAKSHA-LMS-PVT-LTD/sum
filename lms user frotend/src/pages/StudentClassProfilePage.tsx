@@ -14,7 +14,6 @@ import { apiClient } from '@/api/client';
 import { classPaymentsApi } from '@/api/classPayments.api';
 import { lectureApi } from '@/api/lecture.api';
 import { useAuth } from '@/contexts/AuthContext';
-import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { formatNameToInitials } from '@/utils/nameFormatters';
 import { generateStudentClassReport } from '@/utils/studentClassReport';
 import ReportDialog, { type ReportDialogResult } from '@/components/ReportDialog';
@@ -105,12 +104,11 @@ const StudentClassProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { instituteId } = useParams<{ instituteId: string }>();
   const location = useLocation();
-  const classIdMatch = location.pathname.match(/\/class\/([^/]+)/);
+  const classIdMatch = location.pathname.match(/\/class\/([^\/]+)/);
   const classId = classIdMatch ? classIdMatch[1] : undefined;
-  const studentIdMatch = location.pathname.match(/\/student\/([^/]+)\/profile/);
+  const studentIdMatch = location.pathname.match(/\/student\/([^\/]+)\/profile/);
   const studentId = studentIdMatch ? studentIdMatch[1] : undefined;
   const { selectedInstitute, selectedClass } = useAuth();
-  const { subjectsLabel } = useInstituteLabels();
 
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [loadingStudent, setLoadingStudent] = useState(true);
@@ -225,11 +223,9 @@ const StudentClassProfilePage: React.FC = () => {
     if (!instituteId || !classId || !studentId) return;
     setLoadingPayments(true); setPaymentsError(null);
     try {
-      // BUG-11: fetch payment definitions without student submission limit,
-      // and student submissions separately — different natural limits
       const [paymentsRes, subsRes] = await Promise.all([
         classPaymentsApi.getClassPayments(instituteId, classId, 1, paymentsLimit),
-        classPaymentsApi.getStudentClassSubmissions(instituteId, classId, studentId, { limit: 200 }),
+        classPaymentsApi.getStudentClassSubmissions(instituteId, classId, studentId, { limit: paymentsLimit }),
       ]);
       const allPayments = paymentsRes?.data ?? [];
       const subs = subsRes?.data ?? [];
@@ -245,8 +241,7 @@ const StudentClassProfilePage: React.FC = () => {
       setPaymentsLoaded(true);
     } catch (e: any) { setPaymentsError(e?.message || 'Failed to load payment data.'); }
     finally { setLoadingPayments(false); }
-  // BUG-06: paymentsLoaded removed — it was causing infinite re-fetch loop
-  }, [instituteId, classId, studentId, paymentsLimit]);
+  }, [instituteId, classId, studentId, paymentsLoaded]);
 
   const loadActivities = useCallback(async () => {
     if (!instituteId || !classId || !studentId) return;
@@ -278,14 +273,11 @@ const StudentClassProfilePage: React.FC = () => {
     finally { setLoadingSubjects(false); }
   }, [instituteId, classId, subjectsLoaded]);
 
-  // BUG-15: use exhaustive enum values instead of fragile includes() substring matching
-  const LIVE_METHODS = new Set(['LIVE_LECTURE_ATTENDANCE', 'LIVE']);
-  const RECORDING_METHODS = new Set(['RECORDING_ATTENDANCE', 'RECORDING']);
-
+  // ── Categorize attendance by markingMethod ────────────────────────────────
   const categorizeAttendance = () => {
-    const live = attendance.filter(r => r.markingMethod && LIVE_METHODS.has(r.markingMethod));
-    const recording = attendance.filter(r => r.markingMethod && RECORDING_METHODS.has(r.markingMethod));
-    const manual = attendance.filter(r => !r.markingMethod || r.markingMethod === 'MANUAL' || (!LIVE_METHODS.has(r.markingMethod!) && !RECORDING_METHODS.has(r.markingMethod!)));
+    const live = attendance.filter(r => r.markingMethod === 'LIVE_LECTURE_ATTENDANCE' || r.markingMethod?.includes('LIVE'));
+    const recording = attendance.filter(r => r.markingMethod === 'RECORDING_ATTENDANCE' || r.markingMethod?.includes('RECORDING'));
+    const manual = attendance.filter(r => !r.markingMethod || r.markingMethod === 'MANUAL' || (!r.markingMethod?.includes('LIVE') && !r.markingMethod?.includes('RECORDING')));
     return { live, recording, manual };
   };
 
@@ -295,8 +287,7 @@ const StudentClassProfilePage: React.FC = () => {
     if (openSections.has('activities') && !activitiesLoaded) loadActivities();
   }, [openSections, paymentsLoaded, subjectsLoaded, activitiesLoaded, loadPayments, loadSubjects, loadActivities]);
 
-  // BUG-14: include loadPayments in dep array so limit change uses the current closure
-  useEffect(() => { if (paymentsLoaded) loadPayments(); }, [paymentsLimit, loadPayments]);
+  useEffect(() => { if (paymentsLoaded) loadPayments(); }, [paymentsLimit]);
 
   const instName = selectedInstitute?.name ?? `Institute ${instituteId}`;
   const className = selectedClass?.name ?? `Class ${classId ?? ''}`;
@@ -739,7 +730,7 @@ const StudentClassProfilePage: React.FC = () => {
         </Section>
 
         <Section id="subjects" icon={BookOpen} title="Enrolled Subjects" isOpen={openSections.has('subjects')} onToggle={() => toggleSection('subjects')} loading={loadingSubjects} error={subjectsError} onRetry={() => { setSubjectsLoaded(false); loadSubjects(); }}>
-          {loadingSubjects ? <div className="space-y-2">{Array(3).fill(0).map((_, i) => <SkeletonRow key={i} />)}</div> : subjects.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No {subjectsLabel.toLowerCase()} found for this class.</p> : (
+          {loadingSubjects ? <div className="space-y-2">{Array(3).fill(0).map((_, i) => <SkeletonRow key={i} />)}</div> : subjects.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No subjects found for this class.</p> : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {subjects.map(s => (
                 <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">

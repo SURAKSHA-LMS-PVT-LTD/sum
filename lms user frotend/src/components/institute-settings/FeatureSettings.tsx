@@ -87,7 +87,7 @@ export const FeatureSettings: React.FC = () => {
       icon: BookOpen,
       scopeDescription: 'Features available within each class',
       groups: [
-        { id: 'CLASS__ACADEMICS',      scope: 'CLASS', category: 'ACADEMICS',     label: 'Academics',        icon: GraduationCap, description: `${subjectsLabel} and lectures per class` },
+        { id: 'CLASS__ACADEMICS',      scope: 'CLASS', category: 'ACADEMICS',     label: 'Academics',        icon: GraduationCap, description: `${subjectsLabel}, lectures and study materials per class` },
         { id: 'CLASS__SERVICES',       scope: 'CLASS', category: 'SERVICES',      label: 'Students',         icon: Users,         description: 'Enrolled students and pending approvals' },
         { id: 'CLASS__ATTENDANCE',     scope: 'CLASS', category: 'ATTENDANCE',    label: 'Attendance',       icon: CalendarCheck, description: 'Class-level attendance marking and tracking' },
         { id: 'CLASS__PAYMENTS',       scope: 'CLASS', category: 'PAYMENTS',      label: 'Payments',         icon: CreditCard,    description: 'Class fee collection and payment collection' },

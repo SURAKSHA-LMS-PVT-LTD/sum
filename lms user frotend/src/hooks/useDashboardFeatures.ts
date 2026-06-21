@@ -42,6 +42,7 @@ export const FEATURE_CATALOG: Record<string, FeatureDef> = {
   
   'rfid-attendance':          { id: 'rfid-attendance',          label: 'RFID Attendance',     color: 'bg-purple-500',  description: 'Mark via RFID',                  icon: 'Wifi' },
   'structured-lectures':      { id: 'structured-lectures',      label: 'Structured Lectures', color: 'bg-blue-400',    description: 'Structured lecture management',  icon: 'Video' },
+  'study-materials':          { id: 'study-materials',          label: 'Study Materials',     color: 'bg-emerald-500', description: 'Class study materials & folders', icon: 'FileText' },
 };
 
 // Default pinned IDs per level per role
@@ -54,9 +55,9 @@ const ROLE_DEFAULTS: Record<string, Record<string, string[]>> = {
     Parent:           ['institute-lectures'],
   },
   class: {
-    InstituteAdmin:   ['select-attendance-mark-type', 'class-subjects', 'students', 'daily-attendance', 'unverified-students'],
-    Teacher:          ['select-attendance-mark-type', 'daily-attendance', 'students'],
-    Student:          ['my-attendance', 'class-subjects'],
+    InstituteAdmin:   ['select-attendance-mark-type', 'class-subjects', 'students', 'daily-attendance', 'unverified-students', 'study-materials'],
+    Teacher:          ['select-attendance-mark-type', 'daily-attendance', 'students', 'study-materials'],
+    Student:          ['my-attendance', 'class-subjects', 'study-materials'],
     AttendanceMarker: ['select-attendance-mark-type', 'daily-attendance'],
     Parent:           [],
   },
@@ -79,9 +80,9 @@ const ROLE_AVAILABLE: Record<string, Record<string, string[]>> = {
     Parent:           ['institute-lectures'],
   },
   class: {
-    InstituteAdmin:   ['class-subjects', 'students', 'select-attendance-mark-type', 'qr-attendance', 'rfid-attendance', 'daily-attendance', 'unverified-students', 'calendar-view', 'institute-lectures'],
-    Teacher:          ['class-subjects', 'students', 'select-attendance-mark-type', 'qr-attendance', 'rfid-attendance', 'daily-attendance', 'calendar-view'],
-    Student:          ['my-attendance', 'class-subjects', 'calendar-view'],
+    InstituteAdmin:   ['class-subjects', 'students', 'select-attendance-mark-type', 'qr-attendance', 'rfid-attendance', 'daily-attendance', 'unverified-students', 'calendar-view', 'institute-lectures', 'study-materials'],
+    Teacher:          ['class-subjects', 'students', 'select-attendance-mark-type', 'qr-attendance', 'rfid-attendance', 'daily-attendance', 'calendar-view', 'study-materials'],
+    Student:          ['my-attendance', 'class-subjects', 'calendar-view', 'study-materials'],
     AttendanceMarker: ['select-attendance-mark-type', 'qr-attendance', 'rfid-attendance', 'daily-attendance'],
     Parent:           [],
   },
