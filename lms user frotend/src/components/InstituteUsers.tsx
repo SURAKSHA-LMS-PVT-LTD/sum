@@ -234,23 +234,6 @@ const InstituteUsers = () => {
     loadHouseOptions();
   }, [currentInstituteId]);
 
-  // Collect distinct instituteName values from loaded users' extra_data for filter dropdown
-  const allLoadedUsers = useMemo(() => {
-    const allTables = [usersByTypeTable, inactiveUsersTable, pendingUsersTable];
-    return allTables.flatMap(t => t?.state?.data || []);
-  }, [usersByTypeTable, inactiveUsersTable, pendingUsersTable]);
-
-  useEffect(() => {
-    const names = Array.from(
-      new Set(
-        allLoadedUsers
-          .map((u: any) => u?.extraData?.instituteName)
-          .filter((n: any) => typeof n === 'string' && n.trim() !== '')
-      )
-    ).sort() as string[];
-    if (names.length > 0) setInstituteNameOptions(names);
-  }, [allLoadedUsers]);
-
   const getCurrentFilters = () => {
     if (activeView === 'PENDING') return pendingFilters;
     if (activeView === 'INACTIVE') return inactiveFilters;
@@ -302,6 +285,23 @@ const InstituteUsers = () => {
     };
     return allTables;
   }, [selectedUserTypeId, usersByTypeTable, inactiveUsersTable, pendingUsersTable]);
+
+  // Collect distinct instituteName values from loaded users' extra_data for filter dropdown
+  const allLoadedUsers = useMemo(() => {
+    const allTables = [usersByTypeTable, inactiveUsersTable, pendingUsersTable];
+    return allTables.flatMap(t => t?.state?.data || []);
+  }, [usersByTypeTable, inactiveUsersTable, pendingUsersTable]);
+
+  useEffect(() => {
+    const names = Array.from(
+      new Set(
+        allLoadedUsers
+          .map((u: any) => u?.extraData?.instituteName)
+          .filter((n: any) => typeof n === 'string' && n.trim() !== '')
+      )
+    ).sort() as string[];
+    if (names.length > 0) setInstituteNameOptions(names);
+  }, [allLoadedUsers]);
 
   const createUserRequest = useApiRequest(async (userData: any) => {
     const response = await fetch(`/api/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userData) });

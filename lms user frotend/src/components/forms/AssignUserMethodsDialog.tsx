@@ -8,11 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/api/client';
-import { UserPlus, Phone, CreditCard, User, Eye, Mail, Upload, Camera, Loader2 } from 'lucide-react';
+import { UserPlus, Phone, CreditCard, User, Eye, Mail, Upload, Camera, Loader2, Search, X } from 'lucide-react';
 import { uploadWithSignedUrl, detectFolder } from '@/utils/signedUploadHelper';
 import PassportImageCropUpload from '@/components/common/PassportImageCropUpload';
 import { getErrorMessage } from '@/api/apiError';
 import { useUserTypes } from '@/hooks/useUserTypes';
+import { smartCardsApi } from '@/api/smartCards.api';
+import { useFeatures } from '@/contexts/FeaturesContext';
 
 interface AssignUserMethodsDialogProps {
   open: boolean;
@@ -51,12 +53,59 @@ const UserTypeSelectField: React.FC<{ value: string; onChange: (v: string) => vo
 
 const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: AssignUserMethodsDialogProps) => {
   const { toast } = useToast();
+  const { isFeatureEnabled } = useFeatures();
+  const smartCardsEnabled = isFeatureEnabled('smart-cards');
   const [selectedMethod, setSelectedMethod] = useState<AssignMethod | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [userPreview, setUserPreview] = useState<UserPreviewData | null>(null);
   const [showUserPreview, setShowUserPreview] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  
+
+  // Smart card state (shared across all assign methods)
+  const [instituteCardMode, setInstituteCardMode] = useState<'manual' | 'auto'>('manual');
+  const [instituteCardSearch, setInstituteCardSearch] = useState('');
+  const [instituteCardSearching, setInstituteCardSearching] = useState(false);
+  const [instituteCardSearchResults, setInstituteCardSearchResults] = useState<any[]>([]);
+  const [instituteCardSelected, setInstituteCardSelected] = useState<any | null>(null);
+
+  const [surakshaCardMode, setSurakshaCardMode] = useState<'manual' | 'auto'>('manual');
+  const [surakshaCardSearch, setSurakshaCardSearch] = useState('');
+  const [surakshaCardSearching, setSurakshaCardSearching] = useState(false);
+  const [surakshaCardResult, setSurakshaCardResult] = useState<any | null>(null);
+  const [surakshaCardSelected, setSurakshaCardSelected] = useState<any | null>(null);
+
+  const resetSmartCards = () => {
+    setInstituteCardMode('manual'); setInstituteCardSearch(''); setInstituteCardSearchResults([]); setInstituteCardSelected(null);
+    setSurakshaCardMode('manual'); setSurakshaCardSearch(''); setSurakshaCardResult(null); setSurakshaCardSelected(null);
+  };
+
+  const searchInstituteCard = async () => {
+    if (!instituteCardSearch.trim()) return;
+    setInstituteCardSearching(true); setInstituteCardSearchResults([]);
+    try {
+      const res: any = await smartCardsApi.search(instituteId, { scope: 'INSTITUTE', search: instituteCardSearch.trim(), limit: 10 });
+      setInstituteCardSearchResults(res?.items || []);
+    } catch { /* silent */ } finally { setInstituteCardSearching(false); }
+  };
+
+  const searchSurakshaCard = async () => {
+    if (!surakshaCardSearch.trim()) return;
+    setSurakshaCardSearching(true); setSurakshaCardResult(null);
+    try {
+      const res: any = await smartCardsApi.search(instituteId, { scope: 'GLOBAL', search: surakshaCardSearch.trim(), limit: 5 });
+      const items: any[] = res?.items || [];
+      const found = items.find((c: any) => c.status === 'ASSIGNED_INSTITUTE' || c.status === 'ASSIGNED_CLASS') || items[0] || null;
+      setSurakshaCardResult(found);
+    } catch { /* silent */ } finally { setSurakshaCardSearching(false); }
+  };
+
+  const smartCardPayload = () => ({
+    ...(smartCardsEnabled && instituteCardMode === 'auto' ? { autoAssignInstituteCard: true } : {}),
+    ...(smartCardsEnabled && instituteCardMode === 'manual' && instituteCardSelected ? { instituteCardId: instituteCardSelected.cardId } : {}),
+    ...(smartCardsEnabled && surakshaCardMode === 'auto' ? { autoAssignSurakshaCard: true } : {}),
+    ...(smartCardsEnabled && surakshaCardMode === 'manual' && surakshaCardSelected ? { surakshaCardId: surakshaCardSelected.cardId } : {}),
+  });
+
   // Camera state
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -68,7 +117,6 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
     userId: '',
     primaryUserTypeId: '',
     userIdByInstitute: '',
-    instituteCardId: '',
     imageUrl: ''
   });
 
@@ -76,7 +124,6 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
     phoneNumber: '+94',
     primaryUserTypeId: '',
     userIdByInstitute: '',
-    instituteCardId: '',
     imageUrl: ''
   });
 
@@ -84,7 +131,6 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
     rfid: '',
     primaryUserTypeId: '',
     userIdByInstitute: '',
-    instituteCardId: '',
     imageUrl: ''
   });
 
@@ -92,7 +138,6 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
     email: '',
     primaryUserTypeId: '',
     userIdByInstitute: '',
-    instituteCardId: '',
     imageUrl: ''
   });
 
@@ -112,7 +157,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
         userId: idFormData.userId,
         primaryUserTypeId: idFormData.primaryUserTypeId,
         userIdByInstitute: idFormData.userIdByInstitute,
-        ...(idFormData.instituteCardId && { instituteCardId: idFormData.instituteCardId }),
+        ...smartCardPayload(),
         ...(idFormData.imageUrl && { instituteImage: idFormData.imageUrl })
       };
 
@@ -162,7 +207,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
         phoneNumber: phoneFormData.phoneNumber,
         primaryUserTypeId: phoneFormData.primaryUserTypeId,
         userIdByInstitute: phoneFormData.userIdByInstitute,
-        ...(phoneFormData.instituteCardId && { instituteCardId: phoneFormData.instituteCardId }),
+        ...smartCardPayload(),
         ...(imageUrl && { imageUrl })
       };
 
@@ -212,7 +257,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
         rfid: rfidFormData.rfid,
         primaryUserTypeId: rfidFormData.primaryUserTypeId,
         userIdByInstitute: rfidFormData.userIdByInstitute,
-        ...(rfidFormData.instituteCardId && { instituteCardId: rfidFormData.instituteCardId }),
+        ...smartCardPayload(),
         ...(instituteImage && { instituteImage })
       };
 
@@ -262,7 +307,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
         email: emailFormData.email,
         primaryUserTypeId: emailFormData.primaryUserTypeId,
         userIdByInstitute: emailFormData.userIdByInstitute,
-        ...(emailFormData.instituteCardId && { instituteCardId: emailFormData.instituteCardId }),
+        ...smartCardPayload(),
         ...(imageUrl && { instituteImage: imageUrl })
       };
 
@@ -397,10 +442,11 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
 
   const resetForm = () => {
     setSelectedMethod(null);
-    setIdFormData({ userId: '', primaryUserTypeId: '', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
-    setPhoneFormData({ phoneNumber: '+94', primaryUserTypeId: '', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
-    setRfidFormData({ rfid: '', primaryUserTypeId: '', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
-    setEmailFormData({ email: '', primaryUserTypeId: '', userIdByInstitute: '', instituteCardId: '', imageUrl: '' });
+    setIdFormData({ userId: '', primaryUserTypeId: '', userIdByInstitute: '', imageUrl: '' });
+    setPhoneFormData({ phoneNumber: '+94', primaryUserTypeId: '', userIdByInstitute: '', imageUrl: '' });
+    setRfidFormData({ rfid: '', primaryUserTypeId: '', userIdByInstitute: '', imageUrl: '' });
+    setEmailFormData({ email: '', primaryUserTypeId: '', userIdByInstitute: '', imageUrl: '' });
+    resetSmartCards();
   };
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -504,6 +550,159 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
       stopCamera();
     };
   }, []);
+
+  const SmartCardFields = () => !smartCardsEnabled ? null : (
+    <>
+      {/* Institute Card (INSTITUTE scope) */}
+      <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Institute Card</Label>
+          <div className="flex rounded-md overflow-hidden border text-xs">
+            <button type="button"
+              className={`px-3 py-1 ${instituteCardMode === 'manual' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+              onClick={() => { setInstituteCardMode('manual'); setInstituteCardSelected(null); setInstituteCardSearchResults([]); }}>
+              Manual
+            </button>
+            <button type="button"
+              className={`px-3 py-1 ${instituteCardMode === 'auto' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+              onClick={() => { setInstituteCardMode('auto'); setInstituteCardSelected(null); }}>
+              Auto
+            </button>
+          </div>
+        </div>
+        {instituteCardMode === 'auto' ? (
+          <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded px-3 py-2">
+            Will auto-assign the next available INSTITUTE-scoped card from this institute's pool. If none available, no card assigned.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {instituteCardSelected ? (
+              <div className="flex items-center gap-2 border rounded-md p-2 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-mono font-medium truncate">{instituteCardSelected.cardId}</p>
+                  <p className="text-xs text-muted-foreground">{instituteCardSelected.cardName} · {instituteCardSelected.cardType}</p>
+                </div>
+                <Badge variant="outline" className="text-xs shrink-0">{instituteCardSelected.status?.replace(/_/g, ' ')}</Badge>
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setInstituteCardSelected(null); setInstituteCardSearch(''); setInstituteCardSearchResults([]); }}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    value={instituteCardSearch}
+                    onChange={e => setInstituteCardSearch(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && searchInstituteCard()}
+                    placeholder="Search card name or card ID…"
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="secondary" size="sm" onClick={searchInstituteCard} disabled={instituteCardSearching || !instituteCardSearch.trim()}>
+                    {instituteCardSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </Button>
+                </div>
+                {instituteCardSearchResults.length > 0 && (
+                  <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                    {instituteCardSearchResults.map((card: any) => {
+                      const assignable = card.status === 'ASSIGNED_INSTITUTE' || card.status === 'ASSIGNED_CLASS';
+                      return (
+                        <button key={card.id} type="button" disabled={!assignable}
+                          className={`w-full text-left px-3 py-2 flex items-center gap-2 text-sm transition-colors ${assignable ? 'hover:bg-muted cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                          onClick={() => assignable && (setInstituteCardSelected(card), setInstituteCardSearchResults([]))}>
+                          <span className="font-mono flex-1 truncate">{card.cardId}</span>
+                          <span className="text-xs text-muted-foreground truncate">{card.cardName}</span>
+                          <Badge variant={assignable ? 'outline' : 'secondary'} className="text-[10px] shrink-0">{card.status?.replace(/_/g, ' ')}</Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {instituteCardSearchResults.length === 0 && instituteCardSearch && !instituteCardSearching && (
+                  <p className="text-xs text-muted-foreground">No INSTITUTE-scoped cards found. Search by card name or ID.</p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Suraksha Card (GLOBAL scope) */}
+      <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Suraksha Smart Card</Label>
+          <div className="flex rounded-md overflow-hidden border text-xs">
+            <button type="button"
+              className={`px-3 py-1 ${surakshaCardMode === 'manual' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+              onClick={() => { setSurakshaCardMode('manual'); setSurakshaCardSelected(null); setSurakshaCardResult(null); }}>
+              Manual
+            </button>
+            <button type="button"
+              className={`px-3 py-1 ${surakshaCardMode === 'auto' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+              onClick={() => { setSurakshaCardMode('auto'); setSurakshaCardSelected(null); }}>
+              Auto
+            </button>
+          </div>
+        </div>
+        {surakshaCardMode === 'auto' ? (
+          <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded px-3 py-2">
+            Will auto-assign the next available GLOBAL card from this institute's pool. If none available, no card assigned.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {surakshaCardSelected ? (
+              <div className="flex items-center gap-2 border rounded-md p-2 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-mono font-medium truncate">{surakshaCardSelected.cardId}</p>
+                  <p className="text-xs text-muted-foreground">{surakshaCardSelected.cardName} · {surakshaCardSelected.cardType}</p>
+                </div>
+                <Badge variant="outline" className="text-xs shrink-0">{surakshaCardSelected.status?.replace(/_/g, ' ')}</Badge>
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setSurakshaCardSelected(null); setSurakshaCardSearch(''); setSurakshaCardResult(null); }}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    value={surakshaCardSearch}
+                    onChange={e => setSurakshaCardSearch(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && searchSurakshaCard()}
+                    placeholder="Search card name or card ID…"
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="secondary" size="sm" onClick={searchSurakshaCard} disabled={surakshaCardSearching || !surakshaCardSearch.trim()}>
+                    {surakshaCardSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </Button>
+                </div>
+                {surakshaCardResult && (
+                  <div className="border rounded-md">
+                    {(surakshaCardResult.status === 'ASSIGNED_INSTITUTE' || surakshaCardResult.status === 'ASSIGNED_CLASS') ? (
+                      <button type="button" className="w-full text-left px-3 py-2 flex items-center gap-2 text-sm hover:bg-muted"
+                        onClick={() => setSurakshaCardSelected(surakshaCardResult)}>
+                        <span className="font-mono flex-1 truncate">{surakshaCardResult.cardId}</span>
+                        <span className="text-xs text-muted-foreground truncate">{surakshaCardResult.cardName}</span>
+                        <Badge variant="outline" className="text-[10px] shrink-0 text-emerald-600">Available</Badge>
+                      </button>
+                    ) : (
+                      <div className="px-3 py-2 flex items-center gap-2 text-sm opacity-60">
+                        <span className="font-mono flex-1 truncate">{surakshaCardResult.cardId}</span>
+                        <Badge variant="secondary" className="text-[10px] shrink-0">
+                          {surakshaCardResult.status === 'ASSIGNED_USER' ? 'Already with a user' : surakshaCardResult.status?.replace(/_/g, ' ')}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!surakshaCardResult && surakshaCardSearch && !surakshaCardSearching && (
+                  <p className="text-xs text-amber-600">No card found in institute pool. Cannot hand over card right now.</p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  );
 
   return (
     <Dialog open={open} onOpenChange={handleClose} routeName="assign-user-methods-dialog-popup">
@@ -639,16 +838,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="instituteCardId">Institute Card ID</Label>
-                  <Input
-                    id="instituteCardId"
-                    value={idFormData.instituteCardId}
-                    onChange={(e) => setIdFormData(prev => ({ ...prev, instituteCardId: e.target.value }))}
-                    placeholder="e.g., CARD-2024-001"
-                    className="mt-1"
-                  />
-                </div>
+                <SmartCardFields />
 
                 <div>
                   <Label>Profile Image (35mm × 45mm)</Label>
