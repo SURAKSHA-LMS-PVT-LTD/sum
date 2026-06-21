@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Eye, RefreshCw, GraduationCap, Users, UserCheck, Plus, UserPlus, UserCog, Filter, Search, Shield, Upload, CheckCircle, UserX, UserMinus, Loader2, Clock, CheckCircle2, XCircle, ChevronDown, LayoutGrid, Table2, KeyRound, Pencil, X, MoreVertical, ArrowUpCircle } from 'lucide-react';
+import { Eye, RefreshCw, GraduationCap, Users, UserCheck, Plus, UserPlus, UserCog, Filter, Search, Shield, Upload, CheckCircle, UserX, UserMinus, Loader2, Clock, CheckCircle2, XCircle, ChevronDown, LayoutGrid, Table2, KeyRound, Pencil, X, MoreVertical, ArrowUpCircle, UserCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
@@ -186,7 +186,11 @@ const InstituteUsers = () => {
   const [savingExtraData, setSavingExtraData] = useState(false);
   const [upgradeTypeDialog, setUpgradeTypeDialog] = useState<{ open: boolean; user: InstituteUserData | null }>({ open: false, user: null });
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
   const defaultViewForType = (typeId: string): 'card' | 'table' => {
+    // Desktop always defaults to table; mobile defaults to card for students, table otherwise
+    if (!isMobile) return 'table';
     const type = userTypes.find(t => t.id === typeId);
     return type?.slug === 'student' ? 'card' : 'table';
   };
@@ -518,12 +522,22 @@ const InstituteUsers = () => {
     if (!currentInstituteId || !selectedUserTypeId) return;
     const table = getCurrentTable();
     if (table && !table.state.loading) {
-      // Always reload when the selected user type or view changes so users
-      // for the newly-picked type are fetched from the API.
       table.actions.loadData(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUserTypeId, activeView, pendingUserTypeId, currentInstituteId]);
+
+  // Reload when the current table's page or limit changes (autoLoad is false so we drive it here).
+  const currentTablePage = getCurrentTable()?.pagination.page;
+  const currentTableLimit = getCurrentTable()?.pagination.limit;
+  useEffect(() => {
+    if (!currentInstituteId || !selectedUserTypeId) return;
+    const table = getCurrentTable();
+    if (table && !table.state.loading) {
+      table.actions.loadData(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTablePage, currentTableLimit]);
 
   const handleFiltersChange = (newFilters: InstituteUserFilterParams) => setCurrentFilters(newFilters);
 
@@ -765,7 +779,126 @@ const InstituteUsers = () => {
 
       {currentUsers.length === 0 && !currentLoading && <EmptyState icon={viewIcon} title={`No ${activeView === 'USERS' ? currentType?.namePlural : activeView} Found`} description={`No users for this institute. Click to load.`} />}
 
-      <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}><DialogContent routeName="view-user-details-popup" className="w-[95vw] max-w-4xl max-h-[93vh] overflow-y-auto"><DialogHeader>...</DialogHeader>{selectedUser && <div>...</div>}</DialogContent></Dialog>
+      <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
+        <DialogContent routeName="view-user-details-popup" className="w-[95vw] max-w-2xl max-h-[93vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCircle className="h-5 w-5 text-primary" />
+              User Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-5 py-1">
+              {/* Avatar + name + badges */}
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 border-2 border-border shrink-0">
+                  <AvatarImage src={getImageUrl(selectedUser.instituteUserImageUrl || selectedUser.imageUrl || '')} alt={selectedUser.name} className="object-cover" />
+                  <AvatarFallback className="text-lg">{selectedUser.name.split(' ').map(n => n[0]).join('').slice(0, 2)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg font-semibold">{selectedUser.nameWithInitials || formatNameWithInitials(selectedUser.name)}</p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {selectedUser.userType && <Badge variant="secondary">{selectedUser.userType.name}</Badge>}
+                    {selectedUser.globalUserType && <Badge variant="outline" className="text-xs">{selectedUser.globalUserType.replace(/_/g, ' ')}</Badge>}
+                  </div>
+                </div>
+              </div>
+
+              {/* IDs section */}
+              <div className="p-3 rounded-lg bg-muted/40 border space-y-2">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Identifiers</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground">System User ID</p>
+                    <p className="text-sm font-mono font-medium">{selectedUser.id}</p>
+                  </div>
+                  {selectedUser.userIdByInstitute && (
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Institute User ID</p>
+                      <p className="text-sm font-mono font-medium">{selectedUser.userIdByInstitute}</p>
+                    </div>
+                  )}
+                  {selectedUser.studentId && (
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Student Record ID</p>
+                      <p className="text-sm font-mono font-medium">{selectedUser.studentId}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Contact & personal */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { label: 'Email', value: selectedUser.email },
+                  { label: 'Phone', value: selectedUser.phoneNumber },
+                  { label: 'Date of Birth', value: selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString() : undefined },
+                  { label: 'Address', value: [selectedUser.addressLine1, selectedUser.addressLine2].filter(Boolean).join(', ') || undefined },
+                  { label: 'House', value: selectedUser.houseName },
+                  { label: 'Emergency Contact', value: selectedUser.emergencyContact },
+                  { label: 'Medical Conditions', value: selectedUser.medicalConditions },
+                  { label: 'Allergies', value: selectedUser.allergies },
+                  { label: 'Verified By', value: selectedUser.verifiedBy },
+                ].map(({ label, value }) => value ? (
+                  <div key={label} className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{label}</p>
+                    <p className="text-sm">{value}</p>
+                  </div>
+                ) : null)}
+              </div>
+
+              {/* Extra data */}
+              {selectedUser.extraData && Object.keys(selectedUser.extraData).length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Extra Info</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 rounded-lg bg-muted/40 border">
+                    {Object.entries(selectedUser.extraData).map(([k, v]) => (
+                      <div key={k} className="space-y-0.5">
+                        <p className="text-xs text-muted-foreground">{k}</p>
+                        <p className="text-sm font-medium">{String(v ?? '-')}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Parent / Guardian info */}
+              {selectedUser.father && (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Father / Guardian</p>
+                  <div className="p-3 rounded-lg bg-muted/40 border space-y-1">
+                    <p className="text-sm font-medium">{selectedUser.father.name}</p>
+                    {selectedUser.father.email && <p className="text-sm text-muted-foreground">{selectedUser.father.email}</p>}
+                    {selectedUser.father.occupation && <p className="text-xs text-muted-foreground">{selectedUser.father.occupation}{selectedUser.father.workPlace ? ` · ${selectedUser.father.workPlace}` : ''}</p>}
+                  </div>
+                </div>
+              )}
+
+              {/* Attendance quick-link for students */}
+              {selectedUser.studentId && (
+                <div className="pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-sm"
+                    onClick={() => {
+                      setShowUserDialog(false);
+                      navigate(`/institute/${currentInstituteId}/student/${selectedUser.id}/profile`, { state: { student: selectedUser } });
+                    }}
+                  >
+                    <GraduationCap className="h-4 w-4 mr-2" />
+                    View Full Student Profile &amp; Attendance
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-1">
+                <Button variant="outline" onClick={() => setShowUserDialog(false)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       <Dialog open={showCreateUserDialog} onOpenChange={setShowCreateUserDialog} routeName="create-user-dialog-popup"><DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto"><DialogHeader><DialogTitle>Create New User</DialogTitle></DialogHeader><CreateUserForm onSubmit={handleCreateUser} onCancel={() => setShowCreateUserDialog(false)} /></DialogContent></Dialog>
       <Dialog open={showAssignUserDialog} onOpenChange={setShowAssignUserDialog} routeName="assign-user-to-institute-popup"><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Assign User to Institute</DialogTitle></DialogHeader><AssignUserForm instituteId={currentInstituteId!} onSubmit={handleAssignUser} onCancel={() => setShowAssignUserDialog(false)} initialUserId={assignInitialUserId} /></DialogContent></Dialog>
       <Dialog open={showAssignParentDialog} onOpenChange={setShowAssignParentDialog} routeName="assign-parent-dialog-popup"><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>Assign Parent</DialogTitle></DialogHeader>{selectedStudentForParent && <div className="mb-4 p-3 bg-muted rounded-lg"><p className="text-sm">Assigning parent to:</p><p className="font-medium">{selectedStudentForParent.name}</p></div>}<AssignParentByPhoneForm studentId={selectedStudentForParent?.id || ''} onSubmit={handleParentAssignment} onCancel={() => {setShowAssignParentDialog(false); setSelectedStudentForParent(null);}} /></DialogContent></Dialog>

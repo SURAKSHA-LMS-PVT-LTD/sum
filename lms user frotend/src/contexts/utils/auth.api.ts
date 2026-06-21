@@ -669,6 +669,24 @@ export const instituteLoginForce = async (credentials: InstituteLoginCredentials
   return data;
 };
 
+// ============= MAIN LOGIN — UNIFIED PASSWORD RESET CONTACTS (phones + emails) ==
+
+export interface MainResetContact {
+  id: string;
+  label: string;
+  masked: string;
+  type: 'phone' | 'email';
+}
+
+export const getAllMainResetContacts = async (identifier: string): Promise<{ contacts: MainResetContact[] }> => {
+  const baseUrl = getBaseUrl();
+  const r = await fetch(`${baseUrl}/auth/forgot-password/contacts`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier }),
+  });
+  if (!r.ok) return { contacts: [] };
+  return r.json();
+};
+
 // ============= MAIN LOGIN — WHATSAPP PASSWORD RESET (own + parent numbers) =====
 
 export const getMainWaResetContacts = async (identifier: string): Promise<{ contacts: { id: string; label: string; masked: string }[] }> => {

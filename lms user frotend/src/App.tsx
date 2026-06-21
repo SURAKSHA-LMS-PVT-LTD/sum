@@ -74,6 +74,7 @@ import InstituteAttendancePage from "./pages/InstituteAttendancePage";
 import SettingsPage from "./pages/SettingsPage";
 import DeployPage from "./pages/DeployPage";
 import PaymentReturnPage from "./pages/PaymentReturnPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import { isPopupRouteSegment } from "@/utils/popupRoutes";
 
 const queryClient = new QueryClient({
@@ -199,6 +200,7 @@ const AppContent = () => {
       <Route path="/live-lecture/:urlId" element={<LiveLecturePage />} />
       <Route path="/view-recording/:urlId" element={<ViewRecordingPage />} />
       <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/activate/identify" element={<ActivateAccount />} />
       <Route path="/activate/verify" element={<ActivateAccount />} />
       <Route path="/activate/profile" element={<ActivateAccount />} />

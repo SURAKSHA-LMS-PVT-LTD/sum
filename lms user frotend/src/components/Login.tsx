@@ -764,8 +764,11 @@ const Login = ({
           userIdByInstitute: instituteUserId,
         });
         setAvailableContacts(result.contacts);
-        setSelectedContactId(result.contacts[0]?.id || '');
-        setEnabledChannels(result.enabledChannels || { email: false, sms: false, whatsapp: true });
+        const channels = result.enabledChannels || { email: false, sms: false, whatsapp: true };
+        setEnabledChannels(channels);
+        // Default selection: skip email contacts if email channel is disabled
+        const firstSelectable = result.contacts.find(c => !(c.type === 'EMAIL' && !channels.email));
+        setSelectedContactId(firstSelectable?.id || result.contacts[0]?.id || '');
         // WhatsApp-only for end users (SMS/Email greyed in the picker).
         setSelectedChannel('WHATSAPP');
         setLoginStep('institute-select-contact');
@@ -1059,7 +1062,7 @@ const Login = ({
                       Remember me
                     </label>
                   </div>}
-                  <Button type="button" variant="link" onClick={startForgotPassword} className="text-xs md:text-sm text-primary hover:text-primary/80 p-0 h-auto font-medium">
+                  <Button type="button" variant="link" onClick={() => loginNavigate('/forgot-password')} className="text-xs md:text-sm text-primary hover:text-primary/80 p-0 h-auto font-medium">
                     Forgot password?
                   </Button>
                 </div>}
@@ -1189,16 +1192,21 @@ const Login = ({
                 )}
 
                 <div className="space-y-2">
-                  {availableContacts.map((c) => (
-                    <label key={c.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedContactId === c.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}>
-                      <input type="radio" name="contact" value={c.id} checked={selectedContactId === c.id} onChange={() => setSelectedContactId(c.id)} className="accent-primary w-4 h-4" />
-                      <div>
-                        <p className="text-sm font-medium">{c.label}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{c.masked}</p>
-                      </div>
-                      <span className="ml-auto text-xs rounded-full px-2 py-0.5 bg-muted text-muted-foreground">{c.type === 'EMAIL' ? 'Email' : 'SMS'}</span>
-                    </label>
-                  ))}
+                  {availableContacts.map((c) => {
+                    const isEmailDisabled = c.type === 'EMAIL' && !enabledChannels.email;
+                    return (
+                      <label key={c.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${isEmailDisabled ? 'border-border/40 bg-muted/20 cursor-not-allowed opacity-50' : `cursor-pointer ${selectedContactId === c.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}`}>
+                        <input type="radio" name="contact" value={c.id} checked={selectedContactId === c.id} onChange={() => !isEmailDisabled && setSelectedContactId(c.id)} disabled={isEmailDisabled} className="accent-primary w-4 h-4" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{c.label}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{c.masked}</p>
+                        </div>
+                        <span className="ml-auto text-xs rounded-full px-2 py-0.5 bg-muted text-muted-foreground shrink-0">
+                          {c.type === 'EMAIL' ? (isEmailDisabled ? 'Email (off)' : 'Email') : 'Phone'}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
 
                 {/* Verify via — WhatsApp only; SMS & Email are shown greyed/disabled. */}
@@ -1208,7 +1216,7 @@ const Login = ({
 
                 {error && <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</div>}
 
-                <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading || !selectedContactId || availableContacts.length === 0}>
+                <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading || !selectedContactId || availableContacts.length === 0 || (availableContacts.find(c => c.id === selectedContactId)?.type === 'EMAIL' && !enabledChannels.email)}>
                   {isLoading ? 'Sending OTP...' : selectedChannel === 'WHATSAPP' && availableContacts.find(c => c.id === selectedContactId)?.type === 'PHONE' ? 'Verify via WhatsApp' : 'Send OTP'}
                 </Button>
 
