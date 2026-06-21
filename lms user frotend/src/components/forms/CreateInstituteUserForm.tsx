@@ -17,12 +17,13 @@ import { instituteApi } from '@/api/institute.api';
 import { instituteClassesApi, InstituteClass } from '@/api/instituteClasses.api';
 import { usersApi, UserLookupResult, normalizePhoneNumber } from '@/api/users.api';
 import { smartCardsApi } from '@/api/smartCards.api';
+import { creditsApi, CreditBalance } from '@/api/credits.api';
 import { getSignedUrl, uploadToSignedUrl } from '@/utils/imageUploadHelper';
 import PassportImageCropUpload from '@/components/common/PassportImageCropUpload';
 import { getErrorMessage } from '@/api/apiError';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { toast as sonnerToast } from 'sonner';
-import { Loader2, Plus, X, ChevronDown, ChevronUp, Check, ChevronsUpDown, Search, UserCheck, UserX } from 'lucide-react';
+import { Loader2, Plus, X, ChevronDown, ChevronUp, Check, ChevronsUpDown, Search, UserCheck, UserX, Mail, AlertCircle } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -265,7 +266,9 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
   const [instituteCardSearchResults, setInstituteCardSearchResults] = useState<any[]>([]);
   const [instituteCardSelected, setInstituteCardSelected] = useState<any | null>(null);
   const [password, setPassword] = useState('');
-  const [sendWelcomeNotifications, setSendWelcomeNotifications] = useState(true);
+  const [sendWelcomeNotifications, setSendWelcomeNotifications] = useState(false);
+  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
+  const [creditBalanceLoading, setCreditBalanceLoading] = useState(false);
 
   // ── Schema-driven extra data (institute custom columns) ──
   const { columns: extraColumns } = useInstituteUserColumns(currentInstituteId);
@@ -523,6 +526,20 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
     }
   };
 
+  // ── Fetch credit balance when welcome email is toggled on ──
+  const handleWelcomeToggle = async (checked: boolean) => {
+    setSendWelcomeNotifications(checked);
+    if (checked && currentInstituteId && !creditBalance) {
+      setCreditBalanceLoading(true);
+      try {
+        const bal = await creditsApi.getBalance(currentInstituteId);
+        setCreditBalance(bal);
+      } catch { /* silent — show balance as unknown */ } finally {
+        setCreditBalanceLoading(false);
+      }
+    }
+  };
+
   // Accept a found user: store their contact in the parent state
   const acceptLinkedUser = (
     user: UserLookupResult,
@@ -681,6 +698,15 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
         title: 'User Created',
         description: response.message || `${selectedUserTypeFull?.name} created and enrolled successfully`,
       });
+
+      // If welcome email was requested but not sent (insufficient credits or no email on user), notify — user is already created, no re-entry needed
+      if (sendWelcomeNotifications && response.welcomeNotificationSent === false) {
+        sonnerToast.warning('Welcome email not sent', {
+          description: 'The user was created successfully. The welcome email could not be sent — your institute may have insufficient credits or the user has no email address.',
+          duration: 8000,
+        });
+      }
+
       if (onSubmit) onSubmit(response);
       if (isPageMode) navigate(-1);
     } catch (error: any) {
@@ -1793,15 +1819,34 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
             </div>
 
             {/* ── Notifications ── */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="welcome-notifications"
-                checked={sendWelcomeNotifications}
-                onCheckedChange={(checked) => setSendWelcomeNotifications(checked === true)}
-              />
-              <Label htmlFor="welcome-notifications" className="text-sm cursor-pointer">
-                {L.welcomeNotification}
-              </Label>
+            <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="welcome-notifications"
+                  checked={sendWelcomeNotifications}
+                  onCheckedChange={(checked) => handleWelcomeToggle(checked === true)}
+                />
+                <Label htmlFor="welcome-notifications" className="text-sm cursor-pointer flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                  {L.welcomeNotification}
+                </Label>
+              </div>
+              {sendWelcomeNotifications && (
+                <div className="flex items-start gap-2 text-xs rounded-md px-2.5 py-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    Sending a welcome email will deduct <strong>2 credits</strong> from your balance.{' '}
+                    {creditBalanceLoading ? (
+                      <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Loading balance…</span>
+                    ) : creditBalance !== null ? (
+                      <span>
+                        Current balance: <strong className={creditBalance.balance < 2 ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}>{creditBalance.balance} credits</strong>
+                        {creditBalance.balance < 2 && <span className="ml-1 text-red-600 dark:text-red-400">— insufficient, email will not be sent.</span>}
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+              )}
             </div>
 
           </form>

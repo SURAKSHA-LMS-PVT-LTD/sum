@@ -1062,16 +1062,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="emailInstituteCardId">Institute Card ID</Label>
-                  <Input
-                    id="emailInstituteCardId"
-                    value={emailFormData.instituteCardId}
-                    onChange={(e) => setEmailFormData(prev => ({ ...prev, instituteCardId: e.target.value }))}
-                    placeholder="e.g., CARD-2024-001"
-                    className="mt-1"
-                  />
-                </div>
+                <SmartCardFields />
 
                 <div>
                   <Label>Profile Image (35mm × 45mm)</Label>

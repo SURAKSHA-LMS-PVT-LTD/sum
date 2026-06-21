@@ -111,16 +111,14 @@ const MyChildren = () => {
                 View and manage your children's information
               </p>
             </div>
-            <Button 
-              onClick={() => handleLoadChildren(true)} 
+            <button
+              onClick={() => handleLoadChildren(true)}
               disabled={loading}
-              variant="outline"
-              size="sm"
-              className="gap-2"
+              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 p-1"
+              title="Refresh"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            </button>
           </div>
           
           {/* Parent Info */}
