@@ -669,6 +669,44 @@ export const instituteLoginForce = async (credentials: InstituteLoginCredentials
   return data;
 };
 
+// ============= MAIN LOGIN — WHATSAPP PASSWORD RESET (own + parent numbers) =====
+
+export const getMainWaResetContacts = async (identifier: string): Promise<{ contacts: { id: string; label: string; masked: string }[] }> => {
+  const baseUrl = getBaseUrl();
+  const r = await fetch(`${baseUrl}/auth/forgot-password/whatsapp/contacts`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier }),
+  });
+  if (!r.ok) return { contacts: [] };
+  return r.json();
+};
+
+export const initiateMainWaReset = async (identifier: string, selectedContactId: string): Promise<{ message: string; sentTo: string; waLink: string }> => {
+  const baseUrl = getBaseUrl();
+  const r = await fetch(`${baseUrl}/auth/forgot-password/whatsapp/initiate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier, selectedContactId }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({ message: 'Failed' })); throw new Error(e.message || 'Failed'); }
+  return r.json();
+};
+
+export const getMainWaResetStatus = async (identifier: string): Promise<{ verified: boolean; expired: boolean }> => {
+  const baseUrl = getBaseUrl();
+  const r = await fetch(`${baseUrl}/auth/forgot-password/whatsapp/status`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier }),
+  });
+  if (!r.ok) return { verified: false, expired: false };
+  return r.json();
+};
+
+export const resetMainPasswordViaWa = async (identifier: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+  const baseUrl = getBaseUrl();
+  const r = await fetch(`${baseUrl}/auth/forgot-password/whatsapp/reset`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier, newPassword }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({ message: 'Failed' })); throw new Error(e.message || 'Failed'); }
+  return r.json();
+};
+
 // ============= INSTITUTE PASSWORD RESET =============
 
 export interface InstituteAvailableContact {
@@ -678,10 +716,18 @@ export interface InstituteAvailableContact {
   type: 'EMAIL' | 'PHONE';
 }
 
+export type InstitutePwdResetChannel = 'EMAIL' | 'SMS' | 'WHATSAPP';
+
+export interface InstituteEnabledChannels {
+  email: boolean;
+  sms: boolean;
+  whatsapp: boolean;
+}
+
 export const getInstituteAvailableContacts = async (params: {
   instituteId: string;
   userIdByInstitute: string;
-}): Promise<{ contacts: InstituteAvailableContact[] }> => {
+}): Promise<{ contacts: InstituteAvailableContact[]; enabledChannels: InstituteEnabledChannels }> => {
   const baseUrl = getBaseUrl();
   const response = await fetch(`${baseUrl}/v2/auth/institute/available-contacts`, {
     method: 'POST',
@@ -699,7 +745,8 @@ export const initiateInstitutePasswordReset = async (params: {
   instituteId: string;
   userIdByInstitute: string;
   selectedContactId: string;
-}): Promise<{ message: string; sentTo: string; channel: string; isParentContact: boolean }> => {
+  deliveryChannel?: InstitutePwdResetChannel;
+}): Promise<{ message: string; sentTo: string; channel: string; isParentContact: boolean; waLink?: string }> => {
   const baseUrl = getBaseUrl();
   const response = await fetch(`${baseUrl}/v2/auth/institute/password-reset/initiate`, {
     method: 'POST',
@@ -715,11 +762,27 @@ export const initiateInstitutePasswordReset = async (params: {
   return response.json();
 };
 
+/** Poll whether a WhatsApp reverse-OTP for password reset has been confirmed by the webhook. */
+export const getInstitutePwdResetOtpStatus = async (params: {
+  instituteId: string;
+  userIdByInstitute: string;
+}): Promise<{ verified: boolean; expired: boolean }> => {
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/v2/auth/institute/password-reset/otp-status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!response.ok) return { verified: false, expired: false };
+  return response.json();
+};
+
 export const verifyInstitutePasswordReset = async (params: {
   instituteId: string;
   userIdByInstitute: string;
-  otpCode: string;
+  otpCode?: string;
   newPassword: string;
+  deliveryChannel?: InstitutePwdResetChannel;
 }): Promise<{ message: string }> => {
   const baseUrl = getBaseUrl();
   const response = await fetch(`${baseUrl}/v2/auth/institute/password-reset/verify`, {

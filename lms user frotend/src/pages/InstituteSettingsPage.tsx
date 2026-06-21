@@ -159,6 +159,12 @@ const InstituteSettingsPage = () => {
   const [allowUserPhotoUpload, setAllowUserPhotoUpload] = useState(true);
   const [photoUploadSaving, setPhotoUploadSaving] = useState(false);
 
+  // Password-reset OTP channels (WhatsApp on by default; SMS/Email off)
+  const [pwdResetWhatsapp, setPwdResetWhatsapp] = useState(true);
+  const [pwdResetSms, setPwdResetSms] = useState(false);
+  const [pwdResetEmail, setPwdResetEmail] = useState(false);
+  const [pwdResetSaving, setPwdResetSaving] = useState(false);
+
   // Session limits state
   const [sessionLimitEnabled, setSessionLimitEnabled] = useState(false);
   const [strictSessionLimit, setStrictSessionLimit] = useState(false);
@@ -311,6 +317,9 @@ const InstituteSettingsPage = () => {
         receiptFooter: (response as any).printerSettings?.receiptFooter ?? '',
       });
       setAllowUserPhotoUpload(response.allowUserPhotoUpload ?? true);
+      setPwdResetWhatsapp(response.pwdResetWhatsappEnabled ?? true);
+      setPwdResetSms(response.pwdResetSmsEnabled ?? false);
+      setPwdResetEmail(response.pwdResetEmailEnabled ?? false);
       setSessionLimitEnabled(response.isSessionLimitEnabled ?? false);
       setStrictSessionLimit(response.isStrictSessionLimit ?? false);
       setDefaultSessionCount(response.defaultSessionsPerUserCount ?? 3);
@@ -535,6 +544,28 @@ const InstituteSettingsPage = () => {
       toast({ title: 'Error', description: e.message || 'Failed to save photo policy', variant: 'destructive' });
     } finally {
       setPhotoUploadSaving(false);
+    }
+  };
+
+  const handleSavePwdResetChannels = async () => {
+    if (!currentInstituteId) return;
+    setPwdResetSaving(true);
+    try {
+      await enhancedCachedClient.patch(
+        `/institutes/${currentInstituteId}/settings`,
+        {
+          pwdResetWhatsappEnabled: pwdResetWhatsapp,
+          pwdResetSmsEnabled: pwdResetSms,
+          pwdResetEmailEnabled: pwdResetEmail,
+        },
+        { instituteId: currentInstituteId },
+      );
+      await secureCache.clearCache(`/institutes/${currentInstituteId}/settings`, {}, { instituteId: currentInstituteId });
+      toast({ title: 'Success', description: 'Password-reset channels saved.' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'Failed to save channels', variant: 'destructive' });
+    } finally {
+      setPwdResetSaving(false);
     }
   };
 
@@ -1924,6 +1955,48 @@ const InstituteSettingsPage = () => {
                   <Button onClick={handleSavePhotoPolicy} disabled={photoUploadSaving}>
                     {photoUploadSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                     Save Photo Policy
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Password-reset OTP channels */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <KeyRound className="h-5 w-5 text-teal-600" />
+                  Forgot-Password Channels
+                </CardTitle>
+                <CardDescription>
+                  Choose how users receive their reset code. WhatsApp is recommended; SMS and Email are off by default.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base">WhatsApp</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">User taps a link and sends the code from their own WhatsApp.</p>
+                  </div>
+                  <Switch checked={pwdResetWhatsapp} onCheckedChange={setPwdResetWhatsapp} disabled={!isInstituteAdmin} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base">Text message (SMS)</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Send the reset code over SMS (charges may apply).</p>
+                  </div>
+                  <Switch checked={pwdResetSms} onCheckedChange={setPwdResetSms} disabled={!isInstituteAdmin} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base">Email</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Send the reset code to the user's email.</p>
+                  </div>
+                  <Switch checked={pwdResetEmail} onCheckedChange={setPwdResetEmail} disabled={!isInstituteAdmin} />
+                </div>
+                {isInstituteAdmin && (
+                  <Button onClick={handleSavePwdResetChannels} disabled={pwdResetSaving}>
+                    {pwdResetSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Save Channels
                   </Button>
                 )}
               </CardContent>

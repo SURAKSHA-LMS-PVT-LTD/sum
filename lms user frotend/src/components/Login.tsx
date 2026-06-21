@@ -9,7 +9,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { type UserRole } from '@/contexts/AuthContext';
 import { User, Eye, EyeOff, Building2, UserCircle, Users, CheckCircle2, Phone, School, Mail, KeyRound, Key, MonitorSmartphone, Wifi, WifiOff, Settings, RotateCcw, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getBaseUrl, getBaseUrl2, instituteLogin, instituteLoginForce, initiateInstitutePasswordReset, verifyInstitutePasswordReset, getInstituteAvailableContacts, type InstituteAvailableContact } from '@/contexts/utils/auth.api';
+import { getBaseUrl, getBaseUrl2, instituteLogin, instituteLoginForce, initiateInstitutePasswordReset, verifyInstitutePasswordReset, getInstituteAvailableContacts, getInstitutePwdResetOtpStatus, getMainWaResetContacts, initiateMainWaReset, getMainWaResetStatus, resetMainPasswordViaWa, type InstituteAvailableContact, type InstituteEnabledChannels, type InstitutePwdResetChannel } from '@/contexts/utils/auth.api';
 import { getErrorMessage } from '@/api/apiError';
 import { Capacitor } from '@capacitor/core';
 // FirstLogin is now rendered via /activate/* routes
@@ -127,7 +127,7 @@ interface LoginProps {
   onLogin: (user: any) => void;
   loginFunction: (credentials: LoginCredentials) => Promise<void>;
 }
-type LoginStep = 'login' | 'first-login-email' | 'first-login-otp' | 'first-login-password' | 'forgot-password' | 'reset-password' | 'institute-login' | 'institute-forgot' | 'institute-select-contact' | 'institute-reset' | 'institute-device-limit';
+type LoginStep = 'login' | 'first-login-email' | 'first-login-otp' | 'first-login-password' | 'forgot-password' | 'reset-password' | 'main-wa-contacts' | 'main-wa-verify' | 'institute-login' | 'institute-forgot' | 'institute-select-contact' | 'institute-reset' | 'institute-device-limit';
 const Login = ({
   onLogin,
   loginFunction
@@ -183,6 +183,16 @@ const Login = ({
   // Contact picker state
   const [availableContacts, setAvailableContacts] = useState<InstituteAvailableContact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState('');
+  // Channel selection + WhatsApp reverse-OTP state
+  const [enabledChannels, setEnabledChannels] = useState<InstituteEnabledChannels>({ email: false, sms: false, whatsapp: true });
+  const [selectedChannel, setSelectedChannel] = useState<InstitutePwdResetChannel>('WHATSAPP');
+  const [whatsappLink, setWhatsappLink] = useState('');
+  const [waVerified, setWaVerified] = useState(false);
+  const [waPolling, setWaPolling] = useState(false);
+  // Main-login WhatsApp reset (own + parent numbers)
+  const [mainWaContacts, setMainWaContacts] = useState<{ id: string; label: string; masked: string }[]>([]);
+  const [mainWaContactId, setMainWaContactId] = useState('');
+  const [mainWaPolling, setMainWaPolling] = useState(false);
   
   // Device limit state
   const [deviceLimitInfo, setDeviceLimitInfo] = useState<any>(null);
@@ -212,6 +222,52 @@ const Login = ({
       return () => clearTimeout(timer);
     }
   }, [otpTimer]);
+
+  // WhatsApp reverse-OTP (institute): poll until the user's sent code is confirmed.
+  useEffect(() => {
+    if (!waPolling || waVerified) return;
+    const resolvedId = isTenantLogin && branding ? branding.id : instituteId;
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      try {
+        const { verified, expired } = await getInstitutePwdResetOtpStatus({
+          instituteId: resolvedId,
+          userIdByInstitute: instituteUserId,
+        });
+        if (cancelled) return;
+        if (verified) {
+          setWaVerified(true);
+          setWaPolling(false);
+          toast({ title: 'Verified', description: 'WhatsApp code confirmed. Set your new password.' });
+        } else if (expired) {
+          setWaPolling(false);
+          setError('WhatsApp verification expired. Please request a new code.');
+        }
+      } catch { /* keep polling */ }
+    }, 3000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [waPolling, waVerified, isTenantLogin, branding, instituteId, instituteUserId, toast]);
+
+  // WhatsApp reverse-OTP (main login): poll until confirmed.
+  useEffect(() => {
+    if (!mainWaPolling || waVerified) return;
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      try {
+        const { verified, expired } = await getMainWaResetStatus(identifier.trim());
+        if (cancelled) return;
+        if (verified) {
+          setWaVerified(true);
+          setMainWaPolling(false);
+          toast({ title: 'Verified', description: 'WhatsApp code confirmed. Set your new password.' });
+        } else if (expired) {
+          setMainWaPolling(false);
+          setError('WhatsApp verification expired. Please try again.');
+        }
+      } catch { /* keep polling */ }
+    }, 3000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [mainWaPolling, waVerified, identifier, toast]);
 
   // 🏢 Multi-tenant: Once tenant branding is confirmed valid (loading done, no error),
   // switch the login step to institute-login mode. This prevents the 'institute-login'
@@ -529,6 +585,50 @@ const Login = ({
       setIsLoading(false);
     }
   };
+
+  // Main-login WhatsApp reset: load contacts (own + parent numbers) and start verify.
+  const startMainWaReset = async () => {
+    if (!identifier.trim()) { setError('Enter your email, phone, or ID first.'); return; }
+    setError(''); setIsLoading(true);
+    try {
+      const { contacts } = await getMainWaResetContacts(identifier.trim());
+      if (contacts.length === 0) {
+        setError('No phone number found for this account. Use email reset or contact support.');
+        return;
+      }
+      setMainWaContacts(contacts);
+      setMainWaContactId(contacts[0].id);
+      setLoginStep('main-wa-contacts');
+    } catch (e: any) {
+      setError(getErrorMessage(e, 'Could not load contacts'));
+    } finally { setIsLoading(false); }
+  };
+
+  const handleMainWaFlow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setIsLoading(true);
+    try {
+      if (loginStep === 'main-wa-contacts') {
+        if (!mainWaContactId) { setError('Select a number.'); setIsLoading(false); return; }
+        const result = await initiateMainWaReset(identifier.trim(), mainWaContactId);
+        setWhatsappLink(result.waLink);
+        setInstituteResetSentTo(result.sentTo);
+        setWaVerified(false);
+        setMainWaPolling(true);
+        setLoginStep('main-wa-verify');
+      } else if (loginStep === 'main-wa-verify') {
+        if (!waVerified) { setError('Tap the WhatsApp link and send the code first.'); setIsLoading(false); return; }
+        if (newPassword !== confirmPassword) { setError('Passwords do not match'); setIsLoading(false); return; }
+        await resetMainPasswordViaWa(identifier.trim(), newPassword);
+        toast({ title: 'Success', description: 'Password reset successfully. Please login.' });
+        setLoginStep('login');
+        setNewPassword(''); setConfirmPassword(''); setWhatsappLink(''); setWaVerified(false); setMainWaPolling(false);
+      }
+    } catch (e: any) {
+      setError(getErrorMessage(e, 'Process failed'));
+    } finally { setIsLoading(false); }
+  };
+
   const handleQuickLogin = (role: UserRole) => {
     const user = mockUsers.find((u) => u.role === role);
     if (user) {
@@ -657,7 +757,7 @@ const Login = ({
     setIsLoading(true);
     try {
       if (loginStep === 'institute-forgot') {
-        // Step 1: load available contacts
+        // Step 1: load available contacts + which channels the institute enabled
         const resolvedId = isTenantLogin && branding ? branding.id : instituteId;
         const result = await getInstituteAvailableContacts({
           instituteId: resolvedId,
@@ -665,30 +765,50 @@ const Login = ({
         });
         setAvailableContacts(result.contacts);
         setSelectedContactId(result.contacts[0]?.id || '');
+        setEnabledChannels(result.enabledChannels || { email: false, sms: false, whatsapp: true });
+        // WhatsApp-only for end users (SMS/Email greyed in the picker).
+        setSelectedChannel('WHATSAPP');
         setLoginStep('institute-select-contact');
       } else if (loginStep === 'institute-select-contact') {
-        // Step 2: send OTP to selected contact
+        // Step 2: initiate via the selected channel
         if (!selectedContactId) { setError('Please select a contact option.'); setIsLoading(false); return; }
+        const contact = availableContacts.find(c => c.id === selectedContactId);
+        // Email contacts can only use the EMAIL channel; phone contacts use SMS/WhatsApp.
+        const channel: InstitutePwdResetChannel = contact?.type === 'EMAIL' ? 'EMAIL' : selectedChannel;
         const resolvedId = isTenantLogin && branding ? branding.id : instituteId;
         const result = await initiateInstitutePasswordReset({
           instituteId: resolvedId,
           userIdByInstitute: instituteUserId,
           selectedContactId,
+          deliveryChannel: channel,
         });
+        setSelectedChannel(channel);
         setInstituteResetSentTo(result.sentTo);
+        setWaVerified(false);
+        if (channel === 'WHATSAPP' && result.waLink) {
+          setWhatsappLink(result.waLink);
+          setWaPolling(true);
+        } else {
+          setWhatsappLink('');
+          toast({ title: 'OTP Sent', description: `Code sent to ${result.sentTo}${result.isParentContact ? ' (parent contact)' : ''}` });
+        }
         setLoginStep('institute-reset');
-        toast({ title: 'OTP Sent', description: `Code sent to ${result.sentTo}${result.isParentContact ? ' (parent contact)' : ''}` });
       } else if (loginStep === 'institute-reset') {
         if (newPassword !== confirmPassword) { setError('Passwords do not match'); setIsLoading(false); return; }
+        if (selectedChannel === 'WHATSAPP' && !waVerified) {
+          setError('Please tap the WhatsApp link and send the code first.'); setIsLoading(false); return;
+        }
         await verifyInstitutePasswordReset({
           instituteId: isTenantLogin && branding ? branding.id : instituteId,
           userIdByInstitute: instituteUserId,
-          otpCode: otp,
+          otpCode: selectedChannel === 'WHATSAPP' ? undefined : otp,
           newPassword,
+          deliveryChannel: selectedChannel,
         });
         toast({ title: 'Success', description: 'Password reset successfully. You can now login.' });
         setLoginStep('institute-login');
         setOtp(''); setNewPassword(''); setConfirmPassword('');
+        setWhatsappLink(''); setWaVerified(false); setWaPolling(false);
       }
     } catch (error: any) {
       setError(error instanceof Error ? error.message : 'Password reset failed');
@@ -1081,10 +1201,15 @@ const Login = ({
                   ))}
                 </div>
 
+                {/* Verify via — WhatsApp only; SMS & Email are shown greyed/disabled. */}
+                {availableContacts.find(c => c.id === selectedContactId)?.type === 'PHONE' && (
+                  <ChannelPicker selected={selectedChannel} onSelect={setSelectedChannel} />
+                )}
+
                 {error && <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</div>}
 
                 <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading || !selectedContactId || availableContacts.length === 0}>
-                  {isLoading ? 'Sending OTP...' : 'Send OTP'}
+                  {isLoading ? 'Sending OTP...' : selectedChannel === 'WHATSAPP' && availableContacts.find(c => c.id === selectedContactId)?.type === 'PHONE' ? 'Verify via WhatsApp' : 'Send OTP'}
                 </Button>
 
                 <Button type="button" variant="ghost" onClick={() => { setLoginStep('institute-forgot'); setError(''); }} className="w-full h-9 text-sm">
@@ -1096,25 +1221,30 @@ const Login = ({
             {loginStep === 'institute-reset' && <form onSubmit={handleInstitutePasswordReset} className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Key className="h-5 w-5 text-primary" />
-                  <h3 className="text-base font-semibold">Enter OTP & New Password</h3>
+                  <h3 className="text-base font-semibold">{selectedChannel === 'WHATSAPP' ? 'Verify via WhatsApp' : 'Enter OTP & New Password'}</h3>
                 </div>
 
-                <div className="text-xs text-muted-foreground bg-primary/10 p-2.5 rounded-lg">
-                  OTP sent to {instituteResetSentTo}
-                </div>
-
-                <div className="flex justify-center py-2">
-                  <InputOTP maxLength={6} value={otp} onChange={setOtp} className="gap-1.5">
-                    <InputOTPGroup className="gap-1.5">
-                      <InputOTPSlot index={0} className="w-10 h-12 text-lg" />
-                      <InputOTPSlot index={1} className="w-10 h-12 text-lg" />
-                      <InputOTPSlot index={2} className="w-10 h-12 text-lg" />
-                      <InputOTPSlot index={3} className="w-10 h-12 text-lg" />
-                      <InputOTPSlot index={4} className="w-10 h-12 text-lg" />
-                      <InputOTPSlot index={5} className="w-10 h-12 text-lg" />
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
+                {selectedChannel === 'WHATSAPP' ? (
+                  <WaVerifyPanel waLink={whatsappLink} verified={waVerified} />
+                ) : (
+                  <>
+                    <div className="text-xs text-muted-foreground bg-primary/10 p-2.5 rounded-lg">
+                      OTP sent to {instituteResetSentTo}
+                    </div>
+                    <div className="flex justify-center py-2">
+                      <InputOTP maxLength={6} value={otp} onChange={setOtp} className="gap-1.5">
+                        <InputOTPGroup className="gap-1.5">
+                          <InputOTPSlot index={0} className="w-10 h-12 text-lg" />
+                          <InputOTPSlot index={1} className="w-10 h-12 text-lg" />
+                          <InputOTPSlot index={2} className="w-10 h-12 text-lg" />
+                          <InputOTPSlot index={3} className="w-10 h-12 text-lg" />
+                          <InputOTPSlot index={4} className="w-10 h-12 text-lg" />
+                          <InputOTPSlot index={5} className="w-10 h-12 text-lg" />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-1.5">
                   <Label className="text-sm">New Password</Label>
@@ -1138,7 +1268,8 @@ const Login = ({
 
                 {error && <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</div>}
 
-                <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading || otp.length < 6}>
+                <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg"
+                  disabled={isLoading || (selectedChannel === 'WHATSAPP' ? !waVerified : otp.length < 6)}>
                   {isLoading ? 'Resetting...' : 'Reset Password'}
                 </Button>
 
@@ -1281,10 +1412,67 @@ const Login = ({
                     {isLoading ? 'Sending Reset Code...' : 'Send Reset Code'}
                   </Button>
 
+                  <div className="relative my-1">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                    <div className="relative flex justify-center text-[11px] uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
+                  </div>
+
+                  <Button type="button" variant="outline" onClick={startMainWaReset} disabled={isLoading}
+                    className="w-full h-10 md:h-11 text-base touch-manipulation border-[#25D366]/40 text-[#128C7E] hover:bg-[#25D366]/5">
+                    Verify via WhatsApp
+                  </Button>
+
                   <Button type="button" variant="ghost" onClick={resetToLogin} className="w-full h-9 md:h-10 touch-manipulation">
                     Back to Login
                   </Button>
                 </div>
+              </form>}
+
+            {/* Main login — WhatsApp: pick a number (own or parent) */}
+            {loginStep === 'main-wa-contacts' && <form onSubmit={handleMainWaFlow} className="space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Key className="h-5 w-5 text-primary" />
+                  <h3 className="text-base font-semibold">Choose a number to verify</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">We'll verify via WhatsApp. Numbers show the last 3 digits only.</p>
+                <div className="space-y-2">
+                  {mainWaContacts.map((c) => (
+                    <label key={c.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${mainWaContactId === c.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}>
+                      <input type="radio" name="mainwa" value={c.id} checked={mainWaContactId === c.id} onChange={() => setMainWaContactId(c.id)} className="accent-primary w-4 h-4" />
+                      <div>
+                        <p className="text-sm font-medium">{c.label}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{c.masked}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {error && <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</div>}
+                <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading || !mainWaContactId}>
+                  {isLoading ? 'Starting…' : 'Verify via WhatsApp'}
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => { setLoginStep('forgot-password'); setError(''); }} className="w-full h-9 text-sm">Back</Button>
+              </form>}
+
+            {/* Main login — WhatsApp: link/QR + new password */}
+            {loginStep === 'main-wa-verify' && <form onSubmit={handleMainWaFlow} className="space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Key className="h-5 w-5 text-primary" />
+                  <h3 className="text-base font-semibold">Verify via WhatsApp</h3>
+                </div>
+                <WaVerifyPanel waLink={whatsappLink} verified={waVerified} />
+                <div className="space-y-1.5">
+                  <Label className="text-sm">New Password</Label>
+                  <Input type={showNewPassword ? 'text' : 'password'} placeholder="Min 8 characters" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} className="h-10 text-sm rounded-lg" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Confirm Password</Label>
+                  <Input type={showConfirmPassword ? 'text' : 'password'} placeholder="Repeat new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className="h-10 text-sm rounded-lg" />
+                </div>
+                {error && <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg">{error}</div>}
+                <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading || !waVerified}>
+                  {isLoading ? 'Resetting…' : 'Reset Password'}
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => { setLoginStep('forgot-password'); setError(''); setWhatsappLink(''); setWaVerified(false); setMainWaPolling(false); }} className="w-full h-9 text-sm">Back</Button>
               </form>}
 
             {/* Reset Password Form */}
@@ -1448,4 +1636,88 @@ const Login = ({
       </div>
     </div>;
 };
+
+/**
+ * WhatsApp verify panel: a tappable wa.me link (mobile) plus a scannable QR code
+ * (desktop). Scanning opens WhatsApp on the phone with the number + code pre-filled —
+ * the user just presses send.
+ */
+function WaVerifyPanel({ waLink, verified }: { waLink: string; verified: boolean }) {
+  const [qr, setQr] = React.useState('');
+  React.useEffect(() => {
+    if (!waLink) { setQr(''); return; }
+    import('qrcode').then((m: any) => {
+      (m.default || m).toDataURL(waLink, { width: 180, margin: 1 }).then(setQr).catch(() => setQr(''));
+    });
+  }, [waLink]);
+
+  return (
+    <div className="space-y-3">
+      <div className="text-xs text-muted-foreground bg-primary/10 p-2.5 rounded-lg">
+        On your phone, tap the button. On a computer, scan the QR with your phone's camera — WhatsApp opens with the code ready; just press send, then return here.
+      </div>
+      {waLink && (
+        <>
+          <a href={waLink} target="_blank" rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full h-11 rounded-lg bg-[#25D366] text-white text-sm font-semibold hover:opacity-90 transition-opacity">
+            Open WhatsApp & Send Code
+          </a>
+          {qr && (
+            <div className="flex flex-col items-center gap-1.5">
+              <img src={qr} alt="WhatsApp QR" className="rounded-lg border p-1 bg-white" width={160} height={160} />
+              <span className="text-[11px] text-muted-foreground">Scan to verify from your phone</span>
+            </div>
+          )}
+        </>
+      )}
+      <div className={`flex items-center gap-2 text-sm p-2.5 rounded-lg ${verified ? 'bg-green-500/10 text-green-700' : 'bg-muted text-muted-foreground'}`}>
+        {verified
+          ? <><CheckCircle2 className="h-4 w-4" /> Verified — set your new password below.</>
+          : <><RotateCcw className="h-4 w-4 animate-spin" /> Waiting for your WhatsApp message…</>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Verify-via channel picker. WhatsApp is the only active option; SMS and Email are
+ * shown greyed/disabled (kept visible so users know they exist).
+ */
+function ChannelPicker({ selected, onSelect }: {
+  selected: InstitutePwdResetChannel;
+  onSelect: (c: InstitutePwdResetChannel) => void;
+}) {
+  const options: { key: InstitutePwdResetChannel; label: string; enabled: boolean }[] = [
+    { key: 'WHATSAPP', label: 'WhatsApp', enabled: true },
+    { key: 'SMS', label: 'Text (SMS)', enabled: false },
+    { key: 'EMAIL', label: 'Email', enabled: false },
+  ];
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-foreground">Verify via</p>
+      <div className="grid grid-cols-3 gap-2">
+        {options.map(opt => (
+          <button
+            key={opt.key}
+            type="button"
+            disabled={!opt.enabled}
+            title={opt.enabled ? '' : 'Coming soon'}
+            onClick={() => opt.enabled && onSelect(opt.key)}
+            className={`text-xs rounded-lg border p-2 transition-colors ${
+              selected === opt.key && opt.enabled
+                ? 'border-primary bg-primary/5 text-foreground font-semibold'
+                : opt.enabled
+                  ? 'border-border hover:border-primary/40 text-foreground'
+                  : 'border-border/50 text-muted-foreground/50 cursor-not-allowed bg-muted/30'
+            }`}
+          >
+            {opt.label}
+            {!opt.enabled && <span className="block text-[10px]">soon</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default Login;

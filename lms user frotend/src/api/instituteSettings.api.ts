@@ -54,6 +54,9 @@ export interface InstituteSettingsResponse {
   isStrictSessionLimit?: boolean;
   printerSettings?: PrinterSettings | null;
   allowUserPhotoUpload?: boolean;
+  pwdResetWhatsappEnabled?: boolean;
+  pwdResetSmsEnabled?: boolean;
+  pwdResetEmailEnabled?: boolean;
 }
 
 export interface InstituteProfileResponse {
@@ -134,6 +137,9 @@ export interface UpdateInstituteSettingsDto {
   youtubeChannelUrl?: string;
   allowUserPhotoUpload?: boolean;
   isStrictSessionLimit?: boolean;
+  pwdResetWhatsappEnabled?: boolean;
+  pwdResetSmsEnabled?: boolean;
+  pwdResetEmailEnabled?: boolean;
 }
 
 // ─── API ─────────────────────────────────────────────────────────
