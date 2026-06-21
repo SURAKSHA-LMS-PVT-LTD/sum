@@ -915,16 +915,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="phoneInstituteCardId">Institute Card ID</Label>
-                  <Input
-                    id="phoneInstituteCardId"
-                    value={phoneFormData.instituteCardId}
-                    onChange={(e) => setPhoneFormData(prev => ({ ...prev, instituteCardId: e.target.value }))}
-                    placeholder="e.g., CARD-2024-001"
-                    className="mt-1"
-                  />
-                </div>
+                <SmartCardFields />
 
                 <div>
                   <Label>Profile Image (35mm × 45mm)</Label>
@@ -997,16 +988,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="rfidInstituteCardId">Institute Card ID</Label>
-                  <Input
-                    id="rfidInstituteCardId"
-                    value={rfidFormData.instituteCardId}
-                    onChange={(e) => setRfidFormData(prev => ({ ...prev, instituteCardId: e.target.value }))}
-                    placeholder="e.g., CARD-2024-001"
-                    className="mt-1"
-                  />
-                </div>
+                <SmartCardFields />
 
                 <div>
                   <Label>Profile Image (35mm × 45mm)</Label>
