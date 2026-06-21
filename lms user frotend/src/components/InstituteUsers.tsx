@@ -220,6 +220,7 @@ const InstituteUsers = () => {
 
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [houseOptions, setHouseOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [instituteNameOptions, setInstituteNameOptions] = useState<string[]>([]);
 
   useEffect(() => {
     const loadHouseOptions = async () => {
@@ -232,6 +233,23 @@ const InstituteUsers = () => {
     };
     loadHouseOptions();
   }, [currentInstituteId]);
+
+  // Collect distinct instituteName values from loaded users' extra_data for filter dropdown
+  const allLoadedUsers = useMemo(() => {
+    const allTables = [usersByTypeTable, inactiveUsersTable, pendingUsersTable];
+    return allTables.flatMap(t => t?.state?.data || []);
+  }, [usersByTypeTable, inactiveUsersTable, pendingUsersTable]);
+
+  useEffect(() => {
+    const names = Array.from(
+      new Set(
+        allLoadedUsers
+          .map((u: any) => u?.extraData?.instituteName)
+          .filter((n: any) => typeof n === 'string' && n.trim() !== '')
+      )
+    ).sort() as string[];
+    if (names.length > 0) setInstituteNameOptions(names);
+  }, [allLoadedUsers]);
 
   const getCurrentFilters = () => {
     if (activeView === 'PENDING') return pendingFilters;
@@ -246,7 +264,7 @@ const InstituteUsers = () => {
   };
 
   // Call table hooks at top level - one for each view
-  const tableConfig = { pagination: { defaultLimit: 50, availableLimits: [25, 50, 100] }, autoLoad: false };
+  const tableConfig = { pagination: { defaultLimit: 50, availableLimits: [25, 50, 100, 500] }, autoLoad: false };
   
   // Table for regular users by type (call hook at top level, always)
   // Backend expects user type SLUG (e.g. STUDENT, TEACHER), not numeric id
@@ -545,8 +563,7 @@ const InstituteUsers = () => {
     setIsApplyingFilters(true);
     const currentTable = getCurrentTable();
     if (currentTable) {
-      currentTable.actions.updateFilters(getCurrentFilters());
-      await currentTable.actions.refresh();
+      await currentTable.actions.applyFiltersAndLoad(getCurrentFilters());
     }
     setIsApplyingFilters(false);
   };
@@ -561,7 +578,7 @@ const InstituteUsers = () => {
 
   const handleClearFilters = () => {
     setCurrentFilters({});
-    getCurrentTable()?.actions.updateFilters({});
+    getCurrentTable()?.actions.applyFiltersAndLoad({});
   };
 
   const getUserTypeLabel = (typeId: string) => userTypes.find(t => t.id === typeId)?.name || 'User';
@@ -691,7 +708,7 @@ const InstituteUsers = () => {
             <SheetContent side="bottom" className="md:hidden flex flex-col max-h-[80vh]">
               <SheetHeader><SheetTitle>User Filters</SheetTitle></SheetHeader>
               <div className="flex-1 overflow-y-auto py-4">
-                <InstituteUsersFilters filters={getCurrentFilters()} onFiltersChange={handleFiltersChange} onApplyFilters={() => { handleApplyFilters(); setIsFilterSheetOpen(false); }} onClearFilters={handleClearFilters} userType={activeView === 'USERS' ? currentType?.slug as any : (activeView as any)} houseOptions={houseOptions} isApplying={isApplyingFilters} />
+                <InstituteUsersFilters filters={getCurrentFilters()} onFiltersChange={handleFiltersChange} onApplyFilters={() => { handleApplyFilters(); setIsFilterSheetOpen(false); }} onClearFilters={handleClearFilters} userType={activeView === 'USERS' ? currentType?.slug as any : (activeView as any)} houseOptions={houseOptions} isApplying={isApplyingFilters} instituteNameOptions={instituteNameOptions} />
               </div>
             </SheetContent>
           </Sheet>
@@ -699,7 +716,7 @@ const InstituteUsers = () => {
       </div>
 
       <ScrollAnimationWrapper animationType="slide-up" className="hidden md:block">
-        <InstituteUsersFilters filters={getCurrentFilters()} onFiltersChange={handleFiltersChange} onApplyFilters={handleApplyFilters} onClearFilters={handleClearFilters} userType={activeView === 'USERS' ? currentType?.slug as any : (activeView as any)} houseOptions={houseOptions} isApplying={isApplyingFilters} />
+        <InstituteUsersFilters filters={getCurrentFilters()} onFiltersChange={handleFiltersChange} onApplyFilters={handleApplyFilters} onClearFilters={handleClearFilters} userType={activeView === 'USERS' ? currentType?.slug as any : (activeView as any)} houseOptions={houseOptions} isApplying={isApplyingFilters} instituteNameOptions={instituteNameOptions} />
       </ScrollAnimationWrapper>
 
       <Tabs value={activeView} onValueChange={value => setActiveView(value as ViewType)}>
@@ -771,7 +788,7 @@ const InstituteUsers = () => {
               <TableBody>{currentUsers.map(userData => <TableRow hover role="checkbox" tabIndex={-1} key={userData.id} className="cursor-pointer" onClick={() => handleOpenUserDetails(userData)}>{activeView === 'PENDING' && <TableCell padding="checkbox"><input type="checkbox" checked={selectedPendingUsers.includes(userData.id)} onChange={() => togglePendingUserSelection(userData.id)} /></TableCell>}{visibleColumns.map(col => <TableCell key={col.key}>{col.render ? col.render((userData as any)[col.key], userData) : (userData as any)[col.key]}</TableCell>)}</TableRow>)}{currentUsers.length === 0 && <TableRow><TableCell colSpan={visibleColumns.length + (activeView === 'PENDING' ? 1 : 0)} align="center"><div className="py-12 text-center text-muted-foreground">{activeView === 'PENDING' ? <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" /> : activeView === 'INACTIVE' ? <UserX className="h-12 w-12 mx-auto mb-4 opacity-50" /> : <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />}<p className="text-lg">No {activeView === 'USERS' ? currentType?.namePlural.toLowerCase() : activeView.toLowerCase()}</p><p className="text-sm">No users for current selection</p></div></TableCell></TableRow>}</TableBody>
             </Table>
           </TableContainer>
-          {currentTable && <TablePagination rowsPerPageOptions={currentTable.availableLimits} component="div" count={currentTable.pagination.totalCount} rowsPerPage={currentTable.pagination.limit} page={currentTable.pagination.page} onPageChange={(_, newPage) => currentTable.actions.setPage(newPage)} onRowsPerPageChange={(e) => { currentTable.actions.setLimit(parseInt(e.target.value, 10)); currentTable.actions.setPage(0); }} />}
+          {currentTable && <TablePagination rowsPerPageOptions={currentTable.availableLimits.map(n => n === 500 ? { value: 500, label: 'All (500)' } : n)} component="div" count={currentTable.pagination.totalCount} rowsPerPage={currentTable.pagination.limit} page={currentTable.pagination.page} onPageChange={(_, newPage) => currentTable.actions.setPage(newPage)} onRowsPerPageChange={(e) => { currentTable.actions.setLimit(parseInt(e.target.value, 10)); currentTable.actions.setPage(0); }} />}
         </Paper>
       )}
 

@@ -16,6 +16,7 @@ import { useInstituteLabels } from '@/hooks/useInstituteLabels';
 import { instituteApi } from '@/api/institute.api';
 import { instituteClassesApi, InstituteClass } from '@/api/instituteClasses.api';
 import { usersApi, UserLookupResult, normalizePhoneNumber } from '@/api/users.api';
+import { smartCardsApi } from '@/api/smartCards.api';
 import { getSignedUrl, uploadToSignedUrl } from '@/utils/imageUploadHelper';
 import PassportImageCropUpload from '@/components/common/PassportImageCropUpload';
 import { getErrorMessage } from '@/api/apiError';
@@ -247,9 +248,22 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
   const [userIdByInstitute, setUserIdByInstitute] = useState('');
   const [instituteCardId, setInstituteCardId] = useState('');
   // Smart-card assignment (only when the 'smart-cards' feature is enabled)
-  const [autoAssignInstituteCard, setAutoAssignInstituteCard] = useState(false);
-  const [autoAssignSurakshaCard, setAutoAssignSurakshaCard] = useState(false);
+  // Legacy state vars kept for DTO compatibility — derived from mode selectors below
   const [surakshaCardId, setSurakshaCardId] = useState('');
+
+  // Suraksha card search UI state (GLOBAL scope)
+  const [surakshaCardMode, setSurakshaCardMode] = useState<'manual' | 'auto'>('manual');
+  const [surakshaCardSearch, setSurakshaCardSearch] = useState('');
+  const [surakshaCardSearching, setSurakshaCardSearching] = useState(false);
+  const [surakshaCardResult, setSurakshaCardResult] = useState<any | null>(null);
+  const [surakshaCardSelected, setSurakshaCardSelected] = useState<any | null>(null);
+
+  // Institute card search UI state (INSTITUTE scope)
+  const [instituteCardMode, setInstituteCardMode] = useState<'manual' | 'auto'>('manual');
+  const [instituteCardSearch, setInstituteCardSearch] = useState('');
+  const [instituteCardSearching, setInstituteCardSearching] = useState(false);
+  const [instituteCardSearchResults, setInstituteCardSearchResults] = useState<any[]>([]);
+  const [instituteCardSelected, setInstituteCardSelected] = useState<any | null>(null);
   const [password, setPassword] = useState('');
   const [sendWelcomeNotifications, setSendWelcomeNotifications] = useState(true);
 
@@ -396,7 +410,10 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
       const subjects = Array.isArray(res) ? res : (res?.data || []);
       setClassSubjects(prev => ({
         ...prev,
-        [classId]: subjects.map((s: any) => ({ id: s.id || s.subjectId, name: s.name || s.subjectName || s.id }))
+        [classId]: subjects.map((s: any) => ({
+          id: s.subjectId || s.id || s.subject?.id,
+          name: s.subject?.name || s.name || s.subjectName || s.subjectId || s.id,
+        })).filter((s: any) => s.id),
       }));
     } catch (err) {
       console.warn('Failed to load subjects for class:', classId, err);
@@ -467,6 +484,45 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
     }
   };
 
+  // ── Suraksha card search (GLOBAL scope) ──
+  const searchSurakshaCard = async () => {
+    if (!currentInstituteId || !surakshaCardSearch.trim()) return;
+    setSurakshaCardSearching(true);
+    setSurakshaCardResult(null);
+    try {
+      const res: any = await smartCardsApi.search(currentInstituteId, {
+        scope: 'GLOBAL', search: surakshaCardSearch.trim(), limit: 5,
+      });
+      const items: any[] = res?.items || [];
+      // Only show cards that are in the institute but not yet assigned to a user
+      const available = items.find((c: any) =>
+        c.status === 'ASSIGNED_INSTITUTE' || c.status === 'ASSIGNED_CLASS',
+      );
+      setSurakshaCardResult(available || items[0] || null);
+    } catch {
+      toast({ title: 'Card search failed', variant: 'destructive' });
+    } finally {
+      setSurakshaCardSearching(false);
+    }
+  };
+
+  // ── Institute card search (INSTITUTE scope) ──
+  const searchInstituteCard = async () => {
+    if (!currentInstituteId || !instituteCardSearch.trim()) return;
+    setInstituteCardSearching(true);
+    setInstituteCardSearchResults([]);
+    try {
+      const res: any = await smartCardsApi.search(currentInstituteId, {
+        scope: 'INSTITUTE', search: instituteCardSearch.trim(), limit: 10,
+      });
+      setInstituteCardSearchResults(res?.items || []);
+    } catch {
+      toast({ title: 'Card search failed', variant: 'destructive' });
+    } finally {
+      setInstituteCardSearching(false);
+    }
+  };
+
   // Accept a found user: store their contact in the parent state
   const acceptLinkedUser = (
     user: UserLookupResult,
@@ -518,12 +574,14 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
         province: province || undefined,
         password: password || undefined,
         userIdByInstitute: userIdByInstitute || undefined,
-        instituteCardId: instituteCardId || undefined,
+        instituteCardId: smartCardsEnabled
+          ? (instituteCardMode === 'manual' ? (instituteCardSelected?.cardId || instituteCardId || undefined) : undefined)
+          : (instituteCardId || undefined),
         // Smart-card assignment (ignored server-side unless the feature is enabled)
         ...(smartCardsEnabled ? {
-          autoAssignInstituteCard: autoAssignInstituteCard || undefined,
-          autoAssignSurakshaCard: autoAssignSurakshaCard || undefined,
-          surakshaCardId: surakshaCardId || undefined,
+          autoAssignInstituteCard: (instituteCardMode === 'auto') || undefined,
+          autoAssignSurakshaCard: (surakshaCardMode === 'auto') || undefined,
+          surakshaCardId: surakshaCardMode === 'manual' ? (surakshaCardSelected?.cardId || surakshaCardId || undefined) : undefined,
         } : {}),
         instituteUserImageUrl: instituteImageUrl || undefined,
         globalImageUrl: globalImageUrl || undefined,
@@ -747,52 +805,167 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
             {/* ── Institute Tracking ── */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-foreground border-l-2 border-primary pl-3 py-1">{L.instituteTracking}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-sm">{L.userId}</Label>
-                  <Input value={userIdByInstitute} onChange={e => setUserIdByInstitute(e.target.value)} placeholder={L.userIdPlaceholder} maxLength={50} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm">{L.cardId}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={instituteCardId}
-                      onChange={e => setInstituteCardId(e.target.value)}
-                      placeholder={L.cardIdPlaceholder}
-                      maxLength={smartCardsEnabled ? 30 : 100}
-                      disabled={smartCardsEnabled && autoAssignInstituteCard}
-                    />
-                  </div>
-                  {smartCardsEnabled && (
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                      <Checkbox
-                        checked={autoAssignInstituteCard}
-                        onCheckedChange={v => { setAutoAssignInstituteCard(!!v); if (v) setInstituteCardId(''); }}
-                      />
-                      Auto-assign next available institute smart card
-                    </label>
-                  )}
-                </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">{L.userId}</Label>
+                <Input value={userIdByInstitute} onChange={e => setUserIdByInstitute(e.target.value)} placeholder={L.userIdPlaceholder} maxLength={50} />
               </div>
 
-              {/* ── Suraksha (global) smart card — only when feature enabled ── */}
+              {/* ── Institute Card ID (INSTITUTE-scoped smart card) ── */}
+              <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">{L.cardId}</Label>
+                  {smartCardsEnabled && (
+                    <div className="flex rounded-md overflow-hidden border text-xs">
+                      <button type="button"
+                        className={`px-3 py-1 ${instituteCardMode === 'manual' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                        onClick={() => { setInstituteCardMode('manual'); setInstituteCardSelected(null); setInstituteCardSearchResults([]); }}>
+                        Manual
+                      </button>
+                      <button type="button"
+                        className={`px-3 py-1 ${instituteCardMode === 'auto' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                        onClick={() => { setInstituteCardMode('auto'); setInstituteCardSelected(null); }}>
+                        Auto
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {!smartCardsEnabled ? (
+                  <Input value={instituteCardId} onChange={e => setInstituteCardId(e.target.value)} placeholder={L.cardIdPlaceholder} maxLength={100} />
+                ) : instituteCardMode === 'auto' ? (
+                  <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded px-3 py-2">
+                    Will auto-assign the next available INSTITUTE-scoped card from this institute's pool (class pool first, then institute pool). If none available, no card assigned.
+                  </p>
+                ) : (
+                  /* Manual search */
+                  <div className="space-y-2">
+                    {instituteCardSelected ? (
+                      <div className="flex items-center gap-2 border rounded-md p-2 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-mono font-medium truncate">{instituteCardSelected.cardId}</p>
+                          <p className="text-xs text-muted-foreground">{instituteCardSelected.cardName} · {instituteCardSelected.cardType}</p>
+                        </div>
+                        <Badge variant="outline" className="text-xs shrink-0">{instituteCardSelected.status?.replace(/_/g, ' ')}</Badge>
+                        <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setInstituteCardSelected(null); setInstituteCardSearch(''); setInstituteCardSearchResults([]); }}>
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex gap-2">
+                          <Input
+                            value={instituteCardSearch}
+                            onChange={e => setInstituteCardSearch(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), searchInstituteCard())}
+                            placeholder="Search card name or card ID…"
+                            className="flex-1"
+                          />
+                          <Button type="button" variant="secondary" size="sm" onClick={searchInstituteCard} disabled={instituteCardSearching || !instituteCardSearch.trim()}>
+                            {instituteCardSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                        {instituteCardSearchResults.length > 0 && (
+                          <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                            {instituteCardSearchResults.map((card: any) => {
+                              const assignable = card.status === 'ASSIGNED_INSTITUTE' || card.status === 'ASSIGNED_CLASS';
+                              return (
+                                <button key={card.id} type="button" disabled={!assignable}
+                                  className={`w-full text-left px-3 py-2 flex items-center gap-2 text-sm transition-colors ${assignable ? 'hover:bg-muted cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                                  onClick={() => assignable && (setInstituteCardSelected(card), setInstituteCardSearchResults([]))}>
+                                  <span className="font-mono flex-1 truncate">{card.cardId}</span>
+                                  <span className="text-xs text-muted-foreground truncate">{card.cardName}</span>
+                                  <Badge variant={assignable ? 'outline' : 'secondary'} className="text-[10px] shrink-0">{card.status?.replace(/_/g, ' ')}</Badge>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {instituteCardSearchResults.length === 0 && instituteCardSearch && !instituteCardSearching && (
+                          <p className="text-xs text-muted-foreground">Search to find INSTITUTE-scoped cards in the pool.</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Suraksha Card (GLOBAL-scoped smart card) — only when feature enabled ── */}
               {smartCardsEnabled && (
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Suraksha Smart Card ID</Label>
-                  <Input
-                    value={surakshaCardId}
-                    onChange={e => setSurakshaCardId(e.target.value)}
-                    placeholder="Type a Suraksha card id (or auto-assign)"
-                    maxLength={30}
-                    disabled={autoAssignSurakshaCard}
-                  />
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                    <Checkbox
-                      checked={autoAssignSurakshaCard}
-                      onCheckedChange={v => { setAutoAssignSurakshaCard(!!v); if (v) setSurakshaCardId(''); }}
-                    />
-                    Auto-assign next available Suraksha smart card
-                  </label>
+                <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Suraksha Smart Card</Label>
+                    <div className="flex rounded-md overflow-hidden border text-xs">
+                      <button type="button"
+                        className={`px-3 py-1 ${surakshaCardMode === 'manual' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                        onClick={() => { setSurakshaCardMode('manual'); setSurakshaCardSelected(null); setSurakshaCardResult(null); }}>
+                        Manual
+                      </button>
+                      <button type="button"
+                        className={`px-3 py-1 ${surakshaCardMode === 'auto' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                        onClick={() => { setSurakshaCardMode('auto'); setSurakshaCardSelected(null); }}>
+                        Auto
+                      </button>
+                    </div>
+                  </div>
+
+                  {surakshaCardMode === 'auto' ? (
+                    <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded px-3 py-2">
+                      Will auto-assign the next available GLOBAL card from this institute's pool (class pool first, then institute pool). If none available, no card assigned.
+                    </p>
+                  ) : (
+                    /* Manual search */
+                    <div className="space-y-2">
+                      {surakshaCardSelected ? (
+                        <div className="flex items-center gap-2 border rounded-md p-2 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-mono font-medium truncate">{surakshaCardSelected.cardId}</p>
+                            <p className="text-xs text-muted-foreground">{surakshaCardSelected.cardName} · {surakshaCardSelected.cardType}</p>
+                          </div>
+                          <Badge variant="outline" className="text-xs shrink-0">{surakshaCardSelected.status?.replace(/_/g, ' ')}</Badge>
+                          <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setSurakshaCardSelected(null); setSurakshaCardSearch(''); setSurakshaCardResult(null); }}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex gap-2">
+                            <Input
+                              value={surakshaCardSearch}
+                              onChange={e => setSurakshaCardSearch(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), searchSurakshaCard())}
+                              placeholder="Search card name or card ID…"
+                              className="flex-1"
+                            />
+                            <Button type="button" variant="secondary" size="sm" onClick={searchSurakshaCard} disabled={surakshaCardSearching || !surakshaCardSearch.trim()}>
+                              {surakshaCardSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                          {surakshaCardResult && (
+                            <div className="border rounded-md">
+                              {(surakshaCardResult.status === 'ASSIGNED_INSTITUTE' || surakshaCardResult.status === 'ASSIGNED_CLASS') ? (
+                                <button type="button" className="w-full text-left px-3 py-2 flex items-center gap-2 text-sm hover:bg-muted"
+                                  onClick={() => setSurakshaCardSelected(surakshaCardResult)}>
+                                  <span className="font-mono flex-1 truncate">{surakshaCardResult.cardId}</span>
+                                  <span className="text-xs text-muted-foreground truncate">{surakshaCardResult.cardName}</span>
+                                  <Badge variant="outline" className="text-[10px] shrink-0 text-emerald-600">Available</Badge>
+                                </button>
+                              ) : (
+                                <div className="px-3 py-2 flex items-center gap-2 text-sm opacity-60">
+                                  <span className="font-mono flex-1 truncate">{surakshaCardResult.cardId}</span>
+                                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                                    {surakshaCardResult.status === 'ASSIGNED_USER' ? 'Already with a user' : surakshaCardResult.status?.replace(/_/g, ' ')}
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {!surakshaCardResult && surakshaCardSearch && !surakshaCardSearching && (
+                            <p className="text-xs text-amber-600">No card found in institute pool. Cannot hand over card right now.</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -25,7 +25,21 @@ type Step =
   | 'otp'
   | 'wa-verify';
 
-function WaVerifyPanel({ waLink, verified }: { waLink: string; verified: boolean }) {
+type WaVerifyMode = 'waiting' | 'manual' | 'done';
+
+function WaVerifyPanel({
+  waLink,
+  verified,
+  mode,
+  onManualCheck,
+  checking,
+}: {
+  waLink: string;
+  verified: boolean;
+  mode: WaVerifyMode;
+  onManualCheck: () => void;
+  checking: boolean;
+}) {
   const [qr, setQr] = React.useState('');
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
   const [showQr, setShowQr] = React.useState(isDesktop);
@@ -50,7 +64,6 @@ function WaVerifyPanel({ waLink, verified }: { waLink: string; verified: boolean
 
   return (
     <div className="space-y-3">
-      {/* Step badge */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground font-bold text-[10px]">1</span>
         Send the code from WhatsApp
@@ -68,7 +81,6 @@ function WaVerifyPanel({ waLink, verified }: { waLink: string; verified: boolean
         </a>
       )}
 
-      {/* QR toggle — only show on desktop hint */}
       {qr && (
         <div className="text-center">
           <button
@@ -87,13 +99,36 @@ function WaVerifyPanel({ waLink, verified }: { waLink: string; verified: boolean
         </div>
       )}
 
-      {/* Waiting status */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 rounded-lg bg-muted/60">
-        <RotateCcw className="h-3.5 w-3.5 animate-spin shrink-0" />
-        Waiting for your WhatsApp message…
-      </div>
+      {mode === 'waiting' && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 rounded-lg bg-muted/60">
+          <RotateCcw className="h-3.5 w-3.5 animate-spin shrink-0" />
+          Checking automatically…
+        </div>
+      )}
 
-      {/* Divider before password section */}
+      {mode === 'manual' && (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground text-center">
+            Sent the message? Tap below to check.
+          </p>
+          <button
+            type="button"
+            onClick={onManualCheck}
+            disabled={checking}
+            className="flex items-center justify-center gap-2 w-full h-10 rounded-xl border text-sm font-medium hover:bg-muted/60 active:scale-[.98] transition-all disabled:opacity-60"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`} />
+            {checking ? 'Checking…' : 'I sent it — Check now'}
+          </button>
+        </div>
+      )}
+
+      {mode === 'done' && (
+        <div className="text-xs text-muted-foreground text-center p-2.5 rounded-lg bg-muted/60">
+          Not verified yet. Please send the WhatsApp message and tap above.
+        </div>
+      )}
+
       <div className="flex items-center gap-2 pt-1">
         <div className="flex-1 border-t" />
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -132,6 +167,8 @@ const ForgotPasswordPage: React.FC = () => {
   const [waLink, setWaLink] = useState('');
   const [waVerified, setWaVerified] = useState(false);
   const [waPolling, setWaPolling] = useState(false);
+  const [waMode, setWaMode] = useState<WaVerifyMode>('waiting');
+  const [waChecking, setWaChecking] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -142,25 +179,90 @@ const ForgotPasswordPage: React.FC = () => {
     return () => clearTimeout(t);
   }, [otpTimer]);
 
+  // Polling strategy:
+  //   10s initial delay → auto-poll 3× every 5s → manual mode
+  //   After 30s in manual → auto-poll 2× every 5s → stop (mode='done')
   useEffect(() => {
     if (!waPolling || waVerified) return;
     let cancelled = false;
-    const iv = setInterval(async () => {
+
+    const checkOnce = async (): Promise<boolean> => {
       try {
         const { verified, expired } = await getMainWaResetStatus(identifier.trim());
-        if (cancelled) return;
+        if (cancelled) return false;
         if (verified) {
           setWaVerified(true);
           setWaPolling(false);
+          setWaMode('done');
           toast({ title: 'Verified', description: 'WhatsApp code confirmed. Set your new password.' });
-        } else if (expired) {
-          setWaPolling(false);
-          setError('WhatsApp verification expired. Please start over.');
+          return true;
         }
-      } catch { /* keep polling */ }
-    }, 3000);
-    return () => { cancelled = true; clearInterval(iv); };
+        if (expired) {
+          setWaPolling(false);
+          setWaMode('done');
+          setError('WhatsApp verification expired. Please start over.');
+          return true;
+        }
+      } catch { /* ignore transient errors */ }
+      return false;
+    };
+
+    const run = async () => {
+      // Phase 1: wait 10s, then auto-poll 3× at 5s intervals
+      await new Promise(r => setTimeout(r, 10_000));
+      if (cancelled) return;
+      for (let i = 0; i < 3; i++) {
+        if (cancelled || waVerified) return;
+        const done = await checkOnce();
+        if (done) return;
+        if (i < 2) await new Promise(r => setTimeout(r, 5_000));
+      }
+      if (cancelled) return;
+
+      // Phase 2: manual mode
+      setWaMode('manual');
+
+      // Phase 3: after 30s in manual, auto-poll 2× more at 5s intervals
+      await new Promise(r => setTimeout(r, 30_000));
+      if (cancelled) return;
+      for (let i = 0; i < 2; i++) {
+        if (cancelled) return;
+        const done = await checkOnce();
+        if (done) return;
+        if (i < 1) await new Promise(r => setTimeout(r, 5_000));
+      }
+      if (cancelled) return;
+
+      // Fully stopped
+      setWaMode('done');
+    };
+
+    run();
+    return () => { cancelled = true; };
   }, [waPolling, waVerified, identifier, toast]);
+
+  const handleWaManualCheck = async () => {
+    setWaChecking(true);
+    try {
+      const { verified, expired } = await getMainWaResetStatus(identifier.trim());
+      if (verified) {
+        setWaVerified(true);
+        setWaPolling(false);
+        setWaMode('done');
+        toast({ title: 'Verified', description: 'WhatsApp code confirmed. Set your new password.' });
+      } else if (expired) {
+        setWaPolling(false);
+        setWaMode('done');
+        setError('WhatsApp verification expired. Please start over.');
+      } else {
+        toast({ description: 'Not verified yet. Please send the WhatsApp message first.' });
+      }
+    } catch {
+      toast({ description: 'Check failed. Please try again.', variant: 'destructive' });
+    } finally {
+      setWaChecking(false);
+    }
+  };
 
   const goLogin = () => navigate('/');
   const goBack = () => {
@@ -172,6 +274,7 @@ const ForgotPasswordPage: React.FC = () => {
     setWaLink('');
     setWaVerified(false);
     setWaPolling(false);
+    setWaMode('waiting');
   };
 
   const handleIdentifySubmit = async (e: React.FormEvent) => {
@@ -448,7 +551,13 @@ const ForgotPasswordPage: React.FC = () => {
                   </div>
 
                   {/* Always-visible WA action panel */}
-                  <WaVerifyPanel waLink={waLink} verified={waVerified} />
+                  <WaVerifyPanel
+                    waLink={waLink}
+                    verified={waVerified}
+                    mode={waMode}
+                    onManualCheck={handleWaManualCheck}
+                    checking={waChecking}
+                  />
 
                   {/* Password section — only shown after verification */}
                   {waVerified && (

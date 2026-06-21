@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader, ActionButton } from "@/components/shared/PageComponents";
-import { Users, CreditCard, ShieldCheck, Search, RefreshCw, UserCheck, UserMinus, Phone } from "lucide-react";
+import { Users, CreditCard, ShieldCheck, Search, RefreshCw, UserCheck, UserMinus, Phone, Pencil, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
@@ -9,6 +9,7 @@ import { ViewDetailsDialog } from "@/components/shared/ViewDetailsDialog";
 import { AssignRfidDialog } from "@/components/forms/AssignRfidDialog";
 import { ChangeUserTypeDialog } from "@/components/forms/ChangeUserTypeDialog";
 import { CreateUserForm } from "@/components/forms/CreateUserForm";
+import { EditUserDialog } from "@/components/forms/EditUserDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,22 @@ const USER_TYPES = [
   { value: "SUPER_ADMIN", label: "Super Admin" },
   { value: "ORGANIZATION_MANAGER", label: "Org Manager" },
 ];
+
+const INSTITUTE_USER_TYPES = [
+  { value: "ALL", label: "All Roles" },
+  { value: "STUDENT", label: "Student" },
+  { value: "TEACHER", label: "Teacher" },
+  { value: "INSTITUTE_ADMIN", label: "Institute Admin" },
+  { value: "ATTENDANCE_MARKER", label: "Attendance Marker" },
+  { value: "PARENT", label: "Parent" },
+];
+
+interface UserInstitute {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+}
 
 interface User {
   id: string;
@@ -42,6 +59,7 @@ interface User {
   rfid: string | null;
   language: string;
   isFirstLoginCompleted?: boolean;
+  institutes?: UserInstitute[];
 }
 
 export default function UsersPage() {
@@ -53,6 +71,7 @@ export default function UsersPage() {
   const [rfidDialogOpen, setRfidDialogOpen] = useState(false);
   const [changeTypeDialogOpen, setChangeTypeDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
@@ -63,6 +82,17 @@ export default function UsersPage() {
   const [userTypeFilter, setUserTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [genderFilter, setGenderFilter] = useState("ALL");
+  const [instituteFilter, setInstituteFilter] = useState("ALL");
+  const [instituteUserTypeFilter, setInstituteUserTypeFilter] = useState("ALL");
+
+  // Institutes list for filter dropdown
+  const [institutesList, setInstitutesList] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    api.getInstitutesAll().then((res: any) => {
+      const items = res?.data || res || [];
+      setInstitutesList(Array.isArray(items) ? items : []);
+    }).catch(() => {});
+  }, []);
 
   // Phone lookup dialog
   const [phoneLookupOpen, setPhoneLookupOpen] = useState(false);
@@ -79,6 +109,8 @@ export default function UsersPage() {
       if (userTypeFilter !== "ALL") params.userType = userTypeFilter;
       if (statusFilter !== "ALL") params.isActive = statusFilter === "ACTIVE";
       if (genderFilter !== "ALL") params.gender = genderFilter;
+      if (instituteFilter !== "ALL") params.instituteId = instituteFilter;
+      if (instituteUserTypeFilter !== "ALL") params.instituteUserType = instituteUserTypeFilter;
 
       const response = await api.getUsers(params);
       setAllUsers(response.data || []);
@@ -98,7 +130,7 @@ export default function UsersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, limit, searchQuery, phoneSearch, userTypeFilter, statusFilter, genderFilter]);
+  }, [page, limit, searchQuery, phoneSearch, userTypeFilter, statusFilter, genderFilter, instituteFilter, instituteUserTypeFilter]);
 
   useEffect(() => {
     fetchUsers();
@@ -115,6 +147,8 @@ export default function UsersPage() {
     setUserTypeFilter("ALL");
     setStatusFilter("ALL");
     setGenderFilter("ALL");
+    setInstituteFilter("ALL");
+    setInstituteUserTypeFilter("ALL");
     setPage(1);
   };
 
@@ -167,6 +201,11 @@ export default function UsersPage() {
     setChangeTypeDialogOpen(true);
   };
 
+  const handleEdit = (user: User) => {
+    setSelectedUser(user);
+    setEditDialogOpen(true);
+  };
+
   const columns: Column[] = [
     { key: "imageUrl", label: "Image", type: "image" },
     { key: "id", label: "ID" },
@@ -184,11 +223,35 @@ export default function UsersPage() {
       ),
     },
     { key: "subscriptionPlan", label: "Plan", type: "badge" },
+    {
+      key: "institutes",
+      label: "Institutes",
+      render: (_: any, row: User) => {
+        const list = row.institutes ?? [];
+        if (list.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
+        return (
+          <div className="flex flex-col gap-0.5 min-w-[140px]">
+            {list.map((inst) => (
+              <div key={inst.id} className="flex items-center gap-1.5 text-xs">
+                <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <span className="font-medium truncate max-w-[110px]" title={inst.name}>{inst.name}</span>
+                <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">{inst.role.replace('_', ' ')}</Badge>
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
     { key: "rfid", label: "RFID" },
     { key: "createdAt", label: "Created", type: "date" },
   ];
 
   const customActions: CustomAction[] = [
+    {
+      label: "Edit",
+      icon: <Pencil className="w-4 h-4" />,
+      onClick: (row) => handleEdit(row as User),
+    },
     {
       label: "Assign RFID",
       icon: <CreditCard className="w-4 h-4" />,
@@ -293,6 +356,35 @@ export default function UsersPage() {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-1">
+          <Label className="text-xs flex items-center gap-1"><Building2 className="h-3 w-3" /> Institute</Label>
+          <Select value={instituteFilter} onValueChange={(v) => { setInstituteFilter(v); setInstituteUserTypeFilter("ALL"); setPage(1); }}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Institutes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Institutes</SelectItem>
+              {institutesList.map((inst) => (
+                <SelectItem key={inst.id} value={inst.id}>{inst.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {instituteFilter !== "ALL" && (
+          <div className="space-y-1">
+            <Label className="text-xs">Role in Institute</Label>
+            <Select value={instituteUserTypeFilter} onValueChange={(v) => { setInstituteUserTypeFilter(v); setPage(1); }}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INSTITUTE_USER_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="flex gap-2">
           <Button onClick={handleSearch} size="sm">
             <Search className="w-4 h-4 mr-1" />
@@ -351,6 +443,13 @@ export default function UsersPage() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onSuccess={fetchUsers}
+      />
+
+      <EditUserDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSuccess={fetchUsers}
+        userId={selectedUser?.id ?? null}
       />
 
       {/* Phone Lookup Dialog */}

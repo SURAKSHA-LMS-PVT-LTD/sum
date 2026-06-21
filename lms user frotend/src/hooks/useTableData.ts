@@ -32,8 +32,9 @@ export interface TableDataState<T> {
 
 export interface TableDataActions {
   refresh: () => Promise<void>;
-  loadData: (forceRefresh?: boolean) => Promise<void>;
+  loadData: (forceRefresh?: boolean, overrideFilters?: Record<string, any>) => Promise<void>;
   updateFilters: (filters: Record<string, any>) => void;
+  applyFiltersAndLoad: (filters: Record<string, any>) => Promise<void>;
 }
 
 export interface UseTableDataReturn<T> extends UsePaginationReturn {
@@ -75,12 +76,14 @@ export const useTableData = <T = any>(config: TableDataConfig): UseTableDataRetu
     };
   }, [filters, pagination]);
 
-  const loadData = useCallback(async (forceRefresh = false) => {
+  const loadData = useCallback(async (forceRefresh = false, overrideFilters?: Record<string, any>) => {
     const currentRequestId = ++requestIdRef.current;
     setState(prev => ({ ...prev, loading: true, error: null }));
-    
+
     try {
-      const params = buildParams();
+      const params = overrideFilters
+        ? { ...defaultParamsRef.current, ...overrideFilters, ...pagination.getApiParams() }
+        : buildParams();
       const result = await cachedApiClient.get(
         config.endpoint, 
         params, 
@@ -148,20 +151,26 @@ export const useTableData = <T = any>(config: TableDataConfig): UseTableDataRetu
   }, [buildParams, config.endpoint, config.cacheOptions, pagination]);
 
   const refresh = useCallback(() => {
-    // Just force refresh the specific data being loaded
     return loadData(true);
   }, [loadData]);
 
-const updateFilters = useCallback((newFilters: Record<string, any>) => {
-  setFilters(prev => ({ ...prev, ...newFilters }));
-  if (newFilters.page == null) {
-    pagination.actions.setPage(0); // Reset to first page only when page isn't provided
-  } else {
-    // Keep pagination UI in sync when explicit page is provided (API is 1-based, UI is 0-based)
-    const zeroBased = Math.max(0, Number(newFilters.page) - 1);
-    pagination.actions.setPage(zeroBased);
-  }
-}, [pagination.actions]);
+  const updateFilters = useCallback((newFilters: Record<string, any>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+    if (newFilters.page == null) {
+      pagination.actions.setPage(0);
+    } else {
+      const zeroBased = Math.max(0, Number(newFilters.page) - 1);
+      pagination.actions.setPage(zeroBased);
+    }
+  }, [pagination.actions]);
+
+  // Apply filters and immediately load — avoids the stale-closure race where
+  // updateFilters schedules a setState but refresh() reads old filters before flush.
+  const applyFiltersAndLoad = useCallback((newFilters: Record<string, any>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+    pagination.actions.setPage(0);
+    return loadData(true, { ...newFilters });
+  }, [loadData, pagination.actions]);
 
 // Auto-load data when enabled and any dependency changes
 useEffect(() => {
@@ -177,7 +186,8 @@ useEffect(() => {
       ...pagination.actions,
       refresh,
       loadData,
-      updateFilters
+      updateFilters,
+      applyFiltersAndLoad
     },
     filters
   };

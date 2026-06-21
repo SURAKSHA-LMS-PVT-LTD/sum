@@ -194,10 +194,14 @@ const Login = ({
   const [whatsappLink, setWhatsappLink] = useState('');
   const [waVerified, setWaVerified] = useState(false);
   const [waPolling, setWaPolling] = useState(false);
+  const [waMode, setWaMode] = useState<'waiting' | 'manual' | 'done'>('waiting');
+  const [waChecking, setWaChecking] = useState(false);
   // Main-login WhatsApp reset (own + parent numbers)
   const [mainWaContacts, setMainWaContacts] = useState<{ id: string; label: string; masked: string }[]>([]);
   const [mainWaContactId, setMainWaContactId] = useState('');
   const [mainWaPolling, setMainWaPolling] = useState(false);
+  const [mainWaMode, setMainWaMode] = useState<'waiting' | 'manual' | 'done'>('waiting');
+  const [mainWaChecking, setMainWaChecking] = useState(false);
   
   // Device limit state
   const [deviceLimitInfo, setDeviceLimitInfo] = useState<any>(null);
@@ -228,51 +232,163 @@ const Login = ({
     }
   }, [otpTimer]);
 
-  // WhatsApp reverse-OTP (institute): poll until the user's sent code is confirmed.
+  // WhatsApp reverse-OTP (institute): 10s delay → auto 3× at 5s → manual → 30s → auto 2× at 5s → done
   useEffect(() => {
     if (!waPolling || waVerified) return;
     const resolvedId = isTenantLogin && branding ? branding.id : instituteId;
     let cancelled = false;
-    const interval = setInterval(async () => {
+    setWaMode('waiting');
+
+    const checkOnce = async (): Promise<boolean> => {
       try {
         const { verified, expired } = await getInstitutePwdResetOtpStatus({
           instituteId: resolvedId,
           userIdByInstitute: instituteUserId,
         });
-        if (cancelled) return;
+        if (cancelled) return false;
         if (verified) {
           setWaVerified(true);
           setWaPolling(false);
+          setWaMode('done');
           toast({ title: 'Verified', description: 'WhatsApp code confirmed. Set your new password.' });
-        } else if (expired) {
-          setWaPolling(false);
-          setError('WhatsApp verification expired. Please request a new code.');
+          return true;
         }
-      } catch { /* keep polling */ }
-    }, 3000);
-    return () => { cancelled = true; clearInterval(interval); };
+        if (expired) {
+          setWaPolling(false);
+          setWaMode('done');
+          setError('WhatsApp verification expired. Please request a new code.');
+          return true;
+        }
+      } catch { /* ignore */ }
+      return false;
+    };
+
+    const run = async () => {
+      await new Promise(r => setTimeout(r, 10_000));
+      if (cancelled) return;
+      for (let i = 0; i < 3; i++) {
+        if (cancelled || waVerified) return;
+        if (await checkOnce()) return;
+        if (i < 2) await new Promise(r => setTimeout(r, 5_000));
+      }
+      if (cancelled) return;
+      setWaMode('manual');
+      await new Promise(r => setTimeout(r, 30_000));
+      if (cancelled) return;
+      for (let i = 0; i < 2; i++) {
+        if (cancelled) return;
+        if (await checkOnce()) return;
+        if (i < 1) await new Promise(r => setTimeout(r, 5_000));
+      }
+      if (cancelled) return;
+      setWaMode('done');
+    };
+
+    run();
+    return () => { cancelled = true; };
   }, [waPolling, waVerified, isTenantLogin, branding, instituteId, instituteUserId, toast]);
 
-  // WhatsApp reverse-OTP (main login): poll until confirmed.
+  const handleInstituteWaManualCheck = async () => {
+    const resolvedId = isTenantLogin && branding ? branding.id : instituteId;
+    setWaChecking(true);
+    try {
+      const { verified, expired } = await getInstitutePwdResetOtpStatus({
+        instituteId: resolvedId,
+        userIdByInstitute: instituteUserId,
+      });
+      if (verified) {
+        setWaVerified(true);
+        setWaPolling(false);
+        setWaMode('done');
+        toast({ title: 'Verified', description: 'WhatsApp code confirmed. Set your new password.' });
+      } else if (expired) {
+        setWaPolling(false);
+        setWaMode('done');
+        setError('WhatsApp verification expired. Please request a new code.');
+      } else {
+        toast({ description: 'Not verified yet. Please send the WhatsApp message first.' });
+      }
+    } catch {
+      toast({ description: 'Check failed. Please try again.', variant: 'destructive' });
+    } finally {
+      setWaChecking(false);
+    }
+  };
+
+  // WhatsApp reverse-OTP (main login): same strategy
   useEffect(() => {
     if (!mainWaPolling || waVerified) return;
     let cancelled = false;
-    const interval = setInterval(async () => {
+    setMainWaMode('waiting');
+
+    const checkOnce = async (): Promise<boolean> => {
       try {
         const { verified, expired } = await getMainWaResetStatus(identifier.trim());
-        if (cancelled) return;
+        if (cancelled) return false;
         if (verified) {
           setWaVerified(true);
           setMainWaPolling(false);
+          setMainWaMode('done');
           toast({ title: 'Verified', description: 'WhatsApp code confirmed. Set your new password.' });
-        } else if (expired) {
-          setMainWaPolling(false);
-          setError('WhatsApp verification expired. Please try again.');
+          return true;
         }
-      } catch { /* keep polling */ }
-    }, 3000);
-    return () => { cancelled = true; clearInterval(interval); };
+        if (expired) {
+          setMainWaPolling(false);
+          setMainWaMode('done');
+          setError('WhatsApp verification expired. Please try again.');
+          return true;
+        }
+      } catch { /* ignore */ }
+      return false;
+    };
+
+    const run = async () => {
+      await new Promise(r => setTimeout(r, 10_000));
+      if (cancelled) return;
+      for (let i = 0; i < 3; i++) {
+        if (cancelled || waVerified) return;
+        if (await checkOnce()) return;
+        if (i < 2) await new Promise(r => setTimeout(r, 5_000));
+      }
+      if (cancelled) return;
+      setMainWaMode('manual');
+      await new Promise(r => setTimeout(r, 30_000));
+      if (cancelled) return;
+      for (let i = 0; i < 2; i++) {
+        if (cancelled) return;
+        if (await checkOnce()) return;
+        if (i < 1) await new Promise(r => setTimeout(r, 5_000));
+      }
+      if (cancelled) return;
+      setMainWaMode('done');
+    };
+
+    run();
+    return () => { cancelled = true; };
   }, [mainWaPolling, waVerified, identifier, toast]);
+
+  const handleMainWaManualCheck = async () => {
+    setMainWaChecking(true);
+    try {
+      const { verified, expired } = await getMainWaResetStatus(identifier.trim());
+      if (verified) {
+        setWaVerified(true);
+        setMainWaPolling(false);
+        setMainWaMode('done');
+        toast({ title: 'Verified', description: 'WhatsApp code confirmed. Set your new password.' });
+      } else if (expired) {
+        setMainWaPolling(false);
+        setMainWaMode('done');
+        setError('WhatsApp verification expired. Please try again.');
+      } else {
+        toast({ description: 'Not verified yet. Please send the WhatsApp message first.' });
+      }
+    } catch {
+      toast({ description: 'Check failed. Please try again.', variant: 'destructive' });
+    } finally {
+      setMainWaChecking(false);
+    }
+  };
 
   // 🏢 Multi-tenant: Once tenant branding is confirmed valid (loading done, no error),
   // switch the login step to institute-login mode. This prevents the 'institute-login'
@@ -627,7 +743,7 @@ const Login = ({
         await resetMainPasswordViaWa(identifier.trim(), newPassword);
         toast({ title: 'Success', description: 'Password reset successfully. Please login.' });
         setLoginStep('login');
-        setNewPassword(''); setConfirmPassword(''); setWhatsappLink(''); setWaVerified(false); setMainWaPolling(false);
+        setNewPassword(''); setConfirmPassword(''); setWhatsappLink(''); setWaVerified(false); setMainWaPolling(false); setMainWaMode('waiting');
       }
     } catch (e: any) {
       setError(getErrorMessage(e, 'Process failed'));
@@ -816,7 +932,7 @@ const Login = ({
         toast({ title: 'Success', description: 'Password reset successfully. You can now login.' });
         setLoginStep('institute-login');
         setOtp(''); setNewPassword(''); setConfirmPassword('');
-        setWhatsappLink(''); setWaVerified(false); setWaPolling(false);
+        setWhatsappLink(''); setWaVerified(false); setWaPolling(false); setWaMode('waiting');
       }
     } catch (error: any) {
       setError(error instanceof Error ? error.message : 'Password reset failed');
@@ -1238,7 +1354,13 @@ const Login = ({
                 </div>
 
                 {selectedChannel === 'WHATSAPP' ? (
-                  <WaVerifyPanel waLink={whatsappLink} verified={waVerified} />
+                  <WaVerifyPanel
+                    waLink={whatsappLink}
+                    verified={waVerified}
+                    mode={waMode}
+                    onManualCheck={handleInstituteWaManualCheck}
+                    checking={waChecking}
+                  />
                 ) : (
                   <>
                     <div className="text-xs text-muted-foreground bg-primary/10 p-2.5 rounded-lg">
@@ -1472,7 +1594,13 @@ const Login = ({
                   <Key className="h-5 w-5 text-primary" />
                   <h3 className="text-base font-semibold">Verify via WhatsApp</h3>
                 </div>
-                <WaVerifyPanel waLink={whatsappLink} verified={waVerified} />
+                <WaVerifyPanel
+                  waLink={whatsappLink}
+                  verified={waVerified}
+                  mode={mainWaMode}
+                  onManualCheck={handleMainWaManualCheck}
+                  checking={mainWaChecking}
+                />
                 <div className="space-y-1.5">
                   <Label className="text-sm">New Password</Label>
                   <Input type={showNewPassword ? 'text' : 'password'} placeholder="Min 8 characters" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} className="h-10 text-sm rounded-lg" />
@@ -1485,7 +1613,7 @@ const Login = ({
                 <Button type="submit" className="w-full h-10 text-sm font-semibold rounded-lg" disabled={isLoading || !waVerified}>
                   {isLoading ? 'Resetting…' : 'Reset Password'}
                 </Button>
-                <Button type="button" variant="ghost" onClick={() => { setLoginStep('forgot-password'); setError(''); setWhatsappLink(''); setWaVerified(false); setMainWaPolling(false); }} className="w-full h-9 text-sm">Back</Button>
+                <Button type="button" variant="ghost" onClick={() => { setLoginStep('forgot-password'); setError(''); setWhatsappLink(''); setWaVerified(false); setMainWaPolling(false); setMainWaMode('waiting'); }} className="w-full h-9 text-sm">Back</Button>
               </form>}
 
             {/* Reset Password Form */}
@@ -1655,7 +1783,19 @@ const Login = ({
  * (desktop). Scanning opens WhatsApp on the phone with the number + code pre-filled —
  * the user just presses send.
  */
-function WaVerifyPanel({ waLink, verified }: { waLink: string; verified: boolean }) {
+function WaVerifyPanel({
+  waLink,
+  verified,
+  mode,
+  onManualCheck,
+  checking,
+}: {
+  waLink: string;
+  verified: boolean;
+  mode: 'waiting' | 'manual' | 'done';
+  onManualCheck: () => void;
+  checking: boolean;
+}) {
   const [qr, setQr] = React.useState('');
   React.useEffect(() => {
     if (!waLink) { setQr(''); return; }
@@ -1683,11 +1823,32 @@ function WaVerifyPanel({ waLink, verified }: { waLink: string; verified: boolean
           )}
         </>
       )}
-      <div className={`flex items-center gap-2 text-sm p-2.5 rounded-lg ${verified ? 'bg-green-500/10 text-green-700' : 'bg-muted text-muted-foreground'}`}>
-        {verified
-          ? <><CheckCircle2 className="h-4 w-4" /> Verified — set your new password below.</>
-          : <><RotateCcw className="h-4 w-4 animate-spin" /> Waiting for your WhatsApp message…</>}
-      </div>
+      {verified ? (
+        <div className="flex items-center gap-2 text-sm p-2.5 rounded-lg bg-green-500/10 text-green-700">
+          <CheckCircle2 className="h-4 w-4" /> Verified — set your new password below.
+        </div>
+      ) : mode === 'waiting' ? (
+        <div className="flex items-center gap-2 text-sm p-2.5 rounded-lg bg-muted text-muted-foreground">
+          <RotateCcw className="h-4 w-4 animate-spin" /> Checking automatically…
+        </div>
+      ) : mode === 'manual' ? (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground text-center">Sent the message? Tap below to check.</p>
+          <button
+            type="button"
+            onClick={onManualCheck}
+            disabled={checking}
+            className="flex items-center justify-center gap-2 w-full h-10 rounded-lg border text-sm font-medium hover:bg-muted/60 active:scale-[.98] transition-all disabled:opacity-60"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`} />
+            {checking ? 'Checking…' : 'I sent it — Check now'}
+          </button>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground text-center p-2.5 rounded-lg bg-muted/60">
+          Not verified yet. Please send the WhatsApp message and tap above.
+        </div>
+      )}
     </div>
   );
 }

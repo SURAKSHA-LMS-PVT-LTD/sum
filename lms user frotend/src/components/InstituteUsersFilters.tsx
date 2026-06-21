@@ -24,6 +24,15 @@ export interface InstituteUserFilterParams {
   // Birthday filter (month/day only — year ignored)
   birthdayMonth?: number;
   birthdayDay?: number;
+  // Institute column filters
+  userIdByInstitute?: string;
+  cardId?: string;
+  instituteName?: string;
+  // Date range filters
+  dobFrom?: string;
+  dobTo?: string;
+  joinedFrom?: string;
+  joinedTo?: string;
   // Student-specific
   studentId?: string;
   emergencyContact?: string;
@@ -44,6 +53,7 @@ interface InstituteUsersFiltersProps {
   userType: 'STUDENT' | 'TEACHER' | 'ATTENDANCE_MARKER' | 'INSTITUTE_ADMIN' | 'PENDING' | 'INACTIVE';
   isApplying?: boolean;
   houseOptions?: Array<{ id: string; name: string }>;
+  instituteNameOptions?: string[];
 }
 
 const MONTHS = [
@@ -63,6 +73,13 @@ const FILTER_LABELS: Record<string, string> = {
   maxAge: 'Max Age',
   birthdayMonth: 'Birthday Month',
   birthdayDay: 'Birthday Day',
+  userIdByInstitute: 'Admission ID',
+  cardId: 'Card / Barcode ID',
+  instituteName: 'Institute Name',
+  dobFrom: 'DOB From',
+  dobTo: 'DOB To',
+  joinedFrom: 'Joined From',
+  joinedTo: 'Joined To',
   studentId: 'Student ID',
   emergencyContact: 'Emergency Contact',
   hasMedicalConditions: 'Has Medical Conditions',
@@ -92,6 +109,7 @@ const InstituteUsersFilters: React.FC<InstituteUsersFiltersProps> = ({
   userType,
   isApplying = false,
   houseOptions = [],
+  instituteNameOptions = [],
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -359,6 +377,7 @@ const InstituteUsersFilters: React.FC<InstituteUsersFiltersProps> = ({
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>
                     <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="500">All (500)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -385,6 +404,101 @@ const InstituteUsersFilters: React.FC<InstituteUsersFiltersProps> = ({
                   placeholder="e.g. 18"
                   value={filters.maxAge ?? ''}
                   onChange={(e) => updateFilter('maxAge', e.target.value ? parseInt(e.target.value) : undefined)}
+                  className="h-9"
+                />
+              </div>
+            </div>
+
+            {/* Institute column filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="userIdByInstitute" className="text-xs">Admission ID (Institute)</Label>
+                <Input
+                  id="userIdByInstitute"
+                  placeholder="e.g. STU-20240101-001"
+                  value={filters.userIdByInstitute || ''}
+                  onChange={(e) => updateFilter('userIdByInstitute', e.target.value || undefined)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cardId" className="text-xs">Card / Barcode ID</Label>
+                <Input
+                  id="cardId"
+                  placeholder="e.g. CARD-001"
+                  value={filters.cardId || ''}
+                  onChange={(e) => updateFilter('cardId', e.target.value || undefined)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Institute Name</Label>
+                {instituteNameOptions.length > 0 ? (
+                  <Select
+                    value={filters.instituteName || 'all'}
+                    onValueChange={(v) => updateFilter('instituteName', v === 'all' ? undefined : v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {instituteNameOptions.map((name) => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="instituteName"
+                    placeholder="e.g. WINS"
+                    value={filters.instituteName || ''}
+                    onChange={(e) => updateFilter('instituteName', e.target.value || undefined)}
+                    className="h-9"
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Date range filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="dobFrom" className="text-xs">Date of Birth From</Label>
+                <Input
+                  id="dobFrom"
+                  type="date"
+                  value={filters.dobFrom || ''}
+                  onChange={(e) => updateFilter('dobFrom', e.target.value || undefined)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="dobTo" className="text-xs">Date of Birth To</Label>
+                <Input
+                  id="dobTo"
+                  type="date"
+                  value={filters.dobTo || ''}
+                  onChange={(e) => updateFilter('dobTo', e.target.value || undefined)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="joinedFrom" className="text-xs">Joined From</Label>
+                <Input
+                  id="joinedFrom"
+                  type="date"
+                  value={filters.joinedFrom || ''}
+                  onChange={(e) => updateFilter('joinedFrom', e.target.value || undefined)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="joinedTo" className="text-xs">Joined To</Label>
+                <Input
+                  id="joinedTo"
+                  type="date"
+                  value={filters.joinedTo || ''}
+                  onChange={(e) => updateFilter('joinedTo', e.target.value || undefined)}
                   className="h-9"
                 />
               </div>
