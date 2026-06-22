@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useInstituteLabels } from '@/hooks/useInstituteLabels';
+import { useFeatures } from '@/contexts/FeaturesContext';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
 import {
   LayoutDashboard, Users, GraduationCap, UserCheck, BookOpen, School,
@@ -23,6 +24,7 @@ import {
   Flag, IdCard, MessageSquare, ListChecks,
   UserPlus, Wifi, Search, Clock, ArrowRight, Zap,
   GalleryHorizontal, Megaphone, X,
+  Palette, Wallet, Receipt, Banknote, Layers,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -94,6 +96,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
     currentInstituteId, user,
   } = useAuth();
   const userRole = useInstituteRole();
+  const { isFeatureEnabled } = useFeatures();
 
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState<RecentEntry[]>([]);
@@ -173,12 +176,16 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
 
       // ── Institute Admin ──────────────────────────────────────────
       if (userRole === 'InstituteAdmin') {
+        const hasSmartCards = isFeatureEnabled('smart-cards');
+        const hasDesigns = isFeatureEnabled('institute-designs');
+        const hasFinanceHub = isFeatureEnabled('suraksha-finance');
+
         result.push(
           // Quick actions at top
           { id: 'create-user', label: 'Create New User', description: 'Register a student, teacher, or staff member', icon: UserPlus, group: 'Quick Actions', groupColor: c('Quick Actions'), action: () => goTo(`/institute-users/${currentInstituteId}/create`, 'Create New User'), keywords: ['add user', 'new user', 'register', 'enroll', 'invite', 'student', 'teacher'] },
           { id: 'add-student-institute', label: 'Add Student to Institute', description: 'Assign a student to this institute', icon: UserPlus, group: 'Quick Actions', groupColor: c('Quick Actions'), action: () => openEnroll('institute'), keywords: ['add student', 'enroll student', 'assign student', 'institute enrollment', 'new student'] },
-          { id: 'add-student-class', label: 'Add Student to Class', description: 'Assign a student to a class', icon: UserPlus, group: 'Quick Actions', groupColor: c('Quick Actions'), action: () => openEnroll('class'), keywords: ['add student class', 'enroll class', 'assign class', 'student class'] },
-          { id: 'add-student-subject', label: 'Add Student to Subject / Module', description: 'Enroll a student in a subject or module', icon: UserPlus, group: 'Quick Actions', groupColor: c('Quick Actions'), action: () => openEnroll('subject'), keywords: ['add student subject', 'enroll subject', 'month', 'module', 'assign subject'] },
+          { id: 'add-student-class', label: `Add Student to ${classLabel}`, description: `Assign a student to a ${classLabel.toLowerCase()}`, icon: UserPlus, group: 'Quick Actions', groupColor: c('Quick Actions'), action: () => openEnroll('class'), keywords: ['add student class', 'enroll class', 'assign class', 'student class'] },
+          { id: 'add-student-subject', label: `Add Student to ${subjectLabel}`, description: `Enroll a student in a ${subjectLabel.toLowerCase()}`, icon: UserPlus, group: 'Quick Actions', groupColor: c('Quick Actions'), action: () => openEnroll('subject'), keywords: ['add student subject', 'enroll subject', 'month', 'module', 'assign subject'] },
           { id: 'mark-attendance', label: 'Mark Attendance', description: 'QR code / RFID / Manual entry', icon: QrCode, group: 'Quick Actions', groupColor: c('Quick Actions'), action: () => go('select-attendance-mark-type', 'Mark Attendance'), keywords: ['qr', 'rfid', 'scan', 'check in'] },
           { id: 'send-sms', label: 'Send Bulk SMS', description: 'Send message to multiple users', icon: Megaphone, group: 'Quick Actions', groupColor: c('Quick Actions'), action: () => go('sms', 'Send Bulk SMS'), keywords: ['message', 'notify', 'broadcast'] },
 
@@ -188,29 +195,51 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
           { id: 'verify-image', label: 'Verify Profile Photos', icon: ShieldCheck, group: 'Manage Users', groupColor: c('Manage Users'), action: () => go('verify-image', 'Verify Profile Photos'), keywords: ['approve', 'image', 'photo', 'pending', 'review'] },
 
           // Academics
-          { id: 'classes', label: 'All Classes', icon: School, group: 'Academics', groupColor: c('Academics'), action: () => go('classes', 'All Classes'), keywords: ['class list', 'grade'] },
-          { id: 'institute-subjects', label: `Institute ${subjectLabel}s`, icon: BookOpen, group: 'Academics', groupColor: c('Academics'), action: () => go('institute-subjects', `Institute ${subjectLabel}s`), keywords: ['subject list', 'course'] },
+          { id: 'classes', label: `All ${classLabel}s`, icon: School, group: 'Academics', groupColor: c('Academics'), action: () => go('classes', `All ${classLabel}s`), keywords: ['class list', 'grade', classLabel.toLowerCase()] },
+          { id: 'institute-subjects', label: `Institute ${subjectLabel}s`, icon: BookOpen, group: 'Academics', groupColor: c('Academics'), action: () => go('institute-subjects', `Institute ${subjectLabel}s`), keywords: ['subject list', 'course', subjectLabel.toLowerCase()] },
           { id: 'institute-lectures', label: 'Institute Lectures', icon: Video, group: 'Academics', groupColor: c('Academics'), action: () => go('institute-lectures', 'Institute Lectures'), keywords: ['video', 'recording', 'online class'] },
           { id: 'houses', label: 'Houses', icon: Flag, group: 'Academics', groupColor: c('Academics'), action: () => go('houses', 'Houses'), keywords: ['team', 'group', 'prefect'] },
           { id: 'institute-organizations', label: 'Organizations', icon: Building2, group: 'Academics', groupColor: c('Academics'), action: () => go('institute-organizations', 'Organizations'), keywords: ['club', 'society'] },
 
-          // Attendance
-          { id: 'daily-attendance', label: 'Institute Attendance Log', icon: ClipboardList, group: 'Attendance', groupColor: c('Attendance'), action: () => go('daily-attendance', 'Institute Attendance Log'), keywords: ['log', 'daily', 'report'] },
-          { id: 'admin-attendance', label: 'Advanced Attendance', description: 'Analytics and detailed reports', icon: BarChart3, group: 'Attendance', groupColor: c('Attendance'), action: () => go('admin-attendance', 'Advanced Attendance'), keywords: ['reports', 'stats', 'analytics'] },
-          { id: 'calendar-view', label: 'Attendance Calendar', icon: Calendar, group: 'Attendance', groupColor: c('Attendance'), action: () => go('calendar-view', 'Attendance Calendar'), keywords: ['month', 'calendar', 'schedule'] },
-          { id: 'calendar-management', label: 'Manage Calendar', icon: CalendarDays, group: 'Attendance', groupColor: c('Attendance'), action: () => go('calendar-management', 'Manage Calendar'), keywords: ['holiday', 'events', 'schedule', 'edit'] },
+          // Attendance (institute-level, only when no class selected)
+          ...(!selectedClass ? [
+            { id: 'daily-attendance', label: 'Institute Attendance Log', icon: ClipboardList, group: 'Attendance', groupColor: c('Attendance'), action: () => go('daily-attendance', 'Institute Attendance Log'), keywords: ['log', 'daily', 'report'] },
+            { id: 'admin-attendance', label: 'Advanced Attendance', description: 'Analytics and detailed reports', icon: BarChart3, group: 'Attendance', groupColor: c('Attendance'), action: () => go('admin-attendance', 'Advanced Attendance'), keywords: ['reports', 'stats', 'analytics'] },
+            { id: 'calendar-view', label: 'Attendance Calendar', icon: Calendar, group: 'Attendance', groupColor: c('Attendance'), action: () => go('calendar-view', 'Attendance Calendar'), keywords: ['month', 'calendar', 'schedule'] },
+            { id: 'calendar-management', label: 'Manage Calendar', icon: CalendarDays, group: 'Attendance', groupColor: c('Attendance'), action: () => go('calendar-management', 'Manage Calendar'), keywords: ['holiday', 'events', 'schedule', 'edit'] },
+          ] as SearchItem[] : []),
           { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, group: 'Attendance', groupColor: c('Attendance'), action: () => go('my-attendance', 'My Attendance') },
 
-          // Payments
-          { id: 'institute-payments', label: 'Institute Fees', icon: CreditCard, group: 'Payments', groupColor: c('Payments'), action: () => go('institute-payments', 'Institute Fees'), keywords: ['fees', 'money', 'dues', 'pay'] },
-          // Subject-level payments disabled — class payments handled via enrollment
+          // Payments (institute-level only)
+          ...(!selectedClass ? [
+            { id: 'institute-payments', label: 'Institute Fees', icon: CreditCard, group: 'Payments', groupColor: c('Payments'), action: () => go('institute-payments', 'Institute Fees'), keywords: ['fees', 'money', 'dues', 'pay'] },
+            { id: 'collect-physical-payment', label: 'Collect Payment', description: 'Record a cash or manual payment', icon: Banknote, group: 'Payments', groupColor: c('Payments'), action: () => go('collect-physical-payment', 'Collect Payment'), keywords: ['cash', 'manual', 'record', 'receipt'] },
+            { id: 'institute-billing', label: 'Billing & Plan', icon: Receipt, group: 'Payments', groupColor: c('Payments'), action: () => go('institute-billing', 'Billing & Plan'), keywords: ['subscription', 'upgrade', 'plan', 'invoice'] },
+            { id: 'institute-credits', label: 'Institute Wallet', description: 'SMS & credit balance', icon: Wallet, group: 'Payments', groupColor: c('Payments'), action: () => go('institute-credits', 'Institute Wallet'), keywords: ['wallet', 'balance', 'credits', 'topup', 'sms credits'] },
+            ...(hasFinanceHub ? [
+              { id: 'finance-hub', label: 'Finance Hub', icon: Layers, group: 'Payments', groupColor: c('Payments'), action: () => go('finance-hub', 'Finance Hub'), keywords: ['finance', 'revenue', 'reports', 'analytics'] },
+            ] as SearchItem[] : []),
+          ] as SearchItem[] : [
+            { id: 'class-payments', label: `${classLabel} Fees`, icon: CreditCard, group: 'Payments', groupColor: c('Payments'), action: () => go('class-payments', `${classLabel} Fees`), keywords: ['fees', 'class', 'pay'] },
+            { id: 'collect-physical-payment', label: 'Collect Payment', description: 'Record a cash or manual payment', icon: Banknote, group: 'Payments', groupColor: c('Payments'), action: () => go('collect-physical-payment', 'Collect Payment'), keywords: ['cash', 'manual', 'record'] },
+          ] as SearchItem[]),
 
           // Communication
           { id: 'sms-history', label: 'SMS History', icon: ListChecks, group: 'Communication', groupColor: c('Communication'), action: () => go('sms-history', 'SMS History'), keywords: ['sent', 'messages log'] },
 
+          // Designs (feature-gated)
+          ...(hasDesigns ? [
+            { id: 'institute-designs', label: 'Designs', description: 'ID cards, certificates & templates', icon: Palette, group: 'Institute', groupColor: c('Institute'), action: () => go('institute-designs', 'Designs'), keywords: ['template', 'certificate', 'id card design', 'birthday', 'card'] },
+          ] as SearchItem[] : []),
+
+          // Smart Cards (feature-gated, institute-level only)
+          ...(hasSmartCards && !selectedClass ? [
+            { id: 'manage-smart-cards', label: 'Manage Smart Cards', description: 'Issue and manage smart cards', icon: CreditCard, group: 'Institute', groupColor: c('Institute'), action: () => go('manage-smart-cards', 'Manage Smart Cards'), keywords: ['rfid', 'nfc', 'card', 'suraksha card'] },
+          ] as SearchItem[] : []),
+
           // Institute settings
-          { id: 'institute-settings', label: 'Institute Settings', icon: Settings, group: 'Institute', groupColor: c('Institute'), action: () => go('institute-settings', 'Institute Settings'), keywords: ['config', 'manage institute'] },
-          { id: 'device-management', label: 'Device Management', icon: Wifi, group: 'Institute', groupColor: c('Institute'), action: () => go('device-management', 'Device Management'), keywords: ['devices', 'rfid readers'] },
+          { id: 'institute-settings', label: 'Institute Settings', icon: Settings, group: 'Institute', groupColor: c('Institute'), action: () => go('institute-settings', 'Institute Settings'), keywords: ['config', 'manage institute', 'branding'] },
+          { id: 'device-management', label: 'Device Management', icon: Wifi, group: 'Institute', groupColor: c('Institute'), action: () => go('device-management', 'Device Management'), keywords: ['devices', 'rfid readers', 'scanner'] },
 
           // Navigation
           { id: 'select-class', label: `Select ${classLabel}`, icon: School, group: 'Navigation', groupColor: c('Navigation'), action: () => go('select-class', `Select ${classLabel}`) },
@@ -221,13 +250,16 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
           result.push(
             { id: 'students', label: 'Class Students', icon: GraduationCap, group: 'Manage Users', groupColor: c('Manage Users'), action: () => go('students', 'Class Students') },
             { id: 'unverified-students', label: 'Pending Students', description: 'Students awaiting verification', icon: UserCheck, group: 'Manage Users', groupColor: c('Manage Users'), action: () => go('unverified-students', 'Pending Students'), keywords: ['approve', 'verify', 'pending'] },
+            { id: 'class-daily-attendance', label: `${classLabel} Attendance`, icon: ClipboardList, group: 'Attendance', groupColor: c('Attendance'), action: () => go('daily-attendance', `${classLabel} Attendance`), keywords: ['daily', 'log', 'report'] },
+            { id: 'class-study-materials', label: 'Study Materials', description: 'Files and resources for this class', icon: FileText, group: 'Academics', groupColor: c('Academics'), action: () => go('study-materials', 'Study Materials'), keywords: ['files', 'resources', 'documents', 'download'] },
           );
           if (selectedSubject) {
             result.push(
               { id: 'lectures', label: 'Lectures', icon: Video, group: 'Academics', groupColor: c('Academics'), action: () => go('lectures', 'Lectures') },
               { id: 'free-lectures', label: 'Free Lectures', icon: Video, group: 'Academics', groupColor: c('Academics'), action: () => go('free-lectures', 'Free Lectures') },
-              { id: 'homework', label: 'Homework', icon: Notebook, group: 'Academics', groupColor: c('Academics'), action: () => go('homework', 'Homework') },
-              { id: 'exams', label: 'Exams / Results', icon: Award, group: 'Academics', groupColor: c('Academics'), action: () => go('exams', 'Exams'), keywords: ['results', 'test', 'marks'] },
+              { id: 'homework', label: 'Homework', icon: Notebook, group: 'Academics', groupColor: c('Academics'), action: () => go('homework', 'Homework'), keywords: ['assignments', 'tasks', 'due'] },
+              { id: 'exams', label: 'Exams / Results', icon: Award, group: 'Academics', groupColor: c('Academics'), action: () => go('exams', 'Exams'), keywords: ['results', 'test', 'marks', 'grades'] },
+              { id: 'subject-study-materials', label: `${subjectLabel} Study Materials`, icon: FileText, group: 'Academics', groupColor: c('Academics'), action: () => go('study-materials', `${subjectLabel} Study Materials`), keywords: ['files', 'resources', 'notes'] },
             );
           }
         }
@@ -247,14 +279,14 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
             { id: 'students', label: 'Class Students', icon: GraduationCap, group: 'Manage Users', groupColor: c('Manage Users'), action: () => go('students', 'Class Students') },
             { id: 'unverified-students', label: 'Pending Students', icon: UserCheck, group: 'Manage Users', groupColor: c('Manage Users'), action: () => go('unverified-students', 'Pending Students'), keywords: ['approve', 'verify'] },
             { id: 'daily-attendance', label: 'Attendance Log', icon: ClipboardList, group: 'Attendance', groupColor: c('Attendance'), action: () => go('daily-attendance', 'Attendance Log') },
+            { id: 'class-study-materials', label: 'Study Materials', icon: FileText, group: 'Academics', groupColor: c('Academics'), action: () => go('study-materials', 'Study Materials'), keywords: ['files', 'resources', 'documents'] },
           );
           if (selectedSubject) {
             result.push(
               { id: 'lectures', label: 'Lectures', icon: Video, group: 'Academics', groupColor: c('Academics'), action: () => go('lectures', 'Lectures') },
               { id: 'free-lectures', label: 'Free Lectures', icon: Video, group: 'Academics', groupColor: c('Academics'), action: () => go('free-lectures', 'Free Lectures') },
-              { id: 'homework', label: 'Homework', icon: Notebook, group: 'Academics', groupColor: c('Academics'), action: () => go('homework', 'Homework') },
-              { id: 'exams', label: 'Exams / Results', icon: Award, group: 'Academics', groupColor: c('Academics'), action: () => go('exams', 'Exams'), keywords: ['results', 'marks'] },
-              // Subject-level payments disabled
+              { id: 'homework', label: 'Homework', icon: Notebook, group: 'Academics', groupColor: c('Academics'), action: () => go('homework', 'Homework'), keywords: ['assignments', 'tasks'] },
+              { id: 'exams', label: 'Exams / Results', icon: Award, group: 'Academics', groupColor: c('Academics'), action: () => go('exams', 'Exams'), keywords: ['results', 'marks', 'grades'] },
             );
           }
         }
@@ -265,18 +297,22 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
         result.push(
           { id: 'my-attendance', label: 'My Attendance', icon: UserCheck, group: 'Attendance', groupColor: c('Attendance'), action: () => go('my-attendance', 'My Attendance') },
           { id: 'calendar-view', label: 'Attendance Calendar', icon: Calendar, group: 'Attendance', groupColor: c('Attendance'), action: () => go('calendar-view', 'Attendance Calendar') },
-          { id: 'institute-payments', label: 'Institute Fees', icon: CreditCard, group: 'Payments', groupColor: c('Payments'), action: () => go('institute-payments', 'Institute Fees') },
-          { id: 'my-submissions', label: 'My Fee Submissions', icon: FileText, group: 'Payments', groupColor: c('Payments'), action: () => go('my-submissions', 'My Fee Submissions'), keywords: ['paid', 'fees', 'receipt'] },
+          { id: 'institute-payments', label: 'Institute Fees', icon: CreditCard, group: 'Payments', groupColor: c('Payments'), action: () => go('institute-payments', 'Institute Fees'), keywords: ['fees', 'pay', 'dues'] },
+          { id: 'my-submissions', label: 'My Fee Submissions', icon: FileText, group: 'Payments', groupColor: c('Payments'), action: () => go('my-submissions', 'My Fee Submissions'), keywords: ['paid', 'fees', 'receipt', 'history'] },
           { id: 'institute-lectures', label: 'Institute Lectures', icon: Video, group: 'Academics', groupColor: c('Academics'), action: () => go('institute-lectures', 'Institute Lectures') },
           { id: 'select-class', label: `Select ${classLabel}`, icon: School, group: 'Navigation', groupColor: c('Navigation'), action: () => go('select-class', `Select ${classLabel}`) },
         );
+        if (selectedClass) {
+          result.push(
+            { id: 'class-study-materials', label: 'Study Materials', icon: FileText, group: 'Academics', groupColor: c('Academics'), action: () => go('study-materials', 'Study Materials'), keywords: ['files', 'notes', 'resources'] },
+          );
+        }
         if (selectedSubject) {
           result.push(
             { id: 'lectures', label: 'Lectures', icon: Video, group: 'Academics', groupColor: c('Academics'), action: () => go('lectures', 'Lectures') },
             { id: 'free-lectures', label: 'Free Lectures', icon: Video, group: 'Academics', groupColor: c('Academics'), action: () => go('free-lectures', 'Free Lectures') },
-            { id: 'homework', label: 'Homework', icon: Notebook, group: 'Academics', groupColor: c('Academics'), action: () => go('homework', 'Homework') },
-            { id: 'exams', label: 'Exams / Results', icon: Award, group: 'Academics', groupColor: c('Academics'), action: () => go('exams', 'Exams / Results') },
-            // Subject-level payments disabled
+            { id: 'homework', label: 'Homework', icon: Notebook, group: 'Academics', groupColor: c('Academics'), action: () => go('homework', 'Homework'), keywords: ['assignments', 'tasks', 'due'] },
+            { id: 'exams', label: 'Exams / Results', icon: Award, group: 'Academics', groupColor: c('Academics'), action: () => go('exams', 'Exams / Results'), keywords: ['marks', 'grades', 'test'] },
           );
         }
       }
@@ -290,7 +326,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
     }
 
     return result;
-  }, [userRole, currentInstituteId, selectedClass?.id, selectedSubject?.id, subjectLabel, selectedInstitute?.name, openEnroll]);
+  }, [userRole, currentInstituteId, selectedClass?.id, selectedSubject?.id, subjectLabel, classLabel, selectedInstitute?.name, openEnroll, go, goTo, isFeatureEnabled]);
 
   // ── Group items ───────────────────────────────────────────────────────────────
   const grouped = useMemo(() => {
@@ -337,7 +373,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
       <div className="flex items-center border-b border-border/60 px-3 gap-2 bg-muted/40">
         <Search className="h-4 w-4 shrink-0 text-primary" />
         <CommandInput
-          placeholder="Search pages, actions, features…"
+          placeholder="Search pages, actions, features, payments…"
           value={query}
           onValueChange={setQuery}
           className="border-0 focus:ring-0 px-0"
@@ -361,7 +397,7 @@ const GlobalSearch = ({ open, onOpenChange }: GlobalSearchProps) => {
             </div>
             {/* Suggest quick actions as chips */}
             <div className="flex flex-wrap gap-1.5 justify-center mt-1">
-              {['Dashboard', 'Attendance', 'Users', 'Payments'].map(s => (
+              {['Attendance', 'Users', 'Fees', 'Designs', 'SMS'].map(s => (
                 <button
                   key={s}
                   className="text-xs px-2.5 py-1 rounded-full border border-border bg-muted/50 hover:bg-muted text-foreground transition-colors"

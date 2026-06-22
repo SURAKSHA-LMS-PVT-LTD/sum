@@ -176,7 +176,7 @@ const ProfileSwitcherSheet: React.FC<ProfileSwitcherSheetProps> = ({ open, onOpe
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-80 sm:w-80 p-0 flex flex-col">
+      <SheetContent side="right" className="!w-[280px] !max-w-[75vw] p-0 flex flex-col">
         <SheetHeader className="px-4 pt-5 pb-3 border-b border-border/50">
           <SheetTitle className="text-sm font-bold text-foreground">Switch Profile</SheetTitle>
         </SheetHeader>

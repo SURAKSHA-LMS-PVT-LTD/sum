@@ -551,7 +551,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
     };
   }, []);
 
-  const SmartCardFields = () => !smartCardsEnabled ? null : (
+  const renderSmartCardFields = () => !smartCardsEnabled ? null : (
     <>
       {/* Institute Card (INSTITUTE scope) */}
       <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
@@ -838,7 +838,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
                   />
                 </div>
 
-                <SmartCardFields />
+                {renderSmartCardFields()}
 
                 <div>
                   <Label>Profile Image (35mm × 45mm)</Label>
@@ -915,7 +915,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
                   />
                 </div>
 
-                <SmartCardFields />
+                {renderSmartCardFields()}
 
                 <div>
                   <Label>Profile Image (35mm × 45mm)</Label>
@@ -988,7 +988,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
                   />
                 </div>
 
-                <SmartCardFields />
+                {renderSmartCardFields()}
 
                 <div>
                   <Label>Profile Image (35mm × 45mm)</Label>
@@ -1062,7 +1062,7 @@ const AssignUserMethodsDialog = ({ open, onClose, instituteId, onSuccess }: Assi
                   />
                 </div>
 
-                <SmartCardFields />
+                {renderSmartCardFields()}
 
                 <div>
                   <Label>Profile Image (35mm × 45mm)</Label>
