@@ -118,12 +118,16 @@ export function usePopupRouteContent(
   contentRef: React.RefObject<HTMLElement>,
   fallbackName?: string,
   suffix = 'form',
+  disabled = false,
 ) {
   const routeContext = React.useContext(PopupRouteContext);
   const navigate = useNavigate();
   const location = useLocation();
 
   React.useEffect(() => {
+    // When disabled, this dialog opts out of URL route syncing entirely — it never
+    // pushes a /…/<name>-popup segment, so it behaves as a plain in-place dialog.
+    if (disabled) return;
     if (!routeContext?.open || !routeContext.syncEnabled) {
       return;
     }

@@ -47,15 +47,20 @@ const DialogContent = React.forwardRef<
     /** Set to true to allow closing by clicking outside (default: false — prevents accidental data loss) */
     allowOutsideClose?: boolean;
     routeName?: string;
+    /**
+     * Opt out of URL route syncing. Use on pages where the router does not handle the
+     * /…/<name>-popup segment (otherwise opening the dialog navigates away / redirects).
+     */
+    disableRouteSync?: boolean;
   }>(
-  ({ className, children, allowOutsideClose = false, routeName, ...props }, ref) => {
+  ({ className, children, allowOutsideClose = false, routeName, disableRouteSync = false, ...props }, ref) => {
     const isMobile = useIsMobile();
     const routeContext = React.useContext(PopupRouteContext);
     const contentRef = React.useRef<React.ElementRef<typeof DialogPrimitive.Content>>(null);
-    
+
     // Use routeName from context first (from Dialog), then prop, then default
     const finalRouteName = routeContext?.routeName || routeName || 'details';
-    usePopupRouteContent(contentRef, finalRouteName, 'popup');
+    usePopupRouteContent(contentRef, finalRouteName, 'popup', disableRouteSync);
 
     return (
       <DialogPortal>

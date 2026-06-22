@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
-import { Loader2, MessageCircle, CheckCircle2, RefreshCw, QrCode, ExternalLink } from 'lucide-react';
+import { Loader2, MessageCircle, CheckCircle2, RefreshCw, QrCode, ExternalLink, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -9,12 +9,42 @@ import {
   getPhoneOtpStatus,
 } from '@/api/otpVerification.api';
 
+interface WhatsAppRequestResult {
+  waLink: string;
+  expiresAt?: string;
+  /** When the contact already belongs to an account (public self-registration claim flow). */
+  existingUserId?: string | null;
+}
+interface WhatsAppStatusResult {
+  verified: boolean;
+  expired: boolean;
+}
+
 interface WhatsAppPhoneVerifyProps {
   /** Cleaned phone number being verified (e.g. +94771234567). */
   phoneNumber: string;
   /** Called once the WhatsApp OTP is confirmed by the webhook. */
   onVerified: () => void;
+  /**
+   * Optional injected request fn. Defaults to the standard registration OTP endpoint.
+   * The public /forms flow injects its token-scoped variant so the same UI is reused.
+   */
+  requestFn?: (phoneNumber: string) => Promise<WhatsAppRequestResult>;
+  /** Optional injected status-check fn. Defaults to the standard endpoint. */
+  statusFn?: (phoneNumber: string) => Promise<WhatsAppStatusResult>;
+  /** Called with the existing account id (if the request fn reports one). */
+  onExisting?: (existingUserId: string) => void;
+  /**
+   * Phased auto-check after requesting (forgot-password pattern): wait `initialDelayMs`,
+   * then run a few spaced status checks, then stop and leave the manual button.
+   * Off by default (manual-only). Pass `autoPoll` to enable the default schedule.
+   */
+  autoPoll?: boolean;
 }
+
+// Default phased schedule (mirrors ForgotPasswordPage): first check at 30s, second at 55s
+// (i.e. +25s), then stop — manual button remains. No continuous polling.
+const AUTO_CHECK_DELAYS_MS = [30_000, 25_000];
 
 /**
  * Reverse-OTP phone verification via WhatsApp.
@@ -24,7 +54,34 @@ interface WhatsAppPhoneVerifyProps {
  * user sends the pre-filled "OTP 123456" message → user clicks "I've sent it,
  * check now" → we hit the status endpoint once. No code is ever typed here.
  */
-const WhatsAppPhoneVerify: React.FC<WhatsAppPhoneVerifyProps> = ({ phoneNumber, onVerified }) => {
+const defaultRequestFn = (phone: string): Promise<WhatsAppRequestResult> => requestPhoneOtpWhatsApp(phone);
+const defaultStatusFn = (phone: string): Promise<WhatsAppStatusResult> => getPhoneOtpStatus(phone);
+
+/** mm:ss countdown to an ISO expiry; null when none/elapsed. */
+function useCountdown(expiresAt: string | null): number | null {
+  const [secs, setSecs] = useState<number | null>(null);
+  useEffect(() => {
+    if (!expiresAt) { setSecs(null); return; }
+    const tick = () => {
+      const remaining = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+      setSecs(remaining);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+  return secs;
+}
+
+export function fmtMMSS(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+const WhatsAppPhoneVerify: React.FC<WhatsAppPhoneVerifyProps> = ({
+  phoneNumber, onVerified, requestFn = defaultRequestFn, statusFn = defaultStatusFn, onExisting, autoPoll = false,
+}) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -33,52 +90,77 @@ const WhatsAppPhoneVerify: React.FC<WhatsAppPhoneVerifyProps> = ({ phoneNumber, 
   const [waLink, setWaLink] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
-  // "Open WhatsApp Web" uses web.whatsapp.com; the wa.me link works for both
-  // app and web, but on desktop we surface the web variant explicitly.
+  const remaining = useCountdown(verified ? null : expiresAt);
+  const expired = remaining !== null && remaining <= 0;
+
   const webWhatsAppLink = waLink ? waLink.replace('https://wa.me/', 'https://web.whatsapp.com/send/?phone=').replace('?text=', '&text=') : null;
 
+  const markVerified = useCallback(() => {
+    setVerified(true);
+    onVerified();
+  }, [onVerified]);
+
   const handleRequest = useCallback(async () => {
+    if (loading) return; // double-submit guard
     if (!phoneNumber || phoneNumber.replace(/\D/g, '').length < 5) {
       toast({ title: 'Enter a phone number first', variant: 'destructive' });
       return;
     }
     setLoading(true);
     try {
-      const res = await requestPhoneOtpWhatsApp(phoneNumber);
+      const res = await requestFn(phoneNumber);
       setWaLink(res.waLink);
-      // Generate a QR of the wa.me link for desktop scanning.
+      setExpiresAt(res.expiresAt ?? null);
+      if (res.existingUserId && onExisting) onExisting(res.existingUserId);
       const qr = await QRCode.toDataURL(res.waLink, { width: 240, margin: 1, errorCorrectionLevel: 'M' });
       setQrDataUrl(qr);
-      toast({ title: 'Ready', description: 'Send the WhatsApp message, then check status.' });
     } catch (err) {
       toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to start WhatsApp verification', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [phoneNumber, toast]);
+  }, [phoneNumber, toast, requestFn, onExisting, loading]);
 
-  const handleCheckStatus = useCallback(async () => {
+  const handleCheckStatus = useCallback(async (silent = false) => {
+    if (checking) return;
     setChecking(true);
     try {
-      const res = await getPhoneOtpStatus(phoneNumber);
+      const res = await statusFn(phoneNumber);
       if (res.verified) {
-        setVerified(true);
-        toast({ title: 'Phone Verified', description: 'Your phone number has been verified via WhatsApp.' });
-        onVerified();
+        if (!silent) toast({ title: 'Phone Verified', description: 'Your phone number has been verified via WhatsApp.' });
+        markVerified();
       } else if (res.expired) {
-        toast({ title: 'Code expired', description: 'Please request a new WhatsApp verification.', variant: 'destructive' });
-        setWaLink(null);
-        setQrDataUrl(null);
-      } else {
+        if (!silent) toast({ title: 'Code expired', description: 'Please request a new WhatsApp verification.', variant: 'destructive' });
+        setWaLink(null); setQrDataUrl(null); setExpiresAt(null);
+      } else if (!silent) {
         toast({ title: 'Not verified yet', description: 'Make sure you sent the WhatsApp message, then check again.', variant: 'destructive' });
       }
     } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Status check failed', variant: 'destructive' });
+      if (!silent) toast({ title: 'Error', description: err instanceof Error ? err.message : 'Status check failed', variant: 'destructive' });
     } finally {
       setChecking(false);
     }
-  }, [phoneNumber, onVerified, toast]);
+  }, [phoneNumber, markVerified, toast, statusFn, checking]);
+
+  // Phased auto-check after a link is issued (forgot-password pattern): a couple of
+  // spaced silent checks, then stop — the manual "Check now" button remains. No
+  // continuous polling. Re-runs whenever a fresh link is requested (waLink changes).
+  useEffect(() => {
+    if (!autoPoll || !waLink || verified) return;
+    let cancelled = false;
+    const run = async () => {
+      for (const delay of AUTO_CHECK_DELAYS_MS) {
+        await new Promise(r => setTimeout(r, delay));
+        if (cancelled || verified) return;
+        await handleCheckStatus(true);
+      }
+    };
+    void run();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPoll, waLink]);
 
   if (verified) {
     return (
@@ -136,13 +218,21 @@ const WhatsAppPhoneVerify: React.FC<WhatsAppPhoneVerifyProps> = ({ phoneNumber, 
         </div>
       )}
 
+      {/* Expiry countdown */}
+      {remaining !== null && (
+        <p className={`text-[11px] text-center flex items-center justify-center gap-1 ${expired ? 'text-red-600' : 'text-muted-foreground'}`}>
+          <Clock className="h-3 w-3" />
+          {expired ? 'Code expired — request a new one' : `Code expires in ${fmtMMSS(remaining)}`}
+        </p>
+      )}
+
       <div className="flex items-center gap-2 pt-1">
-        <Button onClick={handleCheckStatus} disabled={checking} className="flex-1 h-10 gap-2">
+        <Button onClick={() => handleCheckStatus(false)} disabled={checking || expired} className="flex-1 h-10 gap-2">
           {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-          I've sent it — check now
+          {autoPoll ? 'Check now' : "I've sent it — check now"}
         </Button>
         <Button variant="ghost" size="sm" onClick={handleRequest} disabled={loading} className="h-10 px-2" title="New code">
-          <RefreshCw className="h-4 w-4" />
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
         </Button>
       </div>
       <p className="text-[11px] text-muted-foreground text-center">

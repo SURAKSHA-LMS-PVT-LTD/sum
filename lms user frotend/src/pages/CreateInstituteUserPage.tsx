@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, UserPlus, Printer, Settings2, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, UserPlus, Printer, Settings2, ChevronDown, ChevronRight, Link2 } from 'lucide-react';
+import RegistrationLinkManager from '@/components/forms/RegistrationLinkManager';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -157,6 +158,9 @@ const CreateInstituteUserPage: React.FC = () => {
     () => new Set(FIELD_GROUPS.map(g => g.groupLabel)),
   );
 
+  // Public registration link section (collapsed by default)
+  const [showLinkSection, setShowLinkSection] = useState(false);
+
   // Restore institute context from URL on page refresh
   useEffect(() => {
     if (!instituteId) return;
@@ -252,10 +256,16 @@ const CreateInstituteUserPage: React.FC = () => {
               Create and enroll a new user into your institute
             </p>
           </div>
-          <Button variant="outline" size="sm" className="shrink-0 gap-1.5 min-h-[44px]" onClick={openPrintDialog}>
-            <Printer className="h-4 w-4" />
-            <span className="hidden sm:inline">Print Form</span>
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" size="sm" className="gap-1.5 min-h-[44px]" onClick={() => setShowLinkSection(true)}>
+              <Link2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Public Link</span>
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5 min-h-[44px]" onClick={openPrintDialog}>
+              <Printer className="h-4 w-4" />
+              <span className="hidden sm:inline">Print Form</span>
+            </Button>
+          </div>
         </div>
 
         <CreateInstituteUserForm
@@ -272,9 +282,27 @@ const CreateInstituteUserPage: React.FC = () => {
         />
       </div>
 
+      {/* ── Share public registration link (popup) ───────────────────────── */}
+      <Dialog open={showLinkSection} onOpenChange={setShowLinkSection}>
+        <DialogContent disableRouteSync className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-primary" />
+              Share a public registration link
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-2 mb-2">
+            Let people self-register into your institute via a shareable link. All self-registrations arrive pending your approval.
+          </p>
+          {(instituteId || selectedInstitute?.id) && (
+            <RegistrationLinkManager instituteId={(instituteId ?? selectedInstitute?.id)!.toString()} />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* â”€â”€ Print customization dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} routeName="print-credentials-popup">
-        <DialogContent className="max-w-md max-h-[95vh] overflow-y-auto">
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent disableRouteSync className="max-w-md max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5 text-primary" />

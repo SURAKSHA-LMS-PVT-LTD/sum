@@ -458,8 +458,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // 🔐 CRITICAL: Auto-restore session on mount
   // On web, access token is memory-only, so we ALWAYS attempt a cookie-based
   // refresh to restore the session after page load / browser restart.
+  // Skip on fully public routes that never need an auth session.
+  const isPublicRoute = /^\/forms\//.test(window.location.pathname);
   React.useEffect(() => {
     const initializeAuth = async () => {
+      if (isPublicRoute) {
+        setIsLoading(false);
+        setIsInitialized(true);
+        return;
+      }
       try {
         // validateToken will try memory token first, then cookie refresh
         const userData = await validateToken();
