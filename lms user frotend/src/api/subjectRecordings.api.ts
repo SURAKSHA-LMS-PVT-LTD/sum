@@ -73,6 +73,7 @@ export interface SubjectRecordingQuery {
   status?: RecordingStatus;
   platform?: RecordingPlatform;
   isActive?: boolean;
+  recAttendanceEnabled?: boolean;
   search?: string;
   page?: number;
   limit?: number;

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { lectureTrackingApi, RecordingSessionRow, RecordingActivityRow } from '@/api/lectureTracking.api';
 import { lectureApi, Lecture } from '@/api/lecture.api';
+import { subjectRecordingsApi } from '@/api/subjectRecordings.api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -20,58 +21,97 @@ export default function StudentRecordingActivityPage() {
 
   const studentId = searchParams.get('studentId') || '';
   const studentName = decodeURIComponent(searchParams.get('studentName') || 'Student');
-  const lectureIds = (searchParams.get('ids') || '').split(',').filter(Boolean);
+  const allIds = (searchParams.get('ids') || '').split(',').filter(Boolean);
+  // IDs prefixed with "sr:" are subject recordings; plain IDs are old-system lectures
+  const lectureIds = allIds.filter(id => !id.startsWith('sr:'));
+  const subjectRecordingIds = allIds.filter(id => id.startsWith('sr:')).map(id => id.slice(3));
 
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [sessions, setSessions] = useState<Record<string, RecordingSessionRow[]>>({});
+  // Subject recordings: a SINGLE call returns metadata + watching data for ALL of the
+  // student's recordings, indexed here by recording id ("sr:<id>"). No per-item fetch.
+  const [srActivity, setSrActivity] = useState<Record<string, any>>({});
+  const [srLoaded, setSrLoaded] = useState(false);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   // BUG-02: loadingRef tracks in-flight requests to prevent stale-closure races
   const loadingRef = useRef<Record<string, boolean>>({});
 
+  // Fetch old-system lecture metadata (one call per id — no batch endpoint exists)
   useEffect(() => {
-    if (!lectureIds.length || !currentInstituteId) return;
-    const fetchAll = async () => {
+    if (!currentInstituteId || !lectureIds.length) return;
+    let cancelled = false;
+    const fetchLectures = async () => {
       const results: Lecture[] = [];
       for (const id of lectureIds) {
         try {
-          // BUG-07: include currentClassId and currentSubjectId in dep array via this effect
           const l = await lectureApi.getLectureById(id, false, { instituteId: currentInstituteId, classId: currentClassId, subjectId: currentSubjectId });
           results.push(l);
         } catch { /* skip */ }
       }
-      setLectures(results);
+      if (!cancelled) setLectures(results);
     };
-    fetchAll();
+    fetchLectures();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lectureIds.join(','), currentInstituteId, currentClassId, currentSubjectId]);
 
-  const loadSessions = useCallback(async (lectureId: string) => {
+  // Fetch ALL subject-recording activity for this student in ONE call, index by id.
+  useEffect(() => {
+    if (!currentInstituteId || !currentClassId || !studentId || !subjectRecordingIds.length) return;
+    let cancelled = false;
+    setSrLoaded(false);
+    const fetchActivity = async () => {
+      try {
+        const all = await subjectRecordingsApi.getStudentActivities(
+          studentId, currentInstituteId, currentClassId, currentSubjectId || undefined,
+        );
+        if (cancelled) return;
+        const indexed: Record<string, any> = {};
+        for (const a of all as any[]) {
+          if (a?.recording?.id) indexed[`sr:${a.recording.id}`] = a;
+        }
+        setSrActivity(indexed);
+      } catch {
+        if (!cancelled) setSrActivity({});
+      } finally {
+        if (!cancelled) setSrLoaded(true);
+      }
+    };
+    fetchActivity();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subjectRecordingIds.join(','), studentId, currentInstituteId, currentClassId, currentSubjectId]);
+
+  // Old-system lectures load their per-session detail lazily on expand.
+  const loadSessions = useCallback(async (id: string) => {
+    // Subject recordings are already loaded in bulk — nothing to fetch on expand.
+    if (id.startsWith('sr:')) return;
     // BUG-02: use ref to guard against stale closure reading old `loading` state
-    if (loadingRef.current[lectureId]) return;
-    loadingRef.current = { ...loadingRef.current, [lectureId]: true };
-    setLoading(p => ({ ...p, [lectureId]: true }));
+    if (loadingRef.current[id]) return;
+    loadingRef.current = { ...loadingRef.current, [id]: true };
+    setLoading(p => ({ ...p, [id]: true }));
     try {
       // BUG-01: use per-student endpoint instead of fetching all students and filtering
-      const studentSessions = await lectureTrackingApi.getStudentRecordingSessions(lectureId, studentId);
-      setSessions(p => ({ ...p, [lectureId]: studentSessions }));
+      const studentSessions = await lectureTrackingApi.getStudentRecordingSessions(id, studentId);
+      setSessions(p => ({ ...p, [id]: studentSessions }));
     } catch {
-      setSessions(p => ({ ...p, [lectureId]: [] }));
+      setSessions(p => ({ ...p, [id]: [] }));
     } finally {
-      loadingRef.current = { ...loadingRef.current, [lectureId]: false };
-      setLoading(p => ({ ...p, [lectureId]: false }));
+      loadingRef.current = { ...loadingRef.current, [id]: false };
+      setLoading(p => ({ ...p, [id]: false }));
     }
   }, [studentId]);
 
-  const toggleLecture = (lectureId: string) => {
-    const isExp = !!expanded[lectureId];
-    setExpanded(p => ({ ...p, [lectureId]: !isExp }));
-    if (!isExp) loadSessions(lectureId);
+  const toggleLecture = (id: string) => {
+    const isExp = !!expanded[id];
+    setExpanded(p => ({ ...p, [id]: !isExp }));
+    if (!isExp) loadSessions(id);
   };
 
   const goBack = () => navigate(buildSidebarUrl('lecture-recording-attendance', {
     instituteId: currentInstituteId, classId: currentClassId, subjectId: currentSubjectId,
-  }) + `?step=students&ids=${lectureIds.join(',')}`);
+  }) + `?step=students&ids=${allIds.join(',')}`);
 
   if (!selectedInstitute || !selectedClass) {
     return (
@@ -109,21 +149,91 @@ export default function StudentRecordingActivityPage() {
         </div>
 
         <div className="space-y-3">
-          {lectureIds.length === 0 ? (
+          {allIds.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <PlayCircle className="h-10 w-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No lectures selected.</p>
+              <p className="text-sm">No recordings selected.</p>
             </div>
           ) : (
-            lectureIds.map((lId, idx) => {
-              const lecture = lectures.find(l => l.id === lId);
-              const isExp = !!expanded[lId];
-              const lectSessions = sessions[lId];
+            allIds.map((rawId, idx) => {
+              const isSR = rawId.startsWith('sr:');
+              const isExp = !!expanded[rawId];
+              if (isSR) {
+                const activity = srActivity[rawId];
+                const watching = activity?.watching ?? null;
+                const title = activity?.recording?.title || `Monthly Recording ${idx + 1}`;
+                return (
+                  <Card key={rawId} className="overflow-hidden">
+                    <div
+                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                      onClick={() => toggleLecture(rawId)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                          <Video className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{title}</p>
+                          <Badge variant="outline" className="text-[9px] h-3.5 px-1.5 text-blue-600 border-blue-200 mt-0.5">Monthly</Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {srLoaded && (
+                          <Badge variant={watching ? 'secondary' : 'outline'} className="text-xs">
+                            {watching ? `${watching.sessionCount} session${watching.sessionCount !== 1 ? 's' : ''}` : 'Not watched'}
+                          </Badge>
+                        )}
+                        {!srLoaded ? <Loader2 className="h-4 w-4 animate-spin" /> : isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </div>
+                    </div>
+                    {isExp && (
+                      <div className="border-t border-border bg-muted/10">
+                        {!srLoaded ? (
+                          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                        ) : !watching ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <PlayCircle className="h-6 w-6 mx-auto mb-1 opacity-30" />
+                            <p className="text-sm">This student has not watched this recording.</p>
+                          </div>
+                        ) : (
+                          <div className="p-4 space-y-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              <div className="rounded-lg bg-card border border-border/60 p-3">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Sessions</p>
+                                <p className="text-lg font-bold text-primary">{watching.sessionCount}</p>
+                              </div>
+                              <div className="rounded-lg bg-card border border-border/60 p-3">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Watched</p>
+                                <p className="text-lg font-bold">{watching.totalWatchedMinutes}m</p>
+                              </div>
+                              {watching.completionPercent !== null && (
+                                <div className="rounded-lg bg-card border border-border/60 p-3">
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Progress</p>
+                                  <p className="text-lg font-bold text-green-600">{watching.completionPercent}%</p>
+                                </div>
+                              )}
+                            </div>
+                            {watching.firstWatchedAt && (
+                              <p className="text-xs text-muted-foreground">
+                                First watched: {new Date(watching.firstWatchedAt).toLocaleString()}
+                                {watching.lastWatchedAt && ` · Last: ${new Date(watching.lastWatchedAt).toLocaleString()}`}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                );
+              }
+              // Old-system lecture
+              const lecture = lectures.find(l => l.id === rawId);
+              const lectSessions = sessions[rawId];
               return (
-                <Card key={lId} className="overflow-hidden">
+                <Card key={rawId} className="overflow-hidden">
                   <div
                     className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors"
-                    onClick={() => toggleLecture(lId)}
+                    onClick={() => toggleLecture(rawId)}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
@@ -142,13 +252,13 @@ export default function StudentRecordingActivityPage() {
                           {lectSessions.length} session{lectSessions.length !== 1 ? 's' : ''}
                         </Badge>
                       )}
-                      {loading[lId] ? <Loader2 className="h-4 w-4 animate-spin" /> : isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      {loading[rawId] ? <Loader2 className="h-4 w-4 animate-spin" /> : isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </div>
                   </div>
 
                   {isExp && (
                     <div className="border-t border-border bg-muted/10">
-                      {loading[lId] ? (
+                      {loading[rawId] ? (
                         <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                       ) : !lectSessions || lectSessions.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { lectureApi, Lecture } from '@/api/lecture.api';
+import { subjectRecordingsApi, SubjectRecording } from '@/api/subjectRecordings.api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +51,7 @@ export default function LectureRecordingAttendancePage() {
   // Lecture list
   const [classLectures, setClassLectures] = useState<Lecture[]>([]);
   const [subjectLectures, setSubjectLectures] = useState<Lecture[]>([]);
+  const [monthlyRecordings, setMonthlyRecordings] = useState<SubjectRecording[]>([]);
   const [loadingLectures, setLoadingLectures] = useState(false);
 
   // includeSubject is initialised in a useEffect (not useState initialiser) so it
@@ -89,9 +91,23 @@ export default function LectureRecordingAttendancePage() {
     if (!currentInstituteId || !currentClassId) return;
     setLoadingLectures(true);
     try {
-      const clsRes = await lectureApi.getLectures({ classId: currentClassId, instituteId: currentInstituteId });
+      const [clsRes, monthlyRes] = await Promise.all([
+        lectureApi.getLectures({ classId: currentClassId, instituteId: currentInstituteId }),
+        subjectRecordingsApi.list({
+          instituteId: currentInstituteId,
+          classId: currentClassId,
+          subjectId: currentSubjectId || undefined,
+          isActive: true,
+          status: 'published' as any,
+          recAttendanceEnabled: true, // only recordings with attendance tracking enabled
+          limit: 100,
+        }),
+      ]);
       const clsArr: Lecture[] = (clsRes as any)?.data ?? [];
       setClassLectures(clsArr.filter(l => l.recAttendanceEnabled));
+      // Backend already filters recAttendanceEnabled=true; keep a defensive filter in case of cache staleness.
+      const monthlyArr: SubjectRecording[] = (monthlyRes as any)?.data ?? [];
+      setMonthlyRecordings(monthlyArr.filter(r => r.recAttendanceEnabled));
       if (includeSubject && currentSubjectId) {
         const res = await lectureApi.getLectures({
           instituteId: currentInstituteId, classId: currentClassId, subjectId: currentSubjectId,
@@ -104,7 +120,7 @@ export default function LectureRecordingAttendancePage() {
         setSubjectLectures([]);
       }
     } catch {
-      setClassLectures([]); setSubjectLectures([]);
+      setClassLectures([]); setSubjectLectures([]); setMonthlyRecordings([]);
     } finally {
       setLoadingLectures(false);
     }
@@ -146,17 +162,28 @@ export default function LectureRecordingAttendancePage() {
 
   useEffect(() => { if (step === 'students') fetchStudents(); }, [step, fetchStudents]);
 
-  // allLectures is already deduplicated at fetch time (subjectLectures excludes class IDs)
-  const allLectures = [...classLectures, ...subjectLectures];
-  const selectedLectures = allLectures.filter(l => selectedIds.includes(l.id));
-  const filteredStudents = students.filter(s => (s.name || '').toLowerCase().includes(studentSearch.toLowerCase()));
+  // allLectures is already deduplicated at fetch time (subjectLectures excludes class IDs).
+  // Memoized so typing in the student search box doesn't rebuild these lists every keystroke.
+  const allLectures = useMemo(() => [...classLectures, ...subjectLectures], [classLectures, subjectLectures]);
+  // Subject recordings use "sr:<id>" prefix in the URL so StudentRecordingActivityPage can distinguish them
+  const allItems = useMemo(
+    () => [...allLectures.map(l => l.id), ...monthlyRecordings.map(r => `sr:${r.id}`)],
+    [allLectures, monthlyRecordings],
+  );
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selectedLectures = useMemo(() => allLectures.filter(l => selectedIdSet.has(l.id)), [allLectures, selectedIdSet]);
+  const selectedMonthly = useMemo(() => monthlyRecordings.filter(r => selectedIdSet.has(`sr:${r.id}`)), [monthlyRecordings, selectedIdSet]);
+  const filteredStudents = useMemo(
+    () => students.filter(s => (s.name || '').toLowerCase().includes(studentSearch.toLowerCase())),
+    [students, studentSearch],
+  );
 
-  const toggleLecture = (id: string) =>
+  const toggleItem = (id: string) =>
     setSelectedIds(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]);
 
   const handleSelectAll = () => {
     // Use Set to guarantee no duplicate IDs even if data ever changes
-    setSelectedIds([...new Set(allLectures.map(l => l.id))]);
+    setSelectedIds([...new Set(allItems)]);
   };
 
   const goToStudent = (studentId: string) => {
@@ -277,7 +304,7 @@ export default function LectureRecordingAttendancePage() {
                 <div>
                   <h2 className="text-sm font-semibold">Recording Lectures</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {allLectures.length} lecture{allLectures.length !== 1 ? 's' : ''} with recording tracking
+                    {allItems.length} recording{allItems.length !== 1 ? 's' : ''} with attendance tracking
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -311,14 +338,14 @@ export default function LectureRecordingAttendancePage() {
                   Array.from({ length: 5 }).map((_, i) => (
                     <Skeleton key={i} className="h-14 w-full rounded-xl" />
                   ))
-                ) : allLectures.length === 0 ? (
+                ) : allItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
                     <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center">
                       <PlayCircle className="h-6 w-6 text-muted-foreground/40" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">No recording-tracked lectures</p>
-                      <p className="text-xs text-muted-foreground/70 mt-0.5">Enable recording attendance on lectures first</p>
+                      <p className="text-xs text-muted-foreground/70 mt-0.5">Enable recording attendance on lectures or monthly recordings first</p>
                     </div>
                   </div>
                 ) : (
@@ -332,8 +359,8 @@ export default function LectureRecordingAttendancePage() {
                       <RecordingLectureItem
                         key={lec.id}
                         lec={lec}
-                        selected={selectedIds.includes(lec.id)}
-                        onToggle={toggleLecture}
+                        selected={selectedIdSet.has(lec.id)}
+                        onToggle={toggleItem}
                       />
                     ))}
                     {subjectLectures.length > 0 && (
@@ -346,9 +373,23 @@ export default function LectureRecordingAttendancePage() {
                       <RecordingLectureItem
                         key={lec.id}
                         lec={lec}
-                        selected={selectedIds.includes(lec.id)}
-                        onToggle={toggleLecture}
+                        selected={selectedIdSet.has(lec.id)}
+                        onToggle={toggleItem}
                         subjectLabel={selectedSubject?.name}
+                      />
+                    ))}
+                    {monthlyRecordings.length > 0 && (
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-2 pt-2 pb-0.5">
+                        <Video className="h-2.5 w-2.5 inline mr-1" />
+                        Monthly Recordings
+                      </p>
+                    )}
+                    {monthlyRecordings.map(rec => (
+                      <MonthlyRecordingItem
+                        key={rec.id}
+                        rec={rec}
+                        selected={selectedIdSet.has(`sr:${rec.id}`)}
+                        onToggle={() => toggleItem(`sr:${rec.id}`)}
                       />
                     ))}
                   </>
@@ -366,15 +407,15 @@ export default function LectureRecordingAttendancePage() {
               </div>
               <CardContent className="p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Selected lectures</span>
+                  <span className="text-xs text-muted-foreground">Selected</span>
                   <span className="text-sm font-bold text-primary">{selectedIds.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Total available</span>
-                  <span className="text-sm font-medium">{allLectures.length}</span>
+                  <span className="text-sm font-medium">{allItems.length}</span>
                 </div>
 
-                {selectedLectures.length > 0 && (
+                {(selectedLectures.length > 0 || selectedMonthly.length > 0) && (
                   <div className="space-y-1.5 pt-1 border-t border-border/50">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Selected</p>
                     <div className="space-y-1 max-h-[160px] overflow-y-auto">
@@ -382,6 +423,12 @@ export default function LectureRecordingAttendancePage() {
                         <div key={l.id} className="flex items-center gap-2 text-xs py-1">
                           <div className="h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0" />
                           <span className="truncate text-foreground/80">{l.title}</span>
+                        </div>
+                      ))}
+                      {selectedMonthly.map(r => (
+                        <div key={r.id} className="flex items-center gap-2 text-xs py-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                          <span className="truncate text-foreground/80">{r.title}</span>
                         </div>
                       ))}
                     </div>
@@ -398,7 +445,7 @@ export default function LectureRecordingAttendancePage() {
                 </Button>
                 {selectedIds.length === 0 && (
                   <p className="text-[11px] text-muted-foreground text-center">
-                    Select at least one lecture to continue
+                    Select at least one recording to continue
                   </p>
                 )}
               </CardContent>
@@ -540,6 +587,17 @@ export default function LectureRecordingAttendancePage() {
                     </div>
                   </div>
                 ))}
+                {selectedMonthly.map(r => (
+                  <div key={r.id} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <div className="h-6 w-6 rounded-md bg-blue-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <Video className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{r.title}</p>
+                      <p className="text-[10px] text-muted-foreground">Monthly Recording</p>
+                    </div>
+                  </div>
+                ))}
                 <Button
                   variant="outline"
                   size="sm"
@@ -559,6 +617,59 @@ export default function LectureRecordingAttendancePage() {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
+
+function MonthlyRecordingItem({ rec, selected, onToggle }: {
+  rec: SubjectRecording; selected: boolean; onToggle: () => void;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all border ${
+        selected
+          ? 'bg-blue-500/8 border-blue-500/25 shadow-sm'
+          : 'hover:bg-muted/50 border-transparent hover:border-border/40'
+      }`}
+      onClick={onToggle}
+    >
+      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+        selected ? 'bg-blue-500/15' : 'bg-muted'
+      }`}>
+        {selected
+          ? <CheckCircle2 className="h-4 w-4 text-blue-600" />
+          : <Circle className="h-4 w-4 text-muted-foreground/40" />
+        }
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-medium truncate transition-colors ${selected ? 'text-blue-700 dark:text-blue-400' : ''}`}>
+          {rec.title}
+        </p>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <Badge
+            variant="outline"
+            className="text-[9px] h-3.5 px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/30"
+          >
+            Monthly
+          </Badge>
+          {rec.platform && rec.platform !== 'SYSTEM' && (
+            <Badge variant="outline" className="text-[9px] h-3.5 px-1.5 text-muted-foreground">
+              {rec.platform}
+            </Badge>
+          )}
+          {rec.createdAt && (
+            <span className="text-[10px] text-muted-foreground">
+              {new Date(rec.createdAt).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+      </div>
+      <Checkbox
+        checked={selected}
+        onCheckedChange={onToggle}
+        onClick={e => e.stopPropagation()}
+        className="shrink-0"
+      />
+    </div>
+  );
+}
 
 function RecordingLectureItem({ lec, selected, onToggle, subjectLabel }: {
   lec: Lecture; selected: boolean; onToggle: (id: string) => void; subjectLabel?: string;

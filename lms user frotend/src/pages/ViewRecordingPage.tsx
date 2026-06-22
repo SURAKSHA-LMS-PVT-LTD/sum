@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { lectureTrackingApi, RecordingAccessInfo, HeartbeatActivity } from '@/api/lectureTracking.api';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -153,7 +153,6 @@ export default function ViewRecordingPage() {
   const { user, login, instituteLogin, instituteLoginForce } = useAuth();
   const { branding, isTenantLogin, isLoading } = useTenant();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const isSubjectRecording = searchParams.get('src') === 'subject';
 
@@ -198,6 +197,9 @@ export default function ViewRecordingPage() {
 
   // Stores lastPosition from session start so we can seek once the player is ready
   const resumePositionRef = useRef<number>(0);
+
+  // Player state
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   // Player refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -249,7 +251,11 @@ export default function ViewRecordingPage() {
     };
   }, [joinMode, branding, isTenantLogin, info]);
 
-  const syncTab = useCallback((tab: RecordingTab, replace = false) => {
+  // Tab transitions (join → login → welcome → playing) are phases of the SAME page, not
+  // separate destinations. Default to replace:true so they don't pile up browser history
+  // entries — otherwise the back button walks backward through each phase instead of
+  // returning to the page the user came from.
+  const syncTab = useCallback((tab: RecordingTab, replace = true) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', tab);
     setSearchParams(next, { replace });
@@ -441,6 +447,18 @@ export default function ViewRecordingPage() {
     if (flushTimerRef.current) { clearInterval(flushTimerRef.current); flushTimerRef.current = null; }
     const sid = sessionIdRef.current;
     if (!sid) return;
+    // BUG-20: close any still-open PLAY range before the final flush. Without this, the
+    // segment from the last PLAY to session-end is lost — compressActivities keeps an
+    // unclosed PLAY as a raw entry, and the backend's WATCH_RANGE fast-path ignores raw
+    // PLAY/HEARTBEAT whenever the batch also contains a WATCH_RANGE. Emitting a synthetic
+    // PAUSE at the current position lets compressActivities fold the final range in.
+    if (playStartRef.current) {
+      const vid = videoRef.current;
+      const endPos = vid
+        ? Math.floor(vid.currentTime)
+        : (ytPlayerRef.current?.getCurrentTime ? Math.floor(ytPlayerRef.current.getCurrentTime()) : positionRef.current);
+      queueActivity('PAUSE', endPos);
+    }
     void flushActivities(useBeacon);
     sessionIdRef.current = null;
     // BUG-19: clear watchRanges on session end
@@ -458,7 +476,7 @@ export default function ViewRecordingPage() {
         : lectureTrackingApi.endRecordingSession.bind(lectureTrackingApi);
       endFn(sid, positionRef.current).catch(() => { });
     }
-  }, [flushActivities, isSubjectRecording]); // BUG-05: getBaseUrl is stable
+  }, [flushActivities, isSubjectRecording, queueActivity]); // BUG-05: getBaseUrl is stable
 
   // BUG-04: keep ref always pointing to latest endSession — unmount effect captures ref, not closure
   useEffect(() => { endSessionRef.current = endSession; }, [endSession]);
@@ -578,6 +596,7 @@ export default function ViewRecordingPage() {
     if (!info) return;
     // BUG-03: guard against double session start (e.g. fast double-click or auto-start race)
     if (startingRef.current || sessionIdRef.current) return;
+    setVideoError(null); // clear any prior load error when (re)starting
     startingRef.current = true;
     setStarting(true);
     try {
@@ -881,7 +900,7 @@ export default function ViewRecordingPage() {
         <div className="flex-1 flex flex-col sm:flex-row overflow-hidden min-h-0">
           <div className={`flex-1 p-2 sm:p-3 min-h-0 relative ${sidebarOpen ? 'min-h-[30vh]' : ''} sm:min-h-0`}>
             <div className="w-full h-full relative rounded-lg overflow-hidden bg-black flex items-center justify-center">
-              {info.platform === 'SYSTEM' && info.recordingUrl && (
+              {info.platform === 'SYSTEM' && info.recordingUrl && !videoError && (
                 <video
                   ref={videoRef}
                   className="w-full h-full"
@@ -895,7 +914,23 @@ export default function ViewRecordingPage() {
                   onPlay={() => queueActivity('PLAY', Math.floor(videoRef.current?.currentTime ?? 0))}
                   onPause={() => queueActivity('PAUSE', Math.floor(videoRef.current?.currentTime ?? 0))}
                   onSeeked={() => queueActivity('SEEK', Math.floor(videoRef.current?.currentTime ?? 0))}
+                  onError={() => setVideoError('This video could not be loaded. The recording may have been moved or the link expired. Please refresh, or contact your institute if the problem continues.')}
                 />
+              )}
+              {info.platform === 'SYSTEM' && videoError && (
+                <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-4 px-6">
+                  <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
+                    <AlertCircle className="w-8 h-8 text-red-400" />
+                  </div>
+                  <p className="text-sm text-white/80 max-w-sm">{videoError}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setVideoError(null); if (videoRef.current) videoRef.current.load(); }}
+                    className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition"
+                  >
+                    Retry
+                  </button>
+                </div>
               )}
               {info.platform === 'YOUTUBE' && (
                 <div id="yt-player-container" className="w-full h-full absolute inset-0" />
@@ -1400,7 +1435,7 @@ export default function ViewRecordingPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { goToLogin(); navigate(`/view-recording/${urlId}?tab=login`, { replace: false }); }}
+                      onClick={goToLogin}
                       className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                     >
                       Back to login

@@ -370,7 +370,17 @@ const RecordingFormDialog: React.FC<{
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()} routeName="view-recording-popup">
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={e => e.preventDefault()}>
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        // Focus the dialog container itself (not the first input) on open. Using
+        // preventDefault() here would strand focus on the row button that opened the
+        // dialog — which then sits inside the aria-hidden background, triggering an
+        // accessibility violation. Focusing the content moves focus out of the hidden tree.
+        onOpenAutoFocus={e => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement | null)?.focus?.();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit Recording' : 'Add Recording'}</DialogTitle>
         </DialogHeader>

@@ -836,7 +836,7 @@ const Login = ({
       });
     } catch (error: any) {
       if (error?.errorCode === 'INSTITUTE_PASSWORD_NOT_SET') {
-        setError('You have not set an institute password yet. Please log in to the main SurakshLMS app, go to Profile → Security → "Activate Institute Access" to set one.');
+        setError('Institute access not activated. Please contact your administrator or use the Forgot Password option to set your password.');
       } else {
         setError(error instanceof Error ? error.message : 'Institute login failed');
       }
