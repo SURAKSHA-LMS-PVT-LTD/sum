@@ -6,6 +6,7 @@ const express = require('express');
 const crypto = require('crypto');
 const db = require('./db');
 const wa = require('./whatsapp');
+const i18n = require('./i18n');
 
 const app = express();
 
@@ -20,7 +21,16 @@ app.use(express.json({
  */
 function verifyMetaSignature(req) {
   const appSecret = process.env.WHATSAPP_APP_SECRET;
-  if (!appSecret) return true; // skip in dev — warn on startup
+  if (!appSecret) {
+    // Fail CLOSED in production — a missing secret must never accept
+    // unauthenticated payloads. Only an explicit dev override may bypass.
+    const allowUnverified =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.WHATSAPP_WEBHOOK_ALLOW_UNVERIFIED === 'true';
+    if (allowUnverified) return true;
+    console.error('[security] WHATSAPP_APP_SECRET not set — rejecting payload (fail-closed)');
+    return false;
+  }
 
   const sig = req.headers['x-hub-signature-256'];
   if (!sig || !sig.startsWith('sha256=')) return false;
@@ -42,82 +52,76 @@ const GREETING_PATTERN = /^(hi|hello|me|මෙ|හායි|හෙලෝ)$/iu;
 const OTP_PATTERN = /\b(\d{6})\b/;
 const OTP_PREFIX_PATTERN = /otp/i;
 
-// ─── Attendance status labels ─────────────────────────────────────────────────
-const STATUS_LABEL = {
-  0: 'Absent',
-  1: 'Present',
-  2: 'Late',
-  3: 'Left',
-  4: 'Left Early',
-  5: 'Left Lately',
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function statusLabel(code) {
-  return STATUS_LABEL[code] ?? 'Unknown';
+/** Context phrase for one record — names kept in English as stored. */
+function recordContext(r) {
+  const sub = (r.subjectName || '').trim();
+  const cls = (r.className || '').trim();
+  const inst = (r.instituteName || '').trim();
+  if (sub && cls) return `${sub} (${cls})`;
+  if (cls) return inst ? `${cls} @ ${inst}` : cls;
+  if (inst) return inst;
+  return '';
 }
 
 /**
- * Build a human-readable attendance summary for last 7 days.
- * @param {Array} records  rows from getAttendanceLast7Days
- * @param {string} studentName
- * @param {string} instituteName
+ * Build the attendance reply for the LATEST 10 records, localized, always
+ * ending with the contact's "Your Suraksha LMS user ID is <id>" line.
+ *
+ * @param {Array}  records      rows from getAttendanceLast10 (date,status,names)
+ * @param {string} studentName  whose attendance this is (English as stored)
+ * @param {string} lang         'S' | 'E' | 'T'
+ * @param {string} recipientId  the CONTACT's (phone owner's) LMS user id
  */
-function buildAttendanceMessage(records, studentName, instituteName) {
-  const header = `📋 *${studentName}* — Last 7 Days Attendance\n🏫 ${instituteName}\n${'─'.repeat(30)}`;
+function buildAttendanceMessage(records, studentName, lang, recipientId) {
+  const s = i18n.t(lang);
+  const header = s.historyHeader(studentName);
+  const footer = `\n\n${s.userIdLine(recipientId)}`;
 
-  if (records.length === 0) {
-    return `${header}\n\nNo attendance records found for this period.`;
+  if (!records || records.length === 0) {
+    return `${header}\n\n${s.noRecords}${footer}`;
   }
 
   const lines = records.map((r) => {
-    const emoji = r.status === 1 ? '✅' : r.status === 2 ? '⏰' : '❌';
-    return `${emoji} ${r.date}  ${statusLabel(r.status)}`;
+    const status = Number(r.status);
+    const emoji = status === 1 ? '✅' : status === 2 ? '⏰' : status === 0 ? '❌' : '⏱️';
+    const ctx = recordContext(r);
+    const label = i18n.statusLabel(lang, status);
+    return ctx
+      ? `${emoji} ${r.date} — ${label} · ${ctx}`
+      : `${emoji} ${r.date} — ${label}`;
   });
 
-  const presentCount = records.filter((r) => r.status === 1 || r.status === 2).length;
-  const footer = `\n📊 Present ${presentCount}/${records.length} days`;
+  const present = records.filter((r) => Number(r.status) === 1 || Number(r.status) === 2).length;
+  const summary = `\n\n${s.summary(present, records.length)}`;
 
-  return `${header}\n\n${lines.join('\n')}${footer}`;
+  return `${header}\n\n${lines.join('\n')}${summary}${footer}`;
 }
 
 // ─── Core flow handlers ───────────────────────────────────────────────────────
 
 /**
  * Handle a greeting from a registered student (USER or USER_WITHOUT_PARENT).
- * Sends last 7-days attendance immediately.
+ * Sends their LATEST 10 attendance records immediately, in their language,
+ * ending with their Suraksha LMS user-id line.
  */
-async function handleStudent(from, user) {
-  const institutes = await db.findStudentInstitutes(user.id);
-
-  if (institutes.length === 0) {
-    await wa.sendText(from, '⚠️ You are enrolled in no active institute. Please contact your institute admin.');
-    return;
-  }
-
-  // Use first (or only) institute; most students belong to one
-  const inst = institutes[0];
-  const records = await db.getAttendanceLast7Days(user.id, inst.instituteId);
-  const name = `${user.firstName} ${user.lastName}`.trim();
-  const msg = buildAttendanceMessage(records, name, inst.instituteName);
-
-  await wa.sendText(from, msg);
+async function handleStudent(from, user, lang) {
+  const records = await db.getAttendanceLast10(user.id);
+  const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'You';
+  await wa.sendText(from, buildAttendanceMessage(records, name, lang, user.id));
 }
 
 /**
- * Send a child's last-7-day attendance. Shared by the parent + selection flows.
+ * Send a child's LATEST 10 attendance records. The footer user-id and language
+ * are the CONTACT's (the parent who messaged us), not the child's.
+ *
+ * @param {object} contact  the phone owner (parent) — drives id + language
  */
-async function sendChildAttendance(from, child) {
-  const institutes = await db.findStudentInstitutes(child.userId);
-  if (institutes.length === 0) {
-    await wa.sendText(from, `⚠️ ${child.firstName} is not enrolled in any active institute.`);
-    return;
-  }
-  const inst = institutes[0];
-  const records = await db.getAttendanceLast7Days(child.userId, inst.instituteId);
-  const name = `${child.firstName} ${child.lastName}`.trim();
-  await wa.sendText(from, buildAttendanceMessage(records, name, inst.instituteName));
+async function sendChildAttendance(from, child, contact, lang) {
+  const records = await db.getAttendanceLast10(child.userId);
+  const name = `${child.firstName || ''} ${child.lastName || ''}`.trim() || 'Student';
+  await wa.sendText(from, buildAttendanceMessage(records, name, lang, contact.id));
 }
 
 /**
@@ -128,51 +132,40 @@ async function sendChildAttendance(from, child) {
  * parent taps one, the reply carries that id back to us (handleChildSelection),
  * so nothing has to be stored server-side. A typed fallback also works.
  */
-async function handleParent(from, user) {
+async function handleParent(from, user, lang) {
+  const s = i18n.t(lang);
   const children = await db.findChildrenOfParent(user.id);
 
   if (children.length === 0) {
-    await wa.sendText(
-      from,
-      '⚠️ No students are linked to your account.\nPlease contact your institute admin to link your child.',
-    );
+    await wa.sendText(from, s.noChildren);
     return;
   }
 
   // Single child — skip selection, just send it.
   if (children.length === 1) {
-    await sendChildAttendance(from, children[0]);
+    await sendChildAttendance(from, children[0], user, lang);
     return;
   }
 
-  // Multiple children — tappable list. Friendly title; the row id carries the
-  // child's user id and is access-checked by sender phone on tap (a parent can
-  // only resolve children actually linked to their own account).
+  // Multiple children — tappable list. The row id carries the child's user id
+  // and is access-checked by sender phone on tap (a parent can only resolve
+  // children actually linked to their own account).
   const rows = children.map((c, i) => {
-    const name = `${c.firstName} ${c.lastName}`.trim() || `Student ${i + 1}`;
+    const name = `${c.firstName || ''} ${c.lastName || ''}`.trim() || `Student ${i + 1}`;
     return {
       id: `child:${c.userId}`,
-      title: `${c.firstName || name} — Attendance`.slice(0, 24),
+      title: `${c.firstName || name} — ${s.rowAttendanceSuffix}`.slice(0, 24),
       description: name,
     };
   });
 
-  const res = await wa.sendList(
-    from,
-    '👋 Hello! Tap below to choose a student and view their attendance.',
-    'Choose student',
-    rows,
-    'Your students',
-  );
+  const res = await wa.sendList(from, s.menuBody, s.menuButton, rows, s.menuHeader);
 
   // Fallback to a numbered text menu if the interactive send failed
   // (e.g. older client). The parent can reply with the number.
   if (!res.success) {
-    const lines = children.map((c, i) => `${i + 1}. ${c.firstName} ${c.lastName}`);
-    await wa.sendText(
-      from,
-      `👋 Hello! Reply with the *number* of the student whose attendance you want:\n\n${lines.join('\n')}`,
-    );
+    const lines = children.map((c, i) => `${i + 1}. ${c.firstName || ''} ${c.lastName || ''}`.trim());
+    await wa.sendText(from, `${s.typedFallbackIntro}\n\n${lines.join('\n')}`);
   }
 }
 
@@ -194,6 +187,7 @@ async function handleChildSelection(from, selectionId) {
   const user = await db.findUserByPhone(from);
   if (!user || user.userType !== 'USER_WITHOUT_STUDENT') return false;
 
+  const lang = i18n.resolveLang(user.language);
   const children = await db.findChildrenOfParent(user.id);
   if (children.length === 0) return false;
 
@@ -206,11 +200,11 @@ async function handleChildSelection(from, selectionId) {
   }
 
   if (!child) {
-    await wa.sendText(from, '⚠️ That student is no longer linked to your account. Send *hi* to see the current list.');
+    await wa.sendText(from, i18n.t(lang).childRemoved);
     return true;
   }
 
-  await sendChildAttendance(from, child);
+  await sendChildAttendance(from, child, user, lang);
   return true;
 }
 
@@ -285,29 +279,28 @@ async function handleIncomingMessage(from, text, interactiveId) {
   const user = await db.findUserByPhone(from);
 
   if (!user) {
-    await wa.sendText(from, 'You are not registered.');
+    // Unknown number — reply in default language (Sinhala).
+    await wa.sendText(from, i18n.t('S').notRegistered);
     return;
   }
 
+  const lang = i18n.resolveLang(user.language);
   const { userType } = user;
 
   // USER_WITHOUT_STUDENT = parent-only role
   if (userType === 'USER_WITHOUT_STUDENT') {
-    await handleParent(from, user);
+    await handleParent(from, user, lang);
     return;
   }
 
   // USER, USER_WITHOUT_PARENT = student-capable roles
   if (userType === 'USER' || userType === 'USER_WITHOUT_PARENT') {
-    await handleStudent(from, user);
+    await handleStudent(from, user, lang);
     return;
   }
 
   // Any other role (admin, teacher, etc.) — not served by this bot
-  await wa.sendText(
-    from,
-    '⚠️ Your account type does not have attendance access via WhatsApp.\nPlease use the Suraksha LMS app.',
-  );
+  await wa.sendText(from, i18n.t(lang).noWaAccess);
 }
 
 // ─── Webhook endpoints ────────────────────────────────────────────────────────

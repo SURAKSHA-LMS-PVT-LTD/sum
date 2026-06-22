@@ -43,7 +43,8 @@ async function findUserByPhone(rawPhone) {
 
   const placeholders = [...variants].map(() => '?').join(', ');
   const [rows] = await db.execute(
-    `SELECT id, first_name AS firstName, last_name AS lastName, user_type AS userType
+    `SELECT id, first_name AS firstName, last_name AS lastName,
+            user_type AS userType, language AS language
      FROM users
      WHERE phone_number IN (${placeholders})
        AND is_active = 1
@@ -74,15 +75,23 @@ async function findParentByUserId(userId) {
  */
 async function findChildrenOfParent(parentUserId) {
   const db = getPool();
+  // A single OR across father_id/mother_id/guardian_id can't reliably use the
+  // three separate indexes on the students table. A UNION lets each branch hit
+  // its own index, then we de-dup (a parent who is both father and guardian of
+  // the same child) and join names. Deterministic order for the typed fallback.
   const [rows] = await db.execute(
-    `SELECT s.user_id AS userId,
+    `SELECT kids.user_id AS userId,
             u.first_name AS firstName,
             u.last_name  AS lastName
-     FROM students s
-     JOIN users u ON u.id = s.user_id AND u.is_active = 1
-     WHERE s.is_active = 1
-       AND (s.father_id = ? OR s.mother_id = ? OR s.guardian_id = ?)
-     ORDER BY s.user_id ASC`,
+     FROM (
+       SELECT user_id FROM students WHERE is_active = 1 AND father_id   = ?
+       UNION
+       SELECT user_id FROM students WHERE is_active = 1 AND mother_id   = ?
+       UNION
+       SELECT user_id FROM students WHERE is_active = 1 AND guardian_id = ?
+     ) kids
+     JOIN users u ON u.id = kids.user_id AND u.is_active = 1
+     ORDER BY kids.user_id ASC`,
     [parentUserId, parentUserId, parentUserId],
   );
   return rows;
@@ -131,6 +140,37 @@ async function getAttendanceLast7Days(studentUserId, instituteId) {
        AND ar.date BETWEEN ? AND ?
      ORDER BY ar.date DESC`,
     [String(studentUserId), String(instituteId), fmt(start), fmt(end)],
+  );
+  return rows;
+}
+
+/**
+ * Get a student's LATEST 10 attendance records (across all their institutes),
+ * newest first, enriched with institute/class/subject names.
+ *
+ * The DATE is formatted in SQL (DATE_FORMAT) so the result is a plain
+ * 'YYYY-MM-DD' string — independent of the mysql2 driver's timezone setting.
+ * (Building a JS Date and calling toISOString() would shift the day backward by
+ *  the +05:30 offset.)
+ *
+ * Returns [{ date, status, instituteName, className, subjectName }]
+ */
+async function getAttendanceLast10(studentUserId) {
+  const db = getPool();
+  const [rows] = await db.execute(
+    `SELECT DATE_FORMAT(ar.date, '%Y-%m-%d') AS date,
+            ar.status                        AS status,
+            i.name                           AS instituteName,
+            c.name                           AS className,
+            sub.name                         AS subjectName
+     FROM attendance_records ar
+     LEFT JOIN institutes        i   ON i.id   = ar.institute_id
+     LEFT JOIN institute_classes c   ON c.id   = ar.class_id
+     LEFT JOIN subjects          sub ON sub.id = ar.subject_id
+     WHERE ar.student_id = ?
+     ORDER BY ar.date DESC, ar.timestamp DESC
+     LIMIT 10`,
+    [String(studentUserId)],
   );
   return rows;
 }
@@ -268,6 +308,7 @@ module.exports = {
   findChildrenOfParent,
   findStudentInstitutes,
   getAttendanceLast7Days,
+  getAttendanceLast10,
   confirmUserOtp,
   confirmPasswordResetOtp,
   normalizePhone,

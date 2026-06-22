@@ -2637,6 +2637,24 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // WhatsApp attendance delivery/read analytics (proves ad delivery to advertisers)
+  whatsappDeliveryStats: (params?: {
+    instituteId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    adId?: string;
+    groupBy?: 'institute' | 'day' | 'ad';
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.instituteId) q.set('instituteId', params.instituteId);
+    if (params?.dateFrom)    q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo)      q.set('dateTo', params.dateTo);
+    if (params?.adId)        q.set('adId', params.adId);
+    if (params?.groupBy)     q.set('groupBy', params.groupBy);
+    const qs = q.toString();
+    return apiRequest(`/api/attendance/admin/whatsapp/delivery-stats${qs ? `?${qs}` : ''}`);
+  },
+
   // ── WhatsApp Broadcast portal (filter → count → send) ──
   waBroadcastPreview: (filter: Record<string, any>) =>
     apiRequest('/api/whatsapp/broadcast/audience/preview', {

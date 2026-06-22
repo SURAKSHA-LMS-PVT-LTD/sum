@@ -37,6 +37,7 @@ interface WhatsAppUser {
   firstName: string;
   lastName: string;
   phone: string | null;
+  language: string | null;
   instituteUserId?: string;
   userType?: string;
   sessionOpen: boolean | null;
@@ -52,6 +53,23 @@ interface SendResult {
 }
 
 type FilterTab = "attendance" | "institute-users";
+
+const LANG_LABELS: Record<string, string> = { S: 'සිං', E: 'ENG', T: 'தமி' };
+const LANG_COLORS: Record<string, string> = {
+  S: 'bg-blue-100 text-blue-800 border-blue-200',
+  E: 'bg-purple-100 text-purple-800 border-purple-200',
+  T: 'bg-orange-100 text-orange-800 border-orange-200',
+};
+
+function LanguageBadge({ language }: { language: string | null }) {
+  if (!language) return null;
+  const key = language.toUpperCase();
+  return (
+    <Badge className={`text-xs ${LANG_COLORS[key] ?? 'bg-gray-100 text-gray-700'}`}>
+      {LANG_LABELS[key] ?? language}
+    </Badge>
+  );
+}
 
 function SessionBadge({ open }: { open: boolean | null }) {
   if (open === null) return <Badge variant="secondary">No phone</Badge>;
@@ -429,7 +447,10 @@ export default function WhatsAppMessagingPage() {
                               {u.phone || "No phone"}{u.userType ? ` · ${u.userType}` : ""}
                             </p>
                           </div>
-                          <SessionBadge open={u.phone ? u.sessionOpen : null} />
+                          <div className="flex items-center gap-1 shrink-0">
+                            <LanguageBadge language={u.language} />
+                            <SessionBadge open={u.phone ? u.sessionOpen : null} />
+                          </div>
                         </div>
                       ))
                     )}

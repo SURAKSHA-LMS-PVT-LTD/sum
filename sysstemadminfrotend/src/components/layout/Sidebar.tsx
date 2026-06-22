@@ -39,6 +39,7 @@ import {
   Zap,
   MessageCircle,
   Send,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -102,6 +103,7 @@ const navItems = [
   { to: "/dashboard/gateway-payments", icon: Zap,          label: "Gateway Payments" },
   { to: "/dashboard/whatsapp-messaging", icon: MessageCircle, label: "WhatsApp Messaging" },
   { to: "/dashboard/whatsapp-broadcast", icon: Send, label: "WhatsApp Broadcast" },
+  { to: "/dashboard/whatsapp-delivery-stats", icon: BarChart3, label: "WhatsApp Delivery Stats" },
 ];
 
 export function AppSidebar() {
