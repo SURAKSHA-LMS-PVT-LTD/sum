@@ -44,6 +44,7 @@ async function findUserByPhone(rawPhone) {
   const placeholders = [...variants].map(() => '?').join(', ');
   const [rows] = await db.execute(
     `SELECT id, first_name AS firstName, last_name AS lastName,
+            name_with_initials AS nameWithInitials,
             user_type AS userType, language AS language
      FROM users
      WHERE phone_number IN (${placeholders})
@@ -82,7 +83,8 @@ async function findChildrenOfParent(parentUserId) {
   const [rows] = await db.execute(
     `SELECT kids.user_id AS userId,
             u.first_name AS firstName,
-            u.last_name  AS lastName
+            u.last_name  AS lastName,
+            u.name_with_initials AS nameWithInitials
      FROM (
        SELECT user_id FROM students WHERE is_active = 1 AND father_id   = ?
        UNION

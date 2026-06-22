@@ -18,6 +18,8 @@ const STATUS_LABEL = {
 
 const STRINGS = {
   S: {
+    // Welcome
+    welcome: '🙏 *සුරක්ෂා LMS* වෙත සාදරයෙන් පිළිගනිමු!\nඔබට අවශ්‍ය සේවාව පහතින් තෝරන්න.',
     // Attendance reply
     historyHeader: (who) => `📋 *${who}* — අවසන් පැමිණීම් වාර්තා 10`,
     instituteLine: (inst) => `🏫 ${inst}`,
@@ -25,7 +27,7 @@ const STRINGS = {
     summary: (present, total) => `📊 පැමිණි දින ${present}/${total}`,
     userIdLine: (id) => `🆔 ඔබගේ සුරක්ෂා LMS පරිශීලක අංකය: *${id}*`,
     // Menu
-    menuBody: '👋 ආයුබෝවන්! පහතින් සිසුවෙකු තෝරා පැමිණීම් බලන්න.',
+    menuBody: 'පැමිනීම් වාර්තා ලබා ගැනීමට අවශ්‍ය පුද්ගලයා තෝරන්න.',
     menuButton: 'තෝරන්න',
     menuHeader: 'ඔබගේ සිසුන්',
     rowAttendanceSuffix: 'පැමිණීම',
@@ -39,12 +41,13 @@ const STRINGS = {
     noWaAccess: '⚠️ ඔබගේ ගිණුම් වර්ගයට WhatsApp හරහා පැමිණීම් ප්‍රවේශය නැත.\nකරුණාකර Suraksha LMS යෙදුම භාවිතා කරන්න.',
   },
   E: {
+    welcome: '🙏 Welcome to *Suraksha LMS*!\nChoose a service from the menu below.',
     historyHeader: (who) => `📋 *${who}* — Last 10 records`,
     instituteLine: (inst) => `🏫 ${inst}`,
     noRecords: 'No attendance records found for this student.',
     summary: (present, total) => `📊 Present ${present}/${total} days`,
     userIdLine: (id) => `🆔 Your Suraksha LMS user ID is *${id}*`,
-    menuBody: '👋 Hello! Tap below to choose a student and view their attendance.',
+    menuBody: 'Select the person whose attendance records you want to view.',
     menuButton: 'Choose student',
     menuHeader: 'Your students',
     rowAttendanceSuffix: 'Attendance',
@@ -57,12 +60,13 @@ const STRINGS = {
     noWaAccess: '⚠️ Your account type does not have attendance access via WhatsApp.\nPlease use the Suraksha LMS app.',
   },
   T: {
+    welcome: '🙏 *சுரக்ஷா LMS*-க்கு வரவேற்கிறோம்!\nகீழே உங்கள் சேவையைத் தேர்ந்தெடுக்கவும்.',
     historyHeader: (who) => `📋 *${who}* — சமீபத்திய 10 பதிவுகள்`,
     instituteLine: (inst) => `🏫 ${inst}`,
     noRecords: 'இந்த மாணவருக்கு வருகைப் பதிவுகள் இல்லை.',
     summary: (present, total) => `📊 வருகை ${present}/${total} நாட்கள்`,
     userIdLine: (id) => `🆔 உங்கள் சுரக்ஷா LMS பயனர் ஐடி: *${id}*`,
-    menuBody: '👋 வணக்கம்! மாணவரைத் தேர்ந்தெடுத்து வருகையைப் பாருங்கள்.',
+    menuBody: 'வருகைப் பதிவுகளை பெற விரும்பும் நபரைத் தேர்ந்தெடுக்கவும்.',
     menuButton: 'தேர்வு செய்க',
     menuHeader: 'உங்கள் மாணவர்கள்',
     rowAttendanceSuffix: 'வருகை',

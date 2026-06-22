@@ -110,4 +110,100 @@ async function sendList(to, bodyText, buttonText, rows, headerText) {
   }
 }
 
-module.exports = { sendText, sendList };
+/**
+ * Send an interactive BUTTONS message with an image header.
+ * Supports up to 3 buttons; each button's id comes back in
+ * interactive.button_reply.id on tap.
+ *
+ * @param {string} to
+ * @param {string} imageUrl      Publicly reachable HTTPS URL for the header image
+ * @param {string} bodyText      Text shown below the image (≤1024 chars)
+ * @param {Array<{id:string, title:string}>} buttons  1–3 buttons (title ≤20 chars)
+ * @param {string} [footerText]  Optional footer (≤60 chars)
+ */
+async function sendButtonMenu(to, imageUrl, bodyText, buttons, footerText) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  if (!phoneNumberId || !token) {
+    console.error('[WA] Missing credentials for sendButtonMenu');
+    return { success: false, error: 'WhatsApp credentials not configured' };
+  }
+
+  const recipient = to.replace(/^\+/, '');
+  const interactive = {
+    type: 'button',
+    header: { type: 'image', image: { link: imageUrl } },
+    body: { text: bodyText.slice(0, 1024) },
+    action: {
+      buttons: buttons.slice(0, 3).map((b) => ({
+        type: 'reply',
+        reply: {
+          id: String(b.id).slice(0, 256),
+          title: String(b.title).slice(0, 20),
+        },
+      })),
+    },
+  };
+  if (footerText) interactive.footer = { text: String(footerText).slice(0, 60) };
+
+  const body = { messaging_product: 'whatsapp', to: recipient, type: 'interactive', interactive };
+
+  try {
+    const res = await fetch(`${GRAPH_URL}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (res.ok && json.messages && json.messages[0]) {
+      return { success: true, deliveryId: json.messages[0].id };
+    }
+    const errMsg = json.error?.message || 'Unknown WhatsApp API error';
+    console.error('[WA] sendButtonMenu failed:', errMsg, json);
+    return { success: false, error: errMsg };
+  } catch (err) {
+    console.error('[WA] sendButtonMenu network error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Send an image by public URL with an optional caption.
+ * @param {string} to
+ * @param {string} imageUrl  Publicly reachable HTTPS URL
+ * @param {string} [caption]
+ */
+async function sendImage(to, imageUrl, caption) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  if (!phoneNumberId || !token) {
+    console.error('[WA] Missing credentials for sendImage');
+    return { success: false, error: 'WhatsApp credentials not configured' };
+  }
+
+  const recipient = to.replace(/^\+/, '');
+  const image = { link: imageUrl };
+  if (caption) image.caption = caption;
+
+  const body = { messaging_product: 'whatsapp', to: recipient, type: 'image', image };
+
+  try {
+    const res = await fetch(`${GRAPH_URL}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (res.ok && json.messages && json.messages[0]) {
+      return { success: true, deliveryId: json.messages[0].id };
+    }
+    const errMsg = json.error?.message || 'Unknown WhatsApp API error';
+    console.error('[WA] sendImage failed:', errMsg, json);
+    return { success: false, error: errMsg };
+  } catch (err) {
+    console.error('[WA] sendImage network error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+module.exports = { sendText, sendList, sendImage, sendButtonMenu };
