@@ -9,7 +9,7 @@
  * Supports Excel export of the current view.
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { useAuth } from '@/contexts/AuthContext';
 import adminAttendanceApi from '@/api/adminAttendance.api';
 import { getAuthHeadersSync } from '@/services/tokenStorageService';
@@ -394,7 +394,7 @@ const AttendanceRangeViewer: React.FC = () => {
 
   // ─── Export to Excel ──────────────────────────────────────────────────────
 
-  const exportExcel = useCallback(() => {
+  const exportExcel = useCallback(async () => {
     if (!selectedDate || mergedRows.length === 0) {
       toast.error('Select a date with students to export');
       return;
@@ -407,11 +407,22 @@ const AttendanceRangeViewer: React.FC = () => {
         ? subjects.find(s => s.id === selectedSubject)?.name || selectedSubject
         : '';
 
-    const sheetData = [
-      [`Institute: ${institute}`, '', `Class: ${className}`, subjectName ? `Subject: ${subjectName}` : '', `Date: ${selectedDate}`],
-      [''],
-      ['#', 'Student Name', 'System ID', 'Institute User ID', 'Attendance Status', 'Event', 'Marked At'],
-      ...mergedRows.map((row, i) => [
+    const wb = new ExcelJS.Workbook();
+    const sheetName = (subjectName
+      ? `${className}-${subjectName}`
+      : className).slice(0, 31);
+    const ws = wb.addWorksheet(sheetName);
+
+    ws.columns = [
+      { width: 4 }, { width: 26 }, { width: 16 }, { width: 18 },
+      { width: 14 }, { width: 22 }, { width: 12 },
+    ];
+
+    ws.addRow([`Institute: ${institute}`, '', `Class: ${className}`, subjectName ? `Subject: ${subjectName}` : '', `Date: ${selectedDate}`]);
+    ws.addRow([]);
+    ws.addRow(['#', 'Student Name', 'System ID', 'Institute User ID', 'Attendance Status', 'Event', 'Marked At']);
+    mergedRows.forEach((row, i) => {
+      ws.addRow([
         i + 1,
         row.studentName,
         row.studentId,
@@ -419,25 +430,16 @@ const AttendanceRangeViewer: React.FC = () => {
         statusConfig(row.status).label,
         row.eventTitle || '',
         row.markedAt ? friendlyTime(row.markedAt) : '',
-      ]),
-    ];
-
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-    // Column widths
-    ws['!cols'] = [
-      { wch: 4 }, { wch: 26 }, { wch: 16 }, { wch: 18 },
-      { wch: 14 }, { wch: 22 }, { wch: 12 },
-    ];
-
-    const wb = XLSX.utils.book_new();
-    const sheetName = subjectName
-      ? `${className}-${subjectName}`.slice(0, 31)
-      : className.slice(0, 31);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      ]);
+    });
 
     const fileName = `attendance_${className}${subjectName ? '_' + subjectName : ''}_${selectedDate}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    const buf = await wb.xlsx.writeBuffer();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(a.href);
     toast.success('Excel file downloaded');
   }, [selectedDate, mergedRows, selectedInstitute, currentInstituteId, selectedClass, selectedSubject, classes, subjects]);
 

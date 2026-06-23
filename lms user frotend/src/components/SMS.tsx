@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, Send, Users, RefreshCw, ChevronRight, Upload, FileSpreadsheet, Trash2, AlertTriangle, Wallet, ArrowDownRight, ArrowUpRight, ChevronLeft, History, School } from 'lucide-react';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { enhancedCachedClient } from '@/api/enhancedCachedClient';
 import { CACHE_TTL } from '@/config/cacheTTL';
 import { apiClient } from '@/api/client';
@@ -398,18 +398,30 @@ const SMS = () => {
         error: () => setFileParseError('Failed to parse CSV file'),
       });
     } else if (ext === 'xlsx' || ext === 'xls') {
-      const reader = new FileReader();
-      reader.onload = (e) => {
+      file.arrayBuffer().then(async (buf) => {
         try {
-          const wb = XLSX.read(e.target?.result, { type: 'array' });
-          const sheet = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: '' });
+          const wb = new ExcelJS.Workbook();
+          await wb.xlsx.load(buf);
+          const ws = wb.worksheets[0];
+          if (!ws) { setFileParseError('Excel file has no sheets'); return; }
+          const headers: string[] = [];
+          const rows: Record<string, string>[] = [];
+          ws.eachRow((row, rowNum) => {
+            if (rowNum === 1) {
+              row.eachCell((cell, colNum) => { headers[colNum] = String(cell.value ?? ''); });
+            } else {
+              const obj: Record<string, string> = {};
+              row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+                obj[headers[colNum] ?? colNum] = String(cell.value ?? '');
+              });
+              rows.push(obj);
+            }
+          });
           processRows(rows);
         } catch {
           setFileParseError('Failed to parse Excel file');
         }
-      };
-      reader.readAsArrayBuffer(file);
+      }).catch(() => setFileParseError('Failed to read Excel file'));
     } else {
       setFileParseError('Unsupported file type. Use .csv, .xlsx, or .xls');
     }
