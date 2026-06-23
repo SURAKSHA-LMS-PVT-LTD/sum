@@ -16,7 +16,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { classPaymentsApi, ClassPaymentSubmissionDetail } from '@/api/classPayments.api';
-import { getImageUrl } from '@/utils/imageUrlHelper';
+import { getImageUrl, safeOpenUrl } from '@/utils/imageUrlHelper';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -304,7 +304,7 @@ const ClassPaymentSubmissionsPage: React.FC = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => window.open(sub.receiptUrl, '_blank')}
+                              onClick={() => safeOpenUrl(sub.receiptUrl)}
                               className="ml-2"
                             >
                               <Download className="h-4 w-4" />

@@ -320,6 +320,8 @@ export default function ViewRecordingPage() {
   //   - ?tab=playing without a user: start as guest immediately
   // Separated from the validate effect so `user` is always current, never a stale closure.
   const autoStartedRef = useRef(false);
+  // Reset auto-start gate when the recording URL changes so re-navigation works
+  useEffect(() => { autoStartedRef.current = false; }, [urlId]);
   useEffect(() => {
     if (phase !== 'join' || !info) return;
     if (autoStartedRef.current) return;
@@ -662,11 +664,12 @@ export default function ViewRecordingPage() {
   }, [info, handleWatch, goToWelcome]);
 
   const continueAfterWelcome = useCallback(() => {
+    if (!info) return; // info could be null between fetch and resolution
     const asGuest = pendingWatchAsGuest;
     setPendingWatchAsGuest(false);
     syncTab('playing');
     void handleWatch(asGuest);
-  }, [pendingWatchAsGuest, handleWatch, syncTab]);
+  }, [info, pendingWatchAsGuest, handleWatch, syncTab]);
 
   const skipWelcome = useCallback(() => {
     window.speechSynthesis?.cancel?.();
@@ -681,53 +684,75 @@ export default function ViewRecordingPage() {
     const ytId = extractYouTubeId(info.recordingUrl);
     if (!ytId) return;
 
+    let rafId: number | null = null;
+    let destroyed = false;
+
     const initPlayer = () => {
-      if (!document.getElementById('yt-player-container')) return;
-      ytPlayerRef.current = new (window as any).YT.Player('yt-player-container', {
-        videoId: ytId,
-        width: '100%',
-        height: '100%',
-        playerVars: { autoplay: 0, modestbranding: 1, rel: 0 },
-        events: {
-          onReady: () => {
-            const pos = resumePositionRef.current;
-            if (pos > 0) ytPlayerRef.current?.seekTo?.(pos, true);
-          },
-          onStateChange: (e: any) => {
-            const pos = Math.floor(ytPlayerRef.current?.getCurrentTime?.() ?? 0);
-            // Capture current YT playback rate into speedRef on every state change
-            const rate = ytPlayerRef.current?.getPlaybackRate?.() ?? 1;
-            if (rate !== speedRef.current) {
-              speedRef.current = rate;
+      // The container div must be present in the DOM before YT.Player is constructed.
+      // Use a rAF loop to wait up to ~500 ms for the element to mount.
+      let attempts = 0;
+      const tryInit = () => {
+        if (destroyed) return; // component unmounted while waiting
+        const container = document.getElementById('yt-player-container');
+        if (!container) {
+          if (++attempts < 30) { rafId = requestAnimationFrame(tryInit); }
+          return;
+        }
+        rafId = null;
+        ytPlayerRef.current = new (window as any).YT.Player('yt-player-container', {
+          videoId: ytId,
+          width: '100%',
+          height: '100%',
+          playerVars: { autoplay: 0, modestbranding: 1, rel: 0 },
+          events: {
+            onReady: () => {
+              const pos = resumePositionRef.current;
+              if (pos > 0) ytPlayerRef.current?.seekTo?.(pos, true);
+            },
+            onStateChange: (e: any) => {
+              const pos = Math.floor(ytPlayerRef.current?.getCurrentTime?.() ?? 0);
+              const rate = ytPlayerRef.current?.getPlaybackRate?.() ?? 1;
+              if (rate !== speedRef.current) {
+                speedRef.current = rate;
+                queueActivity('SPEED_CHANGE', pos);
+              }
+              if (e.data === 1) queueActivity('PLAY', pos);       // PLAYING
+              else if (e.data === 2) queueActivity('PAUSE', pos);  // PAUSED
+              else if (e.data === 3) queueActivity('SEEK', pos);   // BUFFERING (seek)
+            },
+            onPlaybackRateChange: (e: any) => {
+              speedRef.current = e.data ?? 1;
+              const pos = Math.floor(ytPlayerRef.current?.getCurrentTime?.() ?? 0);
               queueActivity('SPEED_CHANGE', pos);
-            }
-            if (e.data === 1) queueActivity('PLAY', pos);       // PLAYING
-            else if (e.data === 2) queueActivity('PAUSE', pos);  // PAUSED
-            else if (e.data === 3) queueActivity('SEEK', pos);   // BUFFERING (seek)
+            },
           },
-          onPlaybackRateChange: (e: any) => {
-            speedRef.current = e.data ?? 1;
-            const pos = Math.floor(ytPlayerRef.current?.getCurrentTime?.() ?? 0);
-            queueActivity('SPEED_CHANGE', pos);
-          },
-        },
-      });
+        });
+      };
+      tryInit();
     };
 
     if ((window as any).YT?.Player) {
+      // API already loaded — init immediately (handles remount without re-downloading script)
       initPlayer();
     } else {
+      // First load: inject the script once, then init on the global callback
       if (!document.getElementById('yt-iframe-api')) {
         const s = document.createElement('script');
         s.id = 'yt-iframe-api';
         s.src = 'https://www.youtube.com/iframe_api';
         document.head.appendChild(s);
       }
+      // Chain onto any existing handler so multiple embeds on the same page coexist
       const prev = (window as any).onYouTubeIframeAPIReady;
       (window as any).onYouTubeIframeAPIReady = () => { prev?.(); initPlayer(); };
     }
 
-    return () => { ytPlayerRef.current?.destroy?.(); ytPlayerRef.current = null; };
+    return () => {
+      destroyed = true;
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+      ytPlayerRef.current?.destroy?.();
+      ytPlayerRef.current = null;
+    };
   }, [phase, info, queueActivity]);
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -31,6 +31,11 @@ export interface FeaturesContextValue {
 
 const FeaturesContext = createContext<FeaturesContextValue | undefined>(undefined);
 
+// Features that default OFF on the backend when no toggle row exists (PAID/TIER priced).
+// During loading or when the feature is absent, return false to avoid flash-in then flash-out.
+// Must stay in sync with DEFAULT_OFF_FEATURES in features.service.ts.
+const PAID_DEFAULT_OFF = new Set(['suraksha-finance', 'smart-cards', 'sms', 'sms-history', 'teacher-finance']);
+
 export const FeaturesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { selectedInstitute } = useAuth();
   const instituteId = selectedInstitute?.id;
@@ -74,11 +79,11 @@ export const FeaturesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [fetchFeatures]);
 
   const isFeatureEnabled = useCallback((key: string): boolean => {
-    if (loading) return true;
+    if (loading) return !PAID_DEFAULT_OFF.has(key);
     const feature = features[key];
-    if (feature === undefined) return true;
+    if (feature === undefined) return !PAID_DEFAULT_OFF.has(key);
     return !!feature.enabled;
-  }, [features, loading]);
+  }, [features, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Scope-aware check: each feature's `scope` field defines at which navigation
@@ -94,16 +99,16 @@ export const FeaturesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
    * navScope: the current navigation context ('institute' | 'class' | 'subject')
    */
   const isFeatureEnabledForScope = useCallback((key: string, navScope: FeatureScope): boolean => {
-    if (loading) return true;
+    if (loading) return !PAID_DEFAULT_OFF.has(key);
     const feature = features[key];
-    if (feature === undefined) return true;
+    if (feature === undefined) return !PAID_DEFAULT_OFF.has(key);
     if (feature.enabled) return true;
 
     // Feature is disabled — only hide it if the feature's scope matches the current nav context.
     // Normalize to lowercase to handle API returning uppercase ('CLASS', 'SUBJECT', 'INSTITUTE').
     const featureScope = feature.scope.toLowerCase();
     return featureScope !== navScope;
-  }, [features, loading]);
+  }, [features, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = useMemo(() => ({
     features,

@@ -13,6 +13,7 @@ import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { buildSidebarUrl } from '@/utils/pageNavigation';
 import { AccessControl } from '@/utils/permissions';
+import { safeOpenUrl } from '@/utils/imageUrlHelper';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import CreateExamForm from '@/components/forms/CreateExamForm';
@@ -252,7 +253,7 @@ const Exams = ({
   }, ...((['InstituteAdmin', 'Teacher', 'Student'] as UserRole[]).includes(userRole) ? [{
     key: 'examLink',
     header: 'Exam Link',
-    render: (value: string, row: any) => value ? <Button size="sm" variant="destructive" className="h-8 w-8 p-0 sm:w-auto sm:px-3" onClick={() => window.open(value, '_blank')} title="Open exam" aria-label="Open exam">
+    render: (value: string, row: any) => value ? <Button size="sm" variant="destructive" className="h-8 w-8 p-0 sm:w-auto sm:px-3" onClick={() => safeOpenUrl(value)} title="Open exam" aria-label="Open exam">
           <ExternalLink className="h-3 w-3 sm:mr-1" />
           <span className="hidden sm:inline">Exam Link</span>
         </Button> : <span className="text-gray-400">No link</span>
@@ -514,7 +515,7 @@ const Exams = ({
                             </div>
                             <div className="flex w-full items-center gap-1.5 overflow-x-auto pb-1 sm:w-auto sm:shrink-0 sm:overflow-visible sm:pb-0">
                               {item.examLink && (
-                                <Button size="sm" variant="destructive" className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2.5 text-xs" onClick={(e) => { e.stopPropagation(); window.open(item.examLink, '_blank'); }} title="Open exam" aria-label="Open exam">
+                                <Button size="sm" variant="destructive" className="h-8 w-8 shrink-0 p-0 sm:h-7 sm:w-auto sm:px-2.5 text-xs" onClick={(e) => { e.stopPropagation(); safeOpenUrl(item.examLink); }} title="Open exam" aria-label="Open exam">
                                   <ExternalLink className="h-3 w-3 sm:mr-1" /><span className="hidden sm:inline">Exam</span>
                                 </Button>
                               )}

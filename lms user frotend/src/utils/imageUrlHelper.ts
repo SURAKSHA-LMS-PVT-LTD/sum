@@ -1,4 +1,18 @@
 /**
+ * Safely open a URL in a new tab, rejecting dangerous schemes (javascript:, data:, vbscript:).
+ * Use this wherever the URL comes from the database or user input rather than being constructed in code.
+ */
+export const safeOpenUrl = (url: string | null | undefined, target = '_blank'): void => {
+  if (!url) return;
+  const lower = url.trim().toLowerCase();
+  if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) {
+    console.warn('[safeOpenUrl] Blocked unsafe URL scheme:', url.slice(0, 40));
+    return;
+  }
+  window.open(url, target, 'noopener,noreferrer');
+};
+
+/**
  * Transform image URLs to use the storage.suraksha.lk base URL
  * Handles AWS S3, GCS, or relative paths and converts them to the correct format
  */
