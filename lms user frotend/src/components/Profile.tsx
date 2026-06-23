@@ -24,6 +24,7 @@ import ConnectedApps from '@/components/ConnectedApps';
 import CurrentSelection from '@/components/ui/current-selection';
 import DeleteAccountTab from '@/components/profile/DeleteAccountTab';
 import ProfileImageSection from '@/components/profile/ProfileImageSection';
+import { useFeatures } from '@/contexts/FeaturesContext';
 import IdDocumentUpload from '@/components/profile/IdDocumentUpload';
 import UpdatePhoneDialog from '@/components/profile/UpdatePhoneDialog';
 import UpdateEmailDialog from '@/components/profile/UpdateEmailDialog';
@@ -79,6 +80,8 @@ const InfoRow = ({ icon: Icon, label, value, action }: { icon?: React.ElementTyp
 
 const Profile = () => {
   const { user, logout, selectedChild, isViewingAsParent, selectedInstitute } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
+  const imageVerificationEnabled = isFeatureEnabled('verify-image');
   const isChildView = !!(isViewingAsParent && selectedChild);
   const instituteRole = useInstituteRole();
   const { toast } = useToast();
@@ -768,7 +771,7 @@ const Profile = () => {
           {['details', 'address', 'professional', 'account'].includes(mobileSection) && renderMobileSection(mobileSection)}
           {mobileSection === 'image' && (
             <div className="space-y-4">
-              <ProfileImageSection currentImageUrl={currentImageUrl} onImageUpdate={handleImageUpdate} />
+              <ProfileImageSection currentImageUrl={currentImageUrl} onImageUpdate={handleImageUpdate} imageVerificationEnabled={imageVerificationEnabled} />
               <IdDocumentUpload />
             </div>
           )}
@@ -966,7 +969,7 @@ const Profile = () => {
 
         <TabsContent value="image" className="mt-4">
           <div className="space-y-4">
-            <ProfileImageSection currentImageUrl={currentImageUrl} onImageUpdate={handleImageUpdate} />
+            <ProfileImageSection currentImageUrl={currentImageUrl} onImageUpdate={handleImageUpdate} imageVerificationEnabled={imageVerificationEnabled} />
             <IdDocumentUpload />
           </div>
         </TabsContent>

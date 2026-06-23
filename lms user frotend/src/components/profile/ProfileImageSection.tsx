@@ -23,6 +23,7 @@ import ProfileImageUpload from '@/components/ProfileImageUpload';
 interface ProfileImageSectionProps {
   currentImageUrl: string;
   onImageUpdate: (url: string) => void;
+  imageVerificationEnabled?: boolean;
 }
 
 const STATUS_CONFIG = {
@@ -31,7 +32,7 @@ const STATUS_CONFIG = {
   REJECTED: { icon: XCircle, label: 'Rejected', color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/30', badge: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 };
 
-const ProfileImageSection: React.FC<ProfileImageSectionProps> = ({ currentImageUrl, onImageUpdate }) => {
+const ProfileImageSection: React.FC<ProfileImageSectionProps> = ({ currentImageUrl, onImageUpdate, imageVerificationEnabled = true }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [status, setStatus] = useState<ProfileImageStatus | null>(null);
@@ -72,8 +73,9 @@ const ProfileImageSection: React.FC<ProfileImageSectionProps> = ({ currentImageU
   };
 
   useEffect(() => {
-    loadStatus();
-  }, []);
+    if (imageVerificationEnabled) loadStatus();
+    else setLoading(false);
+  }, [imageVerificationEnabled]);
 
   useEffect(() => {
     if (showHistory && !history) {
@@ -99,6 +101,50 @@ const ProfileImageSection: React.FC<ProfileImageSectionProps> = ({ currentImageU
     // Reload status after upload
     setTimeout(() => loadStatus(), 1000);
   };
+
+  // When image verification feature is disabled — plain upload, no review UI
+  if (!imageVerificationEnabled) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Camera className="h-4 w-4 text-primary" /> Profile Image
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-20 w-20 ring-2 ring-primary/20">
+                <AvatarImage src={currentImageUrl} alt="Profile" className="object-cover" />
+                <AvatarFallback className="text-lg font-semibold bg-primary/10 text-primary">
+                  {user?.firstName?.[0] || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  {currentImageUrl ? 'Current profile image' : 'No image uploaded'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload a clear passport-style photo. Max 5MB (JPEG, PNG, WebP).
+                </p>
+                <Button size="sm" className="mt-3" onClick={() => setShowUploadDialog(true)}>
+                  <Camera className="h-3.5 w-3.5 mr-1.5" />
+                  {currentImageUrl ? 'Change Photo' : 'Upload Photo'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <ProfileImageUpload
+          currentImageUrl={currentImageUrl}
+          onImageUpdate={(url) => { onImageUpdate(url); setShowUploadDialog(false); }}
+          isOpen={showUploadDialog}
+          onClose={() => setShowUploadDialog(false)}
+          dialogOnly
+        />
+      </div>
+    );
+  }
 
   // If the status API is not available, show a simpler version
   if (statusError) {
