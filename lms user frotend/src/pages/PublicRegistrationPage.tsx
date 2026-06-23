@@ -183,6 +183,14 @@ export default function PublicRegistrationPage() {
     if (!token || !cfg) return;
     setSubmitError(null);
 
+    // Required core fields
+    if (!form.firstName?.trim()) { setSubmitError('First name is required.'); return; }
+    if (!form.lastName?.trim()) { setSubmitError('Last name is required.'); return; }
+    if (isStudent && !form.birthCertificateNo?.trim()) {
+      setSubmitError('Birth certificate number is required for students.');
+      return;
+    }
+
     // Required contact verification checks
     if (phoneRequired && !phone.verified) {
       setSubmitError('Phone number verification is required. Enter and verify your phone number above.');
@@ -236,6 +244,9 @@ export default function PublicRegistrationPage() {
         firstName: form.firstName || undefined,
         lastName: form.lastName || undefined,
         nameWithInitials: form.nameWithInitials || undefined,
+        fullName: form.fullName || undefined,
+        religion: form.religion || undefined,
+        birthCertificateNo: form.birthCertificateNo || undefined,
         dateOfBirth: form.dateOfBirth || undefined,
         gender: form.gender || undefined,
         nic: form.nic || undefined,
@@ -348,8 +359,8 @@ export default function PublicRegistrationPage() {
             <SectionHeader>Personal Information</SectionHeader>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <PField label="First name" k="firstName" form={form} setField={setField} locked={locked} filledVal={filledVal} />
-              <PField label="Last name" k="lastName" form={form} setField={setField} locked={locked} filledVal={filledVal} />
+              <PField label="First name *" k="firstName" form={form} setField={setField} locked={locked} filledVal={filledVal} />
+              <PField label="Last name *" k="lastName" form={form} setField={setField} locked={locked} filledVal={filledVal} />
               <div className="sm:col-span-2 space-y-1">
                 <Label className="text-sm">Name with initials</Label>
                 <Input
@@ -359,6 +370,16 @@ export default function PublicRegistrationPage() {
                   onChange={e => setField('nameWithInitials', e.target.value)}
                 />
                 <p className="text-[10px] text-muted-foreground">Auto-generated from first/last name if left blank</p>
+              </div>
+              <div className="sm:col-span-2 space-y-1">
+                <Label className="text-sm">Full name</Label>
+                <Input
+                  placeholder="e.g., Kasun Bandara Perera"
+                  value={locked('fullName') ? filledVal('fullName') : (form.fullName ?? '')}
+                  disabled={locked('fullName')}
+                  onChange={e => setField('fullName', e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">Auto-derived from first/last name if left blank</p>
               </div>
 
               {/* Phone — inline verification */}
@@ -492,7 +513,17 @@ export default function PublicRegistrationPage() {
                 )}
               </div>
               <PField label="Date of birth" k="dateOfBirth" type="date" form={form} setField={setField} locked={locked} filledVal={filledVal} />
-              <PField label="NIC / Birth certificate no." k="nic" form={form} setField={setField} locked={locked} filledVal={filledVal} className="sm:col-span-2" />
+              <PField label="NIC" k="nic" placeholder="NIC number" form={form} setField={setField} locked={locked} filledVal={filledVal} />
+              <PField
+                label={`Birth certificate no.${isStudent ? ' *' : ''}`}
+                k="birthCertificateNo"
+                placeholder="Birth certificate number"
+                form={form}
+                setField={setField}
+                locked={locked}
+                filledVal={filledVal}
+              />
+              <PField label="Religion" k="religion" placeholder="e.g., Buddhism" form={form} setField={setField} locked={locked} filledVal={filledVal} />
             </div>
           </div>
 
@@ -636,11 +667,12 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 function PField({
-  label, k, type = 'text', form, setField, locked, filledVal, className,
+  label, k, type = 'text', placeholder, form, setField, locked, filledVal, className,
 }: {
   label: string;
   k: string;
   type?: string;
+  placeholder?: string;
   form: Record<string, any>;
   setField: (k: string, v: any) => void;
   locked: (k: string) => boolean;
@@ -653,6 +685,7 @@ function PField({
       <Label className="text-sm">{label}</Label>
       <Input
         type={type}
+        placeholder={placeholder}
         value={isLocked ? filledVal(k) : (form[k] ?? '')}
         disabled={isLocked}
         onChange={e => setField(k, e.target.value)}

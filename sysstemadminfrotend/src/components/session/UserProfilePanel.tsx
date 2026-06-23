@@ -12,12 +12,15 @@ interface UserProfile {
   id: string;
   firstName?: string;
   lastName?: string;
+  fullName?: string;
   nameWithInitials?: string;
+  religion?: string;
   email?: string;
   phoneNumber?: string;
   userType?: string;
   dateOfBirth?: string;
   gender?: string;
+  nic?: string;
   birthCertificateNo?: string;
   addressLine1?: string;
   city?: string;
@@ -75,7 +78,7 @@ export function UserProfilePanel() {
   }
 
   const displayName = profile
-    ? `${profile.firstName || ""} ${profile.lastName || ""}`.trim() || profile.nameWithInitials || "User"
+    ? profile.fullName || `${profile.firstName || ""} ${profile.lastName || ""}`.trim() || profile.nameWithInitials || "User"
     : authUser?.nameWithInitials || "User";
 
   return (
@@ -103,6 +106,9 @@ export function UserProfilePanel() {
         <div className="divide-y">
           <InfoRow icon={Mail} label="Email" value={profile?.email || authUser?.email} />
           <InfoRow icon={Phone} label="Phone" value={profile?.phoneNumber} />
+          <InfoRow icon={User} label="Full Name" value={profile?.fullName} />
+          <InfoRow icon={User} label="Religion" value={profile?.religion} />
+          <InfoRow icon={IdCard} label="NIC" value={profile?.nic} />
           <InfoRow icon={IdCard} label="Student ID" value={profile?.studentId} />
           <InfoRow icon={IdCard} label="Birth Certificate" value={profile?.birthCertificateNo} />
           <InfoRow icon={Calendar} label="Date of Birth" value={profile?.dateOfBirth ? format(new Date(profile.dateOfBirth), "MMMM d, yyyy") : undefined} />

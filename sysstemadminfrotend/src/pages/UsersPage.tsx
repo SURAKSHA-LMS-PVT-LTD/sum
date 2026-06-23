@@ -46,11 +46,16 @@ interface User {
   id: string;
   firstName: string;
   lastName: string;
+  fullName?: string;
+  nameWithInitials?: string;
+  religion?: string;
   email: string;
   phoneNumber?: string;
   userType: string;
   dateOfBirth: string;
   gender: string;
+  nic?: string;
+  birthCertificateNo?: string;
   isActive: boolean;
   createdAt: string;
   imageUrl: string | null;

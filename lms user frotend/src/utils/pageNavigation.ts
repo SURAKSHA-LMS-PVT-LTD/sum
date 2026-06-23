@@ -99,13 +99,19 @@ export const useContextUrlSync = (currentPage: string) => {
     }
     
     const contextUrl = buildSidebarUrl(effectivePage, context);
-    
+
+    // If a popup is currently open (URL has a popup segment), don't replace it.
+    // The popup URL is transient; stripping it would close the popup immediately.
+    // Context sync will re-run when the popup closes and the base path is restored.
+    const basePathname = stripPopupRouteFromPath(location.pathname);
+    if (basePathname !== location.pathname) return;
+
     // Only navigate if URL actually differs AND we haven't just navigated there
     if (location.pathname !== contextUrl && lastNavigatedUrl.current !== contextUrl) {
       const searchParams = new URLSearchParams(location.search);
       const queryString = searchParams.toString();
       const fullUrl = contextUrl + (queryString ? `?${queryString}` : '');
-      
+
       lastNavigatedUrl.current = contextUrl;
       navigate(fullUrl, { replace: true });
     }

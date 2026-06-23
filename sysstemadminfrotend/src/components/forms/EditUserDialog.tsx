@@ -155,8 +155,11 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, userId }: EditUs
                 <Field label="Last Name">
                   <Input value={form.lastName ?? ""} onChange={e => set("lastName", e.target.value)} className="h-9 text-sm" />
                 </Field>
+                <Field label="Full Name">
+                  <Input value={form.fullName ?? ""} onChange={e => set("fullName", e.target.value)} className="h-9 text-sm" placeholder="Auto-derived if blank" />
+                </Field>
                 <Field label="Name With Initials">
-                  <Input value={form.nameWithInitials ?? ""} onChange={e => set("nameWithInitials", e.target.value)} className="h-9 text-sm" />
+                  <Input value={form.nameWithInitials ?? ""} onChange={e => set("nameWithInitials", e.target.value)} className="h-9 text-sm" placeholder="e.g. K.B. Perera" />
                 </Field>
                 <Field label="Date of Birth">
                   <Input type="date" value={form.dateOfBirth ? String(form.dateOfBirth).split("T")[0] : ""} onChange={e => set("dateOfBirth", e.target.value)} className="h-9 text-sm" />
@@ -174,6 +177,9 @@ export function EditUserDialog({ open, onOpenChange, onSuccess, userId }: EditUs
                 </Field>
                 <Field label="Birth Certificate No">
                   <Input value={form.birthCertificateNo ?? ""} onChange={e => set("birthCertificateNo", e.target.value)} className="h-9 text-sm" />
+                </Field>
+                <Field label="Religion">
+                  <Input value={form.religion ?? ""} onChange={e => set("religion", e.target.value)} className="h-9 text-sm" placeholder="e.g. Buddhism" />
                 </Field>
               </div>
 

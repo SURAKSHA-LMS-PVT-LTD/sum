@@ -76,6 +76,8 @@ export interface FlexibleUserData {
   firstName?: string;
   lastName?: string;
   nameWithInitials?: string;
+  fullName?: string;
+  religion?: string;
   gender?: Gender;
   dateOfBirth?: string;  // YYYY-MM-DD
   nic?: string;
