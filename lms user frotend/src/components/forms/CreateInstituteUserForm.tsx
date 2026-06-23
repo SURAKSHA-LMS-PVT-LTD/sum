@@ -31,6 +31,7 @@ import { ExtraDataFields } from '@/components/users/ExtraDataFields';
 import { useInstituteUserColumns } from '@/hooks/useInstituteUserColumns';
 import { useUserTypes } from '@/hooks/useUserTypes';
 import { UserType } from '@/api/userTypes.api';
+import { instituteSettingsApi } from '@/api/instituteSettings.api';
 
 
 import type {
@@ -269,6 +270,19 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
   const [sendWelcomeNotifications, setSendWelcomeNotifications] = useState(false);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [creditBalanceLoading, setCreditBalanceLoading] = useState(false);
+
+  // ── Institute settings (auto-generate user ID) ──
+  const [idAutoGenerate, setIdAutoGenerate] = useState(false);
+  const [idPrefix, setIdPrefix] = useState<string | null>(null);
+  const [idLastCounter, setIdLastCounter] = useState<number | null>(null);
+  useEffect(() => {
+    if (!currentInstituteId) return;
+    instituteSettingsApi.getSettings(currentInstituteId).then(s => {
+      setIdAutoGenerate(!!s.userIdAutoGenerate);
+      setIdPrefix(s.userIdPrefix ?? null);
+      setIdLastCounter(s.userIdLastCounter ?? null);
+    }).catch(() => {});
+  }, [currentInstituteId]);
 
   // ── Schema-driven extra data (institute custom columns) ──
   const { columns: extraColumns } = useInstituteUserColumns(currentInstituteId);
@@ -590,7 +604,7 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
         district: district || undefined,
         province: province || undefined,
         password: password || undefined,
-        userIdByInstitute: userIdByInstitute || undefined,
+        userIdByInstitute: idAutoGenerate ? undefined : (userIdByInstitute || undefined),
         instituteCardId: smartCardsEnabled
           ? (instituteCardMode === 'manual' ? (instituteCardSelected?.cardId || instituteCardId || undefined) : undefined)
           : (instituteCardId || undefined),
@@ -831,10 +845,23 @@ const CreateInstituteUserForm: React.FC<CreateInstituteUserFormProps> = ({ onSub
             {/* ── Institute Tracking ── */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-foreground border-l-2 border-primary pl-3 py-1">{L.instituteTracking}</h3>
-              <div className="space-y-1.5">
-                <Label className="text-sm">{L.userId}</Label>
-                <Input value={userIdByInstitute} onChange={e => setUserIdByInstitute(e.target.value)} placeholder={L.userIdPlaceholder} maxLength={50} />
-              </div>
+              {idAutoGenerate ? (
+                <div className="space-y-1.5">
+                  <Label className="text-sm">{L.userId}</Label>
+                  <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+                    <span className="font-mono font-medium text-foreground">
+                      {idPrefix ?? ''}{String((idLastCounter ?? 0) + 1).padStart(Math.max(3, String((idLastCounter ?? 0) + 1).length), '0')}
+                    </span>
+                    <span className="text-[11px]">(auto-generated / ස්වයංක්‍රීය)</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">ආයතනය මෙම ID ස්වයංක්‍රීයව ලබා දේ — ඔබට වෙනස් කළ නොහැක. Institute auto-assigns this ID.</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label className="text-sm">{L.userId}</Label>
+                  <Input value={userIdByInstitute} onChange={e => setUserIdByInstitute(e.target.value)} placeholder={L.userIdPlaceholder} maxLength={50} />
+                </div>
+              )}
 
               {/* ── Institute Card ID (INSTITUTE-scoped smart card) ── */}
               <div className="space-y-2 border rounded-lg p-3 bg-muted/20">

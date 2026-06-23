@@ -292,10 +292,11 @@ export default function PublicRegistrationPage() {
       <Centered brandColor={config.institute.primaryColorCode}>
         <div className="text-center space-y-3 max-w-md">
           <CheckCircle2 className="h-14 w-14 text-green-500 mx-auto" />
-          <h1 className="text-xl font-bold">Registration submitted</h1>
+          <h1 className="text-xl font-bold">Registration submitted / ලියාපදිංචිය සාර්ථකයි</h1>
           <p className="text-sm text-muted-foreground">{done.message}</p>
+          <p className="text-xs text-muted-foreground">ලියාපදිංචිය ලැබිණ. ආයතනයේ අනුමතිය ලැබෙන තෙක් බලා සිටින්න.</p>
           {done.cardPending?.length ? (
-            <p className="text-xs text-amber-600">A smart card could not be assigned now — the institute will assign one.</p>
+            <p className="text-xs text-amber-600">A smart card could not be assigned now — the institute will assign one. / ස්මාර්ට් කාඩ් පත ලබාදීමට නොහැකි විය. ආයතනය ලබා දෙනු ඇත.</p>
           ) : null}
         </div>
       </Centered>
@@ -330,9 +331,12 @@ export default function PublicRegistrationPage() {
 
           {/* Existing-account banner */}
           {existing && (
-            <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700 flex items-center gap-2">
-              <UserPlus className="h-4 w-4 shrink-0" />
-              We found your existing Suraksha account. Known fields are pre-filled — just complete what's missing to join {inst.name}.
+            <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700 flex items-start gap-2">
+              <UserPlus className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                We found your existing Suraksha account. Known fields are pre-filled — just complete what's missing to join {inst.name}.
+                <br /><span className="text-blue-500">ඔබගේ Suraksha ගිණුම හමු විය. දැනටමත් ඇති තොරතුරු පිරී ඇත — අතිරේකව ඇත්නම් පමණි පූරණය කරන්න.</span>
+              </span>
             </div>
           )}
           {lookupBusy && (
@@ -342,7 +346,7 @@ export default function PublicRegistrationPage() {
           {/* User type */}
           {cfg!.allowedUserTypes.length > 1 ? (
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">I am registering as</Label>
+              <Label className="text-sm font-medium"><SiLabel en="I am registering as" si="ලියාපදිංචිය ලෙස" /></Label>
               <Select value={userType} onValueChange={v => { setUserType(v); setFather({}); setMother({}); setGuardian({}); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -356,13 +360,13 @@ export default function PublicRegistrationPage() {
 
           {/* ── Personal Information ── */}
           <div className="space-y-3">
-            <SectionHeader>Personal Information</SectionHeader>
+            <SectionHeader><SiLabel en="Personal Information" si="පෞද්ගලික තොරතුරු" /></SectionHeader>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <PField label="First name *" k="firstName" form={form} setField={setField} locked={locked} filledVal={filledVal} />
-              <PField label="Last name *" k="lastName" form={form} setField={setField} locked={locked} filledVal={filledVal} />
+              <PField label={<SiLabel en="First name *" si="මුල් නම" />} k="firstName" form={form} setField={setField} locked={locked} filledVal={filledVal} />
+              <PField label={<SiLabel en="Last name *" si="අවසාන නම" />} k="lastName" form={form} setField={setField} locked={locked} filledVal={filledVal} />
               <div className="sm:col-span-2 space-y-1">
-                <Label className="text-sm">Name with initials</Label>
+                <Label className="text-sm"><SiLabel en="Name with initials" si="මුලකුරු සහිත නම" /></Label>
                 <Input
                   placeholder="e.g., K. D. Perera"
                   value={locked('nameWithInitials') ? filledVal('nameWithInitials') : (form.nameWithInitials ?? '')}
@@ -372,7 +376,7 @@ export default function PublicRegistrationPage() {
                 <p className="text-[10px] text-muted-foreground">Auto-generated from first/last name if left blank</p>
               </div>
               <div className="sm:col-span-2 space-y-1">
-                <Label className="text-sm">Full name</Label>
+                <Label className="text-sm"><SiLabel en="Full name" si="සම්පූර්ණ නම" /></Label>
                 <Input
                   placeholder="e.g., Kasun Bandara Perera"
                   value={locked('fullName') ? filledVal('fullName') : (form.fullName ?? '')}
@@ -385,7 +389,7 @@ export default function PublicRegistrationPage() {
               {/* Phone — inline verification */}
               <div className="space-y-1.5">
                 <Label className="text-sm">
-                  Phone number{phoneRequired ? ' *' : ''}
+                  <SiLabel en={`Phone number${phoneRequired ? ' *' : ''}`} si="දුරකථන අංකය" />
                   {phone.verified && <CheckCircle2 className="h-3.5 w-3.5 text-green-500 inline ml-1.5" />}
                 </Label>
                 <div className="flex gap-2">
@@ -442,7 +446,7 @@ export default function PublicRegistrationPage() {
               {/* Email — inline verification */}
               <div className="space-y-1.5">
                 <Label className="text-sm">
-                  Email{emailRequired ? ' *' : ''}
+                  <SiLabel en={`Email${emailRequired ? ' *' : ''}`} si="විද්‍යුත් තැපෑල" />
                   {email.verified && <CheckCircle2 className="h-3.5 w-3.5 text-green-500 inline ml-1.5" />}
                 </Label>
                 <div className="flex gap-2">
@@ -496,26 +500,26 @@ export default function PublicRegistrationPage() {
                 )}
               </div>
 
-              {/* Other identity fields */}
+              {/* ── Other identity fields ── */}
               <div className="space-y-1">
-                <Label className="text-sm">Gender</Label>
+                <Label className="text-sm"><SiLabel en="Gender" si="ලිංගය" /></Label>
                 {locked('gender') ? (
                   <Input value={filledVal('gender')} disabled />
                 ) : (
                   <Select value={form.gender ?? ''} onValueChange={v => setField('gender', v)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select / තෝරන්න" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="MALE">Male</SelectItem>
-                      <SelectItem value="FEMALE">Female</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
+                      <SelectItem value="MALE">Male / පිරිමි</SelectItem>
+                      <SelectItem value="FEMALE">Female / ගැහැණු</SelectItem>
+                      <SelectItem value="OTHER">Other / වෙනත්</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
               </div>
-              <PField label="Date of birth" k="dateOfBirth" type="date" form={form} setField={setField} locked={locked} filledVal={filledVal} />
-              <PField label="NIC" k="nic" placeholder="NIC number" form={form} setField={setField} locked={locked} filledVal={filledVal} />
+              <PField label={<SiLabel en="Date of birth" si="උපන් දිනය" />} k="dateOfBirth" type="date" form={form} setField={setField} locked={locked} filledVal={filledVal} />
+              <PField label={<SiLabel en="NIC" si="ජා.හැ.අංකය" />} k="nic" placeholder="NIC number" form={form} setField={setField} locked={locked} filledVal={filledVal} />
               <PField
-                label={`Birth certificate no.${isStudent ? ' *' : ''}`}
+                label={<SiLabel en={`Birth certificate no.${isStudent ? ' *' : ''}`} si="උප්පැන්නය" />}
                 k="birthCertificateNo"
                 placeholder="Birth certificate number"
                 form={form}
@@ -523,7 +527,7 @@ export default function PublicRegistrationPage() {
                 locked={locked}
                 filledVal={filledVal}
               />
-              <PField label="Religion" k="religion" placeholder="e.g., Buddhism" form={form} setField={setField} locked={locked} filledVal={filledVal} />
+              <PField label={<SiLabel en="Religion" si="ආගම" />} k="religion" placeholder="e.g., Buddhism" form={form} setField={setField} locked={locked} filledVal={filledVal} />
             </div>
           </div>
 
@@ -531,22 +535,22 @@ export default function PublicRegistrationPage() {
           <div className="space-y-2">
             <button type="button" onClick={() => setShowAddress(a => !a)} className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
               {showAddress ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              Address Details
+              <SiLabel en="Address Details" si="ලිපිනය" />
             </button>
             {showAddress && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-3 border-l-2 border-primary/20">
                 <div className="sm:col-span-2 space-y-1">
-                  <Label className="text-sm">Address Line 1</Label>
+                  <Label className="text-sm"><SiLabel en="Address Line 1" si="ලිපිනය 1" /></Label>
                   <Input placeholder="Street address" value={form.addressLine1 ?? ''} onChange={e => setField('addressLine1', e.target.value)} />
                 </div>
                 <div className="sm:col-span-2 space-y-1">
-                  <Label className="text-sm">Address Line 2</Label>
+                  <Label className="text-sm"><SiLabel en="Address Line 2" si="ලිපිනය 2" /></Label>
                   <Input placeholder="Apt, suite, etc." value={form.addressLine2 ?? ''} onChange={e => setField('addressLine2', e.target.value)} />
                 </div>
-                <div className="space-y-1"><Label className="text-sm">City</Label><Input placeholder="City" value={form.city ?? ''} onChange={e => setField('city', e.target.value)} /></div>
-                <div className="space-y-1"><Label className="text-sm">District</Label><Input placeholder="District" value={form.district ?? ''} onChange={e => setField('district', e.target.value)} /></div>
-                <div className="space-y-1"><Label className="text-sm">Province</Label><Input placeholder="Province" value={form.province ?? ''} onChange={e => setField('province', e.target.value)} /></div>
-                <div className="space-y-1"><Label className="text-sm">Postal Code</Label><Input placeholder="Postal code" maxLength={6} value={form.postalCode ?? ''} onChange={e => setField('postalCode', e.target.value)} /></div>
+                <div className="space-y-1"><Label className="text-sm"><SiLabel en="City" si="නගරය" /></Label><Input placeholder="City" value={form.city ?? ''} onChange={e => setField('city', e.target.value)} /></div>
+                <div className="space-y-1"><Label className="text-sm"><SiLabel en="District" si="දිස්ත්‍රික්කය" /></Label><Input placeholder="District" value={form.district ?? ''} onChange={e => setField('district', e.target.value)} /></div>
+                <div className="space-y-1"><Label className="text-sm"><SiLabel en="Province" si="පළාත" /></Label><Input placeholder="Province" value={form.province ?? ''} onChange={e => setField('province', e.target.value)} /></div>
+                <div className="space-y-1"><Label className="text-sm"><SiLabel en="Postal Code" si="තැ.කේ." /></Label><Input placeholder="Postal code" maxLength={6} value={form.postalCode ?? ''} onChange={e => setField('postalCode', e.target.value)} /></div>
               </div>
             )}
           </div>
@@ -554,7 +558,7 @@ export default function PublicRegistrationPage() {
           {/* ── Class & Subject Enrollment (students only) ── */}
           {cfg!.allowClassEnrollment && isStudent && config.classes.length > 0 && (
             <div className="space-y-3">
-              <SectionHeader><GraduationCap className="h-4 w-4 inline mr-1" />Class Enrollment</SectionHeader>
+              <SectionHeader><GraduationCap className="h-4 w-4 inline mr-1" /><SiLabel en="Class Enrollment" si="පන්තිය ලියාපදිංචිය" /></SectionHeader>
               <Select value={selectedClassId} onValueChange={v => { setSelectedClassId(v); setSelectedSubjects([]); }}>
                 <SelectTrigger><SelectValue placeholder="Select a class to enroll" /></SelectTrigger>
                 <SelectContent>
@@ -587,11 +591,11 @@ export default function PublicRegistrationPage() {
             <div className="space-y-2">
               <button type="button" onClick={() => setShowParents(p => !p)} className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
                 {showParents ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                Parent / Guardian Info
+                <SiLabel en="Parent / Guardian Info" si="දෙමාපිය / භාරකාර තොරතුරු" />
               </button>
               {!showParents && (
                 <p className="text-[11px] text-muted-foreground pl-5">
-                  Required if the student has no personal phone/email.
+                  Required if the student has no personal phone/email. / ශිෂ්‍යයාට දුරකතනයක් හෝ ඊමේල් නොමැති නම් අවශ්‍යය.
                 </p>
               )}
               {showParents && (
@@ -607,7 +611,7 @@ export default function PublicRegistrationPage() {
           {/* ── Institute custom columns ── */}
           {cfg!.customColumns.length > 0 && (
             <div className="space-y-3">
-              <SectionHeader>Additional Information</SectionHeader>
+              <SectionHeader><SiLabel en="Additional Information" si="අමතර තොරතුරු" /></SectionHeader>
               {cfg!.customColumns.map(col => (
                 <div key={col.key} className="space-y-1">
                   <Label className="text-sm">
@@ -644,10 +648,10 @@ export default function PublicRegistrationPage() {
           <div className="border-t pt-4 space-y-2">
             <Button className="w-full h-11" onClick={handleSubmit} disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Submit registration
+              Submit registration / ලියාපදිංචිය යොමු කරන්න
             </Button>
             <p className="text-[11px] text-center text-muted-foreground">
-              Your registration will be reviewed and approved by {inst.name}.
+              Your registration will be reviewed and approved by {inst.name}. / ඔබේ ලියාපදිංචිය {inst.name} විසින් සමාලෝචනය කරනු ලැබේ.
             </p>
           </div>
         </div>
@@ -660,6 +664,16 @@ export default function PublicRegistrationPage() {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Bilingual label: English bold + Sinhala muted beside it */
+function SiLabel({ en, si }: { en: string; si: string }) {
+  return (
+    <span className="flex items-baseline gap-1.5 flex-wrap">
+      <span>{en}</span>
+      <span className="text-[10px] text-muted-foreground font-normal">{si}</span>
+    </span>
+  );
+}
+
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="font-semibold text-sm text-foreground border-l-2 border-primary pl-3 py-0.5">{children}</h3>
@@ -669,7 +683,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 function PField({
   label, k, type = 'text', placeholder, form, setField, locked, filledVal, className,
 }: {
-  label: string;
+  label: React.ReactNode;
   k: string;
   type?: string;
   placeholder?: string;

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { CustomToggle } from '@/components/ui/custom-toggle';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Filter, Plus, Calendar, Clock, MapPin, Video, Users, ExternalLink, CheckCircle, ChevronDown, LayoutList, LayoutGrid, Table2, FileText, HardDrive, Cloud, Link2, Edit, Trash2, ImageIcon, Play, Download } from 'lucide-react';
+import { RefreshCw, Filter, Plus, Calendar, Clock, MapPin, Video, Users, ExternalLink, CheckCircle, ChevronDown, LayoutList, LayoutGrid, Table2, FileText, HardDrive, Cloud, Link2, Edit, Trash2, ImageIcon, Play, Download, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
@@ -62,6 +62,8 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
   const [videoPreviewTitle, setVideoPreviewTitle] = useState<string>('');
   const [videoPreviewLecture, setVideoPreviewLecture] = useState<any>(null);
   const [trackingDialog, setTrackingDialog] = useState<{ mode: 'recording' | 'live'; urlId: string; title: string } | null>(null);
+  const [closingLectureId, setClosingLectureId] = useState<string | null>(null);
+  const [closeSummaryDialog, setCloseSummaryDialog] = useState<{ lecture: any; summary: any } | null>(null);
 
   // Filter states
   const [showFilters, setShowFilters] = useState(false);
@@ -222,6 +224,23 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
       toast({ title: "Delete Failed", description: "Failed to delete lecture. Please try again.", variant: "destructive" });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleCloseLecture = async (lecture: any) => {
+    if (closingLectureId) return;
+    setClosingLectureId(lecture.id);
+    try {
+      const result = await cachedApiClient.post(`${endpoint}/${lecture.id}/close`, {});
+      toast({ title: 'Lecture Closed', description: `"${lecture.title}" has been closed and summary saved.` });
+      // result may be the lecture directly or wrapped — handle both
+      const closedLecture = result?.lectureSummary !== undefined ? result : (result?.data ?? result);
+      setCloseSummaryDialog({ lecture: closedLecture ?? lecture, summary: closedLecture?.lectureSummary ?? null });
+      actions.refresh();
+    } catch (error: any) {
+      toast({ title: 'Failed to Close', description: error?.message ?? 'Could not close lecture.', variant: 'destructive' });
+    } finally {
+      setClosingLectureId(null);
     }
   };
 
@@ -702,6 +721,18 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
                                 <ExternalLink className="h-3 w-3" />Join
                               </Button>
                             )}
+                            {item.status === 'ongoing' && ['InstituteAdmin', 'Teacher'].includes(userRole) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs px-2.5 rounded-lg gap-1 border-rose-400 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                disabled={closingLectureId === item.id}
+                                onClick={(e) => { e.stopPropagation(); handleCloseLecture(item); }}
+                              >
+                                <XCircle className="h-3 w-3" />
+                                {closingLectureId === item.id ? 'Closing…' : 'Close'}
+                              </Button>
+                            )}
                             {recUrl && (
                               <Button
                                 size="sm"
@@ -894,6 +925,126 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
         onConfirm={confirmDeleteLecture}
         isDeleting={isDeleting}
       />
+
+      {/* Lecture Close Summary Dialog */}
+      <Dialog open={!!closeSummaryDialog} onOpenChange={(open) => { if (!open) setCloseSummaryDialog(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-emerald-600" />
+              Lecture Closed
+            </DialogTitle>
+          </DialogHeader>
+          {closeSummaryDialog && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">"{closeSummaryDialog.lecture.title}"</span> has been closed and marked as completed.
+              </p>
+              {closeSummaryDialog.summary && (() => {
+                const s = closeSummaryDialog.summary;
+                return (
+                  <div className="space-y-3">
+                    {/* Attendance via links */}
+                    <div className="rounded-lg border border-border p-3 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Attendance Links</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                        <span className="text-muted-foreground">Links created</span>
+                        <span className="font-medium">{s.totalAttendanceSessions}</span>
+                        <span className="text-muted-foreground">Students marked</span>
+                        <span className="font-medium">{s.totalStudentsMarked}</span>
+                        <span className="text-muted-foreground">Full attendance</span>
+                        <span className="font-medium">{s.fullAttendanceCount}</span>
+                      </div>
+                      {s.studentAttendance?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[11px] font-medium text-muted-foreground mb-1">Per student</p>
+                          <div className="max-h-36 overflow-y-auto rounded border border-border divide-y divide-border text-xs">
+                            {s.studentAttendance.map((st: any) => (
+                              <div key={st.studentId} className="flex items-center justify-between gap-2 px-2 py-1.5">
+                                <span className="text-muted-foreground font-mono">ID {st.studentId}</span>
+                                <span className="font-medium">{st.attendCount}/{s.totalAttendanceSessions}</span>
+                                <span className={`font-semibold ${st.attendPercent === 100 ? 'text-emerald-600' : st.attendPercent >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>
+                                  {st.attendPercent}%
+                                </span>
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                  st.attendPercent === 100 ? 'bg-emerald-100 text-emerald-700'
+                                  : st.attendPercent >= 50 ? 'bg-amber-100 text-amber-700'
+                                  : st.attendCount > 0 ? 'bg-orange-100 text-orange-700'
+                                  : 'bg-rose-100 text-rose-700'
+                                }`}>
+                                  {st.attendPercent === 100 ? 'Present' : st.attendPercent >= 50 ? 'Partial' : st.attendCount > 0 ? 'Low' : 'Absent'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Direct live joins */}
+                    {s.liveDirectJoins > 0 && (
+                      <div className="rounded-lg border border-border p-3 space-y-1.5">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Direct Live Joins</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                          <span className="text-muted-foreground">Total joins</span>
+                          <span className="font-medium">{s.liveDirectJoins}</span>
+                          <span className="text-muted-foreground">Unique users</span>
+                          <span className="font-medium">{s.liveDirectUniqueUsers}</span>
+                          <span className="text-muted-foreground">Guests</span>
+                          <span className="font-medium">{s.liveGuestJoins}</span>
+                          <span className="text-muted-foreground">Avg. duration</span>
+                          <span className="font-medium">{s.liveAvgDurationMinutes} min</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recording */}
+                    <div className="rounded-lg border border-border p-3 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recording Views</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                        <span className="text-muted-foreground">Unique viewers</span>
+                        <span className="font-medium">{s.recUniqueViewers}</span>
+                        <span className="text-muted-foreground">Times viewed</span>
+                        <span className="font-medium">{s.recTimesViewed}</span>
+                        <span className="text-muted-foreground">Total watched</span>
+                        <span className="font-medium">{s.recTotalWatchedMinutes} min</span>
+                        <span className="text-muted-foreground">Avg. per viewer</span>
+                        <span className="font-medium">{s.recAvgWatchedMinutes} min</span>
+                      </div>
+                      {s.recPerStudentWatch?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[11px] font-medium text-muted-foreground mb-1">Per student</p>
+                          <div className="max-h-36 overflow-y-auto rounded border border-border divide-y divide-border text-xs">
+                            {s.recPerStudentWatch.map((rv: any) => (
+                              <div key={rv.userId} className="flex items-center justify-between px-2 py-1 gap-2">
+                                <span className="text-muted-foreground shrink-0">ID {rv.userId}</span>
+                                <span>{rv.watchedMinutes} min</span>
+                                {rv.completionPercent !== null && (
+                                  <span className={`font-semibold ${rv.completionPercent >= 80 ? 'text-emerald-600' : rv.completionPercent >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>
+                                    {rv.completionPercent}%
+                                  </span>
+                                )}
+                                <span className="text-muted-foreground">{rv.timesViewed}×</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {s.closedBy && (
+                      <p className="text-xs text-muted-foreground">Closed by: {s.closedBy}</p>
+                    )}
+                  </div>
+                );
+              })()}
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => setCloseSummaryDialog(null)}>Done</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

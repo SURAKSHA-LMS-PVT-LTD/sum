@@ -57,6 +57,9 @@ export interface InstituteSettingsResponse {
   pwdResetWhatsappEnabled?: boolean;
   pwdResetSmsEnabled?: boolean;
   pwdResetEmailEnabled?: boolean;
+  userIdAutoGenerate?: boolean;
+  userIdPrefix?: string | null;
+  userIdLastCounter?: number | null;
 }
 
 export interface InstituteProfileResponse {
@@ -140,6 +143,8 @@ export interface UpdateInstituteSettingsDto {
   pwdResetWhatsappEnabled?: boolean;
   pwdResetSmsEnabled?: boolean;
   pwdResetEmailEnabled?: boolean;
+  userIdAutoGenerate?: boolean;
+  userIdPrefix?: string | null;
 }
 
 // ─── API ─────────────────────────────────────────────────────────

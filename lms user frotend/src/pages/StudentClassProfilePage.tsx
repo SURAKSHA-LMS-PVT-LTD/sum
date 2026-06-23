@@ -138,7 +138,7 @@ const StudentClassProfilePage: React.FC = () => {
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
   const [showActivityMap, setShowActivityMap] = useState<Record<string, boolean>>({});
-  const [activityTab, setActivityTab] = useState<'live' | 'recording'>('live');
+  const [activityTab, setActivityTab] = useState<'live' | 'recording' | 'summary'>('live');
 
   const [subjects, setSubjects] = useState<ClassSubject[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
@@ -633,15 +633,71 @@ const StudentClassProfilePage: React.FC = () => {
 
         <Section id="activities" icon={Video} title="Lecture Activities" badge={
           <div className="flex items-center gap-1.5">
-            {(['live', 'recording'] as const).map(tab => (
+            {(['live', 'recording', 'summary'] as const).map(tab => (
               <button key={tab} type="button" onClick={e => { e.stopPropagation(); setActivityTab(tab); }}
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${activityTab === tab ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
-                {tab === 'live' ? 'Live' : 'Recording'}
+                {tab === 'live' ? 'Live' : tab === 'recording' ? 'Recording' : 'Summary'}
               </button>
             ))}
           </div>
         } isOpen={openSections.has('activities')} onToggle={() => toggleSection('activities')} loading={loadingActivities} error={activitiesError} onRetry={() => { setActivitiesLoaded(false); loadActivities(); }}>
-          {loadingActivities ? <div className="space-y-2">{Array(3).fill(0).map((_, i) => <SkeletonRow key={i} />)}</div> : (() => {
+          {activityTab === 'summary' ? (() => {
+            // Read from pre-computed lectureSummary on completed lectures — zero extra API calls
+            const summaryRows = profileLectures
+              .filter((l: any) => l.status === 'completed' && l.lectureSummary && l.liveAttendanceEnabled)
+              .map((l: any) => {
+                const s = l.lectureSummary;
+                // studentId from URL params matches studentId in attendace marks (same user.id)
+                const sa = (s.studentAttendance ?? []).find((r: any) => String(r.studentId) === String(studentId));
+                const rec = (s.recPerStudentWatch ?? []).find((r: any) => String(r.userId) === String(studentId));
+                return { lecture: l, summary: s, sa, rec };
+              })
+              .sort((a: any, b: any) => new Date(b.lecture.startTime ?? 0).getTime() - new Date(a.lecture.startTime ?? 0).getTime());
+            if (summaryRows.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">No completed lectures with attendance summaries.</p>;
+            return (
+              <div className="space-y-2">
+                {summaryRows.map(({ lecture: l, summary: s, sa, rec }) => {
+                  const pct = sa ? sa.attendPercent : 0;
+                  const status = !sa ? 'Absent' : pct === 100 ? 'Present' : pct >= 50 ? 'Partial' : 'Low';
+                  const statusCls = !sa ? 'bg-rose-100 text-rose-700' : pct === 100 ? 'bg-emerald-100 text-emerald-700' : pct >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-orange-100 text-orange-700';
+                  return (
+                    <div key={l.id} className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 flex flex-col gap-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold truncate">{l.title}</p>
+                          <p className="text-[10px] text-muted-foreground">{l.startTime ? new Date(l.startTime).toLocaleDateString() : '—'} · {s.totalAttendanceSessions} link{s.totalAttendanceSessions !== 1 ? 's' : ''}</p>
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${statusCls}`}>{status}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[10px]">
+                        <div className="rounded-lg bg-background/60 px-2 py-1.5">
+                          <p className="text-muted-foreground">Attended</p>
+                          <p className="font-bold text-xs mt-0.5">{sa ? `${sa.attendCount}/${s.totalAttendanceSessions}` : `0/${s.totalAttendanceSessions}`}</p>
+                        </div>
+                        <div className="rounded-lg bg-background/60 px-2 py-1.5">
+                          <p className="text-muted-foreground">Percentage</p>
+                          <p className={`font-bold text-xs mt-0.5 ${pct === 100 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{pct}%</p>
+                        </div>
+                        <div className="rounded-lg bg-background/60 px-2 py-1.5">
+                          <p className="text-muted-foreground">Recording</p>
+                          <p className="font-bold text-xs mt-0.5">{rec ? `${rec.watchedMinutes}m` : '—'}</p>
+                        </div>
+                      </div>
+                      {sa && (
+                        <div className="flex gap-3 text-[10px] text-muted-foreground">
+                          <span>First: <span className="text-foreground font-medium">{sa.firstAt ? new Date(sa.firstAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span></span>
+                          <span>Last: <span className="text-foreground font-medium">{sa.lastAt ? new Date(sa.lastAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span></span>
+                          {rec?.completionPercent !== null && rec?.completionPercent !== undefined && (
+                            <span>Completion: <span className={`font-medium ${rec.completionPercent >= 80 ? 'text-emerald-600' : rec.completionPercent >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>{rec.completionPercent}%</span></span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })() : loadingActivities ? <div className="space-y-2">{Array(3).fill(0).map((_, i) => <SkeletonRow key={i} />)}</div> : (() => {
             const filtered = activities.filter((a: any) => activityTab === 'live' ? a.lecture.liveAttendanceEnabled : a.lecture.recAttendanceEnabled);
             if (filtered.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">No {activityTab === 'live' ? 'live lecture' : 'recording'} activities found.</p>;
             return (

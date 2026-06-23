@@ -135,17 +135,16 @@ class InstituteStudentsApi {
   async getStudentsByClass(
     instituteId: string,
     classId: string,
-    params: { page?: number; limit?: number; parent?: boolean } = {}
+    params: { page?: number; limit?: number; parent?: boolean; search?: string } = {}
   ): Promise<StudentListResponse> {
     const queryParams = new URLSearchParams({
       page: String(params.page || 1),
       limit: String(params.limit || 50)
     });
-    
-    // Only add parent param if explicitly specified
     if (params.parent !== undefined) {
       queryParams.append('parent', String(params.parent));
     }
+    if (params.search) queryParams.append('search', params.search);
 
     const attendanceUrl = getAttendanceUrl();
     const endpoint = `${attendanceUrl}/institute-users/institute/${instituteId}/users/STUDENT/class/${classId}?${queryParams}`;
@@ -163,17 +162,16 @@ class InstituteStudentsApi {
     instituteId: string,
     classId: string,
     subjectId: string,
-    params: { page?: number; limit?: number; parent?: boolean } = {}
+    params: { page?: number; limit?: number; parent?: boolean; search?: string } = {}
   ): Promise<StudentListResponse> {
     const queryParams = new URLSearchParams({
       page: String(params.page || 1),
       limit: String(params.limit || 50)
     });
-    
-    // Only add parent param if explicitly specified
     if (params.parent !== undefined) {
       queryParams.append('parent', String(params.parent));
     }
+    if (params.search) queryParams.append('search', params.search);
 
     const attendanceUrl = getAttendanceUrl();
     const endpoint = `${attendanceUrl}/institute-users/institute/${instituteId}/users/STUDENT/class/${classId}/subject/${subjectId}?${queryParams}`;

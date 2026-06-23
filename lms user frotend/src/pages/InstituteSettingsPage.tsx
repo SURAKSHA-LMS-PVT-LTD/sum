@@ -159,6 +159,12 @@ const InstituteSettingsPage = () => {
   const [allowUserPhotoUpload, setAllowUserPhotoUpload] = useState(true);
   const [photoUploadSaving, setPhotoUploadSaving] = useState(false);
 
+  // User ID auto-generate
+  const [idAutoGenerate, setIdAutoGenerate] = useState(false);
+  const [idPrefix, setIdPrefix] = useState('');
+  const [idLastCounter, setIdLastCounter] = useState<number | null>(null);
+  const [idAutoGenSaving, setIdAutoGenSaving] = useState(false);
+
   // Password-reset OTP channels (WhatsApp on by default; SMS/Email off)
   const [pwdResetWhatsapp, setPwdResetWhatsapp] = useState(true);
   const [pwdResetSms, setPwdResetSms] = useState(false);
@@ -317,6 +323,9 @@ const InstituteSettingsPage = () => {
         receiptFooter: (response as any).printerSettings?.receiptFooter ?? '',
       });
       setAllowUserPhotoUpload(response.allowUserPhotoUpload ?? true);
+      setIdAutoGenerate(response.userIdAutoGenerate ?? false);
+      setIdPrefix(response.userIdPrefix ?? '');
+      setIdLastCounter(response.userIdLastCounter ?? null);
       setPwdResetWhatsapp(response.pwdResetWhatsappEnabled ?? true);
       setPwdResetSms(response.pwdResetSmsEnabled ?? false);
       setPwdResetEmail(response.pwdResetEmailEnabled ?? false);
@@ -544,6 +553,25 @@ const InstituteSettingsPage = () => {
       toast({ title: 'Error', description: e.message || 'Failed to save photo policy', variant: 'destructive' });
     } finally {
       setPhotoUploadSaving(false);
+    }
+  };
+
+  const handleSaveIdAutoGenerate = async () => {
+    if (!currentInstituteId) return;
+    setIdAutoGenSaving(true);
+    try {
+      const res: any = await enhancedCachedClient.patch(
+        `/institutes/${currentInstituteId}/settings`,
+        { userIdAutoGenerate: idAutoGenerate, userIdPrefix: idPrefix || null },
+        { instituteId: currentInstituteId },
+      );
+      await secureCache.clearCache(`/institutes/${currentInstituteId}/settings`, {}, { instituteId: currentInstituteId });
+      setIdLastCounter(res.userIdLastCounter ?? idLastCounter);
+      toast({ title: 'Saved', description: 'User ID settings updated.' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'Failed to save', variant: 'destructive' });
+    } finally {
+      setIdAutoGenSaving(false);
     }
   };
 
@@ -1779,6 +1807,46 @@ const InstituteSettingsPage = () => {
         {/* Session Limits */}
         <TabsContent value="session-limits">
           <div className="space-y-6">
+
+            {/* ── User ID Auto-Generate ── */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  User ID Auto-Generate
+                  <span className="text-xs font-normal text-muted-foreground ml-1">/ ශිෂ්‍ය ID ස්වයංක්‍රීය</span>
+                </CardTitle>
+                <CardDescription>
+                  When enabled, the system assigns a sequential Institute User ID automatically. Admins cannot enter IDs manually.
+                  <br /><span className="text-[11px]">සක්‍රිය කළ විට ආයතනය ID ස්වයංක්‍රීයව ලබා දේ. ප්‍රවේශ අංකයකින් ආරම්භ වේ.</span>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="flex items-center gap-3">
+                  <Switch checked={idAutoGenerate} onCheckedChange={setIdAutoGenerate} />
+                  <Label>{idAutoGenerate ? 'Auto-generate ON / ස්වයංක්‍රීය සක්‍රිය' : 'Auto-generate OFF / අක්‍රිය'}</Label>
+                </div>
+                {idAutoGenerate && (
+                  <div className="space-y-4 pl-1">
+                    <div className="space-y-1.5 max-w-xs">
+                      <Label>ID Prefix <span className="text-muted-foreground font-normal text-xs">(optional / අභිමත)</span></Label>
+                      <Input
+                        value={idPrefix}
+                        onChange={e => setIdPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
+                        placeholder="e.g. RC, STU, TCH"
+                        maxLength={10}
+                      />
+                      <p className="text-[10px] text-muted-foreground">ඉදිරි ID: <span className="font-mono font-medium text-foreground">{idPrefix}{String((idLastCounter ?? 0) + 1).padStart(Math.max(3, String((idLastCounter ?? 0) + 1).length), '0')}</span></p>
+                    </div>
+                    {idLastCounter !== null && (
+                      <p className="text-xs text-muted-foreground">Last issued counter: <strong>{idLastCounter}</strong></p>
+                    )}
+                  </div>
+                )}
+                <Button onClick={handleSaveIdAutoGenerate} disabled={idAutoGenSaving} size="sm">
+                  {idAutoGenSaving ? 'Saving…' : 'Save User ID Settings'}
+                </Button>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">

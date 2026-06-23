@@ -351,6 +351,24 @@ class LectureTrackingApi {
     );
   }
 
+  getLiveAttendanceSessionGrid(params: {
+    lectureId: string;
+    classId: string;
+    instituteId: string;
+  }): Promise<{
+    lecture: { id: string; title: string; startTime: string; subjectId: string | null };
+    sessions: Array<{ id: string; urlId: string; expiresAt: string; validSeconds: number; createdAt: string; markCount: number }>;
+    students: Array<{ id: string; name: string; imageUrl: string | null }>;
+    grid: Record<string, Record<string, { marked: boolean; markedAt?: string }>>;
+  }> {
+    const qs = new URLSearchParams({
+      lectureId: params.lectureId,
+      classId: params.classId,
+      instituteId: params.instituteId,
+    });
+    return request(`/lecture-tracking/live-attendance/session-grid?${qs}`, {}, true);
+  }
+
   getLiveAttendanceReport(lectureId: string): Promise<LiveAttendanceRow[]> {
     return request<LiveAttendanceRow[]>(
       `/lecture-tracking/reports/${lectureId}/live`,

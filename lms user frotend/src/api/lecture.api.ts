@@ -47,6 +47,23 @@ export interface Lecture {
   welcomeMessageEnabled?: boolean;
   welcomeMessageText?: string;
   welcomeMessageVoiceEnabled?: boolean;
+  closedAt?: string;
+  lectureSummary?: {
+    totalAttendanceSessions: number;
+    totalStudentsMarked: number;
+    fullAttendanceCount: number;
+    studentAttendance: Array<{ studentId: string; attendCount: number; attendPercent: number; firstAt: string; lastAt: string }>;
+    liveDirectJoins: number;
+    liveDirectUniqueUsers: number;
+    liveGuestJoins: number;
+    liveAvgDurationMinutes: number;
+    recUniqueViewers: number;
+    recTimesViewed: number;
+    recTotalWatchedMinutes: number;
+    recAvgWatchedMinutes: number;
+    recPerStudentWatch: Array<{ userId: string; watchedMinutes: number; completionPercent: number | null; timesViewed: number; lastPositionMinutes: number }>;
+    closedBy?: string;
+  } | null;
 }
 
 export interface LectureCreateData {
