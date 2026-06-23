@@ -630,7 +630,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           ...(!isTuitionInstitute && !selectedClass ? [{ id: FEATURE_KEYS.INSTITUTE_ORGANIZATIONS, label: 'Organization', icon: Building2 }] : []),
         ];
         groups.push({ id: 'academics', label: 'Academics', icon: BookOpen,
-          defaultOpen: hasActiveInGroup(['classes','institute-subjects','institute-lectures','class-lectures','class-subjects','study-materials','lectures','subject-recordings','homework','exams'], activePage),
+          defaultOpen: true,
           items: academicItems });
 
         // Attendance
@@ -787,7 +787,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       ]});
 
       groups.push({ id: 'academics', label: 'Academics', icon: BookOpen,
-        defaultOpen: hasActiveInGroup(['homework','homework-submissions','exams'], activePage),
+        defaultOpen: true,
         items: [
           { id: FEATURE_KEYS.HOMEWORK, label: 'Homework', icon: Notebook },
           { id: 'homework-submissions', label: 'Submit Homework', icon: FileText, alwaysShow: true },
@@ -851,7 +851,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         }
 
         if (selectedSubject) {
-          groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
+          groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, defaultOpen: true, items: [
             { id: FEATURE_KEYS.FREE_LECTURES, label: 'Free Lectures', icon: Video },
           ]});
         }
@@ -912,7 +912,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           { id: FEATURE_KEYS.VERIFY_IMAGE, label: 'Verify Photos', icon: ShieldCheck },
         ]});
 
-        groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
+        groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, defaultOpen: true, items: [
           { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School },
           { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectsLabel}`, icon: BookOpen },
           { id: FEATURE_KEYS.INSTITUTE_LECTURES, label: 'Institute Lectures', icon: Video },
@@ -988,7 +988,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         { id: FEATURE_KEYS.VERIFY_IMAGE, label: 'Verify Photos', icon: ShieldCheck },
       ]});
 
-      groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, items: [
+      groups.push({ id: 'academics', label: 'Academics', icon: BookOpen, defaultOpen: true, items: [
         { id: FEATURE_KEYS.CLASSES, label: 'All Classes', icon: School },
         { id: FEATURE_KEYS.INSTITUTE_SUBJECTS, label: `Institute ${subjectsLabel}`, icon: BookOpen },
         ...(user?.role !== 'SystemAdmin' ? [
