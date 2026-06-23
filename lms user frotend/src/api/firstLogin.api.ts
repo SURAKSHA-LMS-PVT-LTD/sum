@@ -150,6 +150,30 @@ export const requestPhoneOtp = async (
   );
 };
 
+/** 3A-WA — Request WhatsApp reverse-OTP for phone verification in first-login flow (requires JWT) */
+export const requestPhoneOtpWhatsAppFirstLogin = async (
+  phoneNumber: string,
+  token: string
+): Promise<{ success: boolean; message: string; waLink: string; expiresAt?: string }> => {
+  return apiFetch(
+    `${getApiBase()}/auth/first-login/phone/request-otp-whatsapp`,
+    { phoneNumber },
+    token
+  );
+};
+
+/** 3A-WA — Check WhatsApp OTP status in first-login flow (requires JWT) */
+export const getPhoneOtpStatusFirstLogin = async (
+  phoneNumber: string,
+  token: string
+): Promise<{ verified: boolean; expired: boolean }> => {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+  const res = await fetch(`${getApiBase()}/auth/first-login/phone/otp-status?phoneNumber=${encodeURIComponent(phoneNumber)}`, { headers });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Status check failed');
+  return data as { verified: boolean; expired: boolean };
+};
+
 /** 3A — Verify phone OTP (in-flow, requires JWT) */
 export const verifyPhoneInFlow = async (
   phoneNumber: string,

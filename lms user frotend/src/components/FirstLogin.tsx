@@ -19,13 +19,14 @@ import {
   type VerifyOtpResponse,
   initiateFirstLogin,
   verifyFirstLoginOtp,
-  requestPhoneOtp,
-  verifyPhoneInFlow,
   requestEmailOtp,
   verifyEmailOtp,
   completeFirstLogin,
   storeFirstLoginTokens,
+  requestPhoneOtpWhatsAppFirstLogin,
+  getPhoneOtpStatusFirstLogin,
 } from '@/api/firstLogin.api';
+import WhatsAppPhoneVerify from '@/components/registration/WhatsAppPhoneVerify';
 
 // ============= TYPES =============
 
@@ -138,10 +139,7 @@ const FirstLogin: React.FC<FirstLoginProps> = ({ onBack, onComplete }) => {
   const [inlineEmailOtpSent, setInlineEmailOtpSent] = useState(false);
   const [inlineEmailOtpTimer, setInlineEmailOtpTimer] = useState(0);
 
-  // ── Inline phone verification on profile step ──
-  const [inlinePhoneOtp, setInlinePhoneOtp] = useState('');
-  const [inlinePhoneOtpSent, setInlinePhoneOtpSent] = useState(false);
-  const [inlinePhoneOtpTimer, setInlinePhoneOtpTimer] = useState(0);
+  // ── Inline phone verification on profile step (now handled by WhatsAppPhoneVerify) ──
 
   const { toast } = useToast();
 
@@ -167,13 +165,6 @@ const FirstLogin: React.FC<FirstLoginProps> = ({ onBack, onComplete }) => {
       return () => clearTimeout(t);
     }
   }, [inlineEmailOtpTimer]);
-
-  useEffect(() => {
-    if (inlinePhoneOtpTimer > 0) {
-      const t = setTimeout(() => setInlinePhoneOtpTimer(prev => prev - 1), 1000);
-      return () => clearTimeout(t);
-    }
-  }, [inlinePhoneOtpTimer]);
 
   // ============= STEP 1: INITIATE =============
 
@@ -322,23 +313,15 @@ const FirstLogin: React.FC<FirstLoginProps> = ({ onBack, onComplete }) => {
   // ============= STEP 3: ADDITIONAL VERIFICATION =============
 
   const handleRequestAdditionalOtp = async () => {
-    if (!additionalInput.trim()) return;
+    if (!additionalInput.trim() || additionalType !== 'email') return;
     setError('');
     setIsLoading(true);
     try {
-      if (additionalType === 'email') {
-        const data = await requestEmailOtp(additionalInput.trim(), firstLoginToken);
-        setAdditionalOtpTimer(data.expiresInMinutes ? data.expiresInMinutes * 60 : 900);
-      } else {
-        const data = await requestPhoneOtp(additionalInput.trim(), firstLoginToken);
-        setAdditionalOtpTimer(data.expiresInMinutes ? data.expiresInMinutes * 60 : 900);
-      }
+      const data = await requestEmailOtp(additionalInput.trim(), firstLoginToken);
+      setAdditionalOtpTimer(data.expiresInMinutes ? data.expiresInMinutes * 60 : 900);
       setAdditionalOtpSent(true);
       setAdditionalOtp('');
-      toast({
-        title: 'OTP Sent',
-        description: `Verification code sent via ${additionalType === 'phone' ? 'SMS' : 'email'}`,
-      });
+      toast({ title: 'OTP Sent', description: 'Verification code sent via email' });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -347,34 +330,21 @@ const FirstLogin: React.FC<FirstLoginProps> = ({ onBack, onComplete }) => {
   };
 
   const handleVerifyAdditionalOtp = async () => {
-    if (additionalOtp.length !== 6) return;
+    if (additionalOtp.length !== 6 || additionalType !== 'email') return;
     setError('');
     setIsLoading(true);
     try {
-      if (additionalType === 'email') {
-        await verifyEmailOtp(additionalInput.trim(), additionalOtp, firstLoginToken);
-        setIsEmailVerified(true);
-        setFormData(prev => ({ ...prev, email: additionalInput.trim() }));
-        toast({ title: 'Email Verified!', description: `${additionalInput} has been verified.` });
-      } else {
-        await verifyPhoneInFlow(additionalInput.trim(), additionalOtp, firstLoginToken);
-        setIsPhoneVerified(true);
-        toast({ title: 'Phone Verified!', description: `${additionalInput} has been verified.` });
-      }
+      await verifyEmailOtp(additionalInput.trim(), additionalOtp, firstLoginToken);
+      setIsEmailVerified(true);
+      setFormData(prev => ({ ...prev, email: additionalInput.trim() }));
+      toast({ title: 'Email Verified!', description: `${additionalInput} has been verified.` });
 
-      // Check if there's another verification still needed
-      const updatedStill = { ...verificationsStillRequired };
-      if (additionalType === 'email') updatedStill.email = false;
-      if (additionalType === 'phone') updatedStill.phone = false;
+      const updatedStill = { ...verificationsStillRequired, email: false };
       setVerificationsStillRequired(updatedStill);
 
-      if (updatedStill.phone || updatedStill.email) {
-        // Switch to the other verification
-        const nextType = updatedStill.phone ? 'phone' : 'email';
-        setAdditionalType(nextType);
-        setAdditionalInput(
-          nextType === 'email' ? (profile?.email?.value || '') : (profile?.phoneNumber?.value || '')
-        );
+      if (updatedStill.phone) {
+        setAdditionalType('phone');
+        setAdditionalInput(profile?.phoneNumber?.value || '');
         setAdditionalOtp('');
         setAdditionalOtpSent(false);
         setAdditionalOtpTimer(0);
@@ -415,37 +385,6 @@ const FirstLogin: React.FC<FirstLoginProps> = ({ onBack, onComplete }) => {
       setIsEmailVerified(true);
       setFormData(prev => ({ ...prev, email: emailValue }));
       toast({ title: 'Email Verified!', description: `${emailValue} has been verified.` });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleInlinePhoneRequestOtp = async (phoneValue: string) => {
-    setError('');
-    setIsLoading(true);
-    try {
-      const data = await requestPhoneOtp(phoneValue, firstLoginToken);
-      setInlinePhoneOtpSent(true);
-      setInlinePhoneOtp('');
-      setInlinePhoneOtpTimer(data.expiresInMinutes ? data.expiresInMinutes * 60 : 900);
-      toast({ title: 'Phone OTP Sent', description: data.message });
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleInlinePhoneVerifyOtp = async (phoneValue: string) => {
-    if (inlinePhoneOtp.length !== 6) return;
-    setError('');
-    setIsLoading(true);
-    try {
-      await verifyPhoneInFlow(phoneValue, inlinePhoneOtp, firstLoginToken);
-      setIsPhoneVerified(true);
-      toast({ title: 'Phone Verified!', description: `${phoneValue} has been verified.` });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -747,7 +686,7 @@ const FirstLogin: React.FC<FirstLoginProps> = ({ onBack, onComplete }) => {
       );
     }
 
-    // ── Phone with verification ──
+    // ── Phone with verification (WhatsApp reverse-OTP) ──
     if (key === 'phoneNumber' && field.needsVerification !== undefined) {
       const phoneValue = formData.phoneNumber || field.value || '';
       const verified = isPhoneVerified || field.isVerified;
@@ -762,69 +701,28 @@ const FirstLogin: React.FC<FirstLoginProps> = ({ onBack, onComplete }) => {
               </Badge>
             )}
           </Label>
+          {field.editable && !verified && (
+            <Input
+              type="tel"
+              value={phoneValue}
+              onChange={e => updateField('phoneNumber', e.target.value)}
+              placeholder="077XXXXXXX"
+              className="h-10"
+            />
+          )}
           {verified ? (
             <Input value={phoneValue} disabled className="bg-muted/50" />
           ) : (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  type="tel"
-                  value={phoneValue}
-                  onChange={e => {
-                    if (field.editable) updateField('phoneNumber', e.target.value);
-                  }}
-                  placeholder="077XXXXXXX"
-                  className="flex-1 h-10"
-                  disabled={!field.editable}
-                />
-                {!inlinePhoneOtpSent && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInlinePhoneRequestOtp(phoneValue)}
-                    disabled={!phoneValue || isLoading}
-                    className="h-10 whitespace-nowrap"
-                  >
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Code'}
-                  </Button>
-                )}
-              </div>
-              {inlinePhoneOtpSent && !verified && (
-                <div className="space-y-2 bg-muted/30 p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground">Enter the 6-digit code sent to {phoneValue}</p>
-                  <div className="flex gap-2 items-center">
-                    <InputOTP maxLength={6} value={inlinePhoneOtp} onChange={setInlinePhoneOtp} className="gap-1">
-                      <InputOTPGroup className="gap-1">
-                        {[0, 1, 2, 3, 4, 5].map(i => (
-                          <InputOTPSlot key={i} index={i} className="w-9 h-10 text-base" />
-                        ))}
-                      </InputOTPGroup>
-                    </InputOTP>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => handleInlinePhoneVerifyOtp(phoneValue)}
-                      disabled={inlinePhoneOtp.length !== 6 || isLoading}
-                      className="h-10"
-                    >
-                      Verify
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    {inlinePhoneOtpTimer > 0 ? (
-                      <p className="text-xs text-muted-foreground">Resend in {formatTimer(inlinePhoneOtpTimer)}</p>
-                    ) : (
-                      <Button type="button" variant="ghost" size="sm"
-                        onClick={() => handleInlinePhoneRequestOtp(phoneValue)} disabled={isLoading}
-                        className="text-xs h-7 px-2">
-                        Resend Code
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <WhatsAppPhoneVerify
+              phoneNumber={phoneValue}
+              requestFn={phone => requestPhoneOtpWhatsAppFirstLogin(phone, firstLoginToken)}
+              statusFn={phone => getPhoneOtpStatusFirstLogin(phone, firstLoginToken)}
+              onVerified={() => {
+                setIsPhoneVerified(true);
+                toast({ title: 'Phone Verified!', description: `${phoneValue} has been verified via WhatsApp.` });
+              }}
+              autoPoll
+            />
           )}
         </div>
       );
@@ -1144,7 +1042,7 @@ const FirstLogin: React.FC<FirstLoginProps> = ({ onBack, onComplete }) => {
                 <div className="space-y-3 md:space-y-4">
                   <div className="text-center">
                     <p className="text-xs md:text-sm text-muted-foreground">
-                      {additionalType === 'email' ? 'Verify your email address to continue.' : 'Verify your phone number to continue.'}
+                      {additionalType === 'email' ? 'Verify your email address to continue.' : 'Verify your phone number via WhatsApp to continue.'}
                     </p>
                   </div>
 
@@ -1152,54 +1050,80 @@ const FirstLogin: React.FC<FirstLoginProps> = ({ onBack, onComplete }) => {
                     <Label className="text-sm font-medium text-foreground">
                       {additionalType === 'email' ? 'Email Address' : 'Phone Number'}
                     </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type={additionalType === 'email' ? 'email' : 'tel'}
-                        value={additionalInput}
-                        onChange={e => setAdditionalInput(e.target.value)}
-                        placeholder={additionalType === 'email' ? 'your@email.com' : '077XXXXXXX'}
-                        className="flex-1 h-10 md:h-11 text-base"
-                        disabled={
-                          additionalType === 'email'
-                            ? (!!profile?.email?.value && !profile.email.editable)
-                            : (!!profile?.phoneNumber?.value && !profile.phoneNumber.editable)
-                        }
-                      />
-                      {!additionalOtpSent && (
-                        <Button type="button" onClick={handleRequestAdditionalOtp} disabled={!additionalInput.trim() || isLoading} className="h-10 md:h-11 px-4">
-                          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Code'}
-                        </Button>
-                      )}
-                    </div>
+                    <Input
+                      type={additionalType === 'email' ? 'email' : 'tel'}
+                      value={additionalInput}
+                      onChange={e => setAdditionalInput(e.target.value)}
+                      placeholder={additionalType === 'email' ? 'your@email.com' : '077XXXXXXX'}
+                      className="h-10 md:h-11 text-base"
+                      disabled={
+                        additionalType === 'email'
+                          ? (!!profile?.email?.value && !profile.email.editable)
+                          : (!!profile?.phoneNumber?.value && !profile.phoneNumber.editable)
+                      }
+                    />
                   </div>
 
-                  {additionalOtpSent && (
-                    <div className="space-y-3 bg-primary/5 p-3 rounded-lg border border-border/50">
-                      <p className="text-xs text-muted-foreground text-center">
-                        Enter the 6-digit code sent to <strong className="text-foreground">{additionalInput}</strong>
-                      </p>
-                      <div className="flex justify-center">
-                        <InputOTP maxLength={6} value={additionalOtp} onChange={setAdditionalOtp} className="gap-1.5">
-                          <InputOTPGroup className="gap-1.5">
-                            {[0, 1, 2, 3, 4, 5].map(i => (
-                              <InputOTPSlot key={i} index={i} className="w-10 h-12 text-lg" />
-                            ))}
-                          </InputOTPGroup>
-                        </InputOTP>
-                      </div>
-                      <Button type="button" className="w-full h-10 md:h-11 text-base touch-manipulation" onClick={handleVerifyAdditionalOtp} disabled={additionalOtp.length !== 6 || isLoading}>
-                        {isLoading ? 'Verifying...' : 'Verify'}
-                      </Button>
-                      <div className="text-center">
-                        {additionalOtpTimer > 0 ? (
-                          <p className="text-xs text-muted-foreground">Resend in <span className="font-semibold text-foreground">{formatTimer(additionalOtpTimer)}</span></p>
-                        ) : (
-                          <Button type="button" variant="ghost" size="sm" onClick={handleRequestAdditionalOtp} disabled={isLoading} className="text-xs h-7">
-                            Resend Code
+                  {additionalType === 'phone' ? (
+                    <WhatsAppPhoneVerify
+                      phoneNumber={additionalInput}
+                      requestFn={phone => requestPhoneOtpWhatsAppFirstLogin(phone, firstLoginToken)}
+                      statusFn={phone => getPhoneOtpStatusFirstLogin(phone, firstLoginToken)}
+                      onVerified={() => {
+                        setIsPhoneVerified(true);
+                        toast({ title: 'Phone Verified!', description: `${additionalInput} has been verified via WhatsApp.` });
+                        const updatedStill = { ...verificationsStillRequired, phone: false };
+                        setVerificationsStillRequired(updatedStill);
+                        if (updatedStill.email) {
+                          setAdditionalType('email');
+                          setAdditionalInput(profile?.email?.value || '');
+                          setAdditionalOtp('');
+                          setAdditionalOtpSent(false);
+                        } else {
+                          navigateToStep('complete-profile');
+                        }
+                      }}
+                      autoPoll
+                    />
+                  ) : (
+                    <>
+                      <div className="flex gap-2">
+                        {!additionalOtpSent && (
+                          <Button type="button" onClick={handleRequestAdditionalOtp} disabled={!additionalInput.trim() || isLoading} className="w-full h-10 md:h-11">
+                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Email Code'}
                           </Button>
                         )}
                       </div>
-                    </div>
+
+                      {additionalOtpSent && (
+                        <div className="space-y-3 bg-primary/5 p-3 rounded-lg border border-border/50">
+                          <p className="text-xs text-muted-foreground text-center">
+                            Enter the 6-digit code sent to <strong className="text-foreground">{additionalInput}</strong>
+                          </p>
+                          <div className="flex justify-center">
+                            <InputOTP maxLength={6} value={additionalOtp} onChange={setAdditionalOtp} className="gap-1.5">
+                              <InputOTPGroup className="gap-1.5">
+                                {[0, 1, 2, 3, 4, 5].map(i => (
+                                  <InputOTPSlot key={i} index={i} className="w-10 h-12 text-lg" />
+                                ))}
+                              </InputOTPGroup>
+                            </InputOTP>
+                          </div>
+                          <Button type="button" className="w-full h-10 md:h-11 text-base touch-manipulation" onClick={handleVerifyAdditionalOtp} disabled={additionalOtp.length !== 6 || isLoading}>
+                            {isLoading ? 'Verifying...' : 'Verify'}
+                          </Button>
+                          <div className="text-center">
+                            {additionalOtpTimer > 0 ? (
+                              <p className="text-xs text-muted-foreground">Resend in <span className="font-semibold text-foreground">{formatTimer(additionalOtpTimer)}</span></p>
+                            ) : (
+                              <Button type="button" variant="ghost" size="sm" onClick={handleRequestAdditionalOtp} disabled={isLoading} className="text-xs h-7">
+                                Resend Code
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   <Button type="button" variant="ghost" onClick={handleBack} className="w-full h-9 md:h-10 touch-manipulation">
