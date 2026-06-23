@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 export interface PaginationConfig {
   defaultLimit?: number;
@@ -42,9 +42,19 @@ export const usePagination = (config: PaginationConfig = {}): UsePaginationRetur
 
   const totalPages = Math.ceil(totalCount / limit);
 
+  // Keep the latest totalPages in a ref so the action callbacks below can stay
+  // referentially stable (empty deps). Previously setPage/nextPage/prevPage were
+  // recreated whenever totalPages changed — and totalPages changes on every data
+  // load via setTotalCount — which made the whole `actions` object a new reference
+  // each load, cascading into infinite re-render loops in consumers (React #185).
+  const totalPagesRef = useRef(totalPages);
+  totalPagesRef.current = totalPages;
+  const pageRef = useRef(page);
+  pageRef.current = page;
+
   const setPage = useCallback((newPage: number) => {
-    setPageState(Math.max(0, Math.min(newPage, totalPages - 1)));
-  }, [totalPages]);
+    setPageState(Math.max(0, Math.min(newPage, totalPagesRef.current - 1)));
+  }, []);
 
   const setLimit = useCallback((newLimit: number) => {
     if (finalConfig.availableLimits.includes(newLimit)) {
@@ -58,16 +68,16 @@ export const usePagination = (config: PaginationConfig = {}): UsePaginationRetur
   }, []);
 
   const nextPage = useCallback(() => {
-    if (page < totalPages - 1) {
-      setPage(page + 1);
+    if (pageRef.current < totalPagesRef.current - 1) {
+      setPage(pageRef.current + 1);
     }
-  }, [page, totalPages, setPage]);
+  }, [setPage]);
 
   const prevPage = useCallback(() => {
-    if (page > 0) {
-      setPage(page - 1);
+    if (pageRef.current > 0) {
+      setPage(pageRef.current - 1);
     }
-  }, [page, setPage]);
+  }, [setPage]);
 
   const reset = useCallback(() => {
     setPageState(0);

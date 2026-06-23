@@ -15,6 +15,7 @@ import LectureThumbnailUpload from '@/components/common/LectureThumbnailUpload';
 import LectureTrackingSettings, { TrackingSettingsData } from '@/components/common/LectureTrackingSettings';
 import LectureWelcomeMessageSettings, { WelcomeMessageSettingsData } from '@/components/common/LectureWelcomeMessageSettings';
 import LectureUrlPanel from '@/components/common/LectureUrlPanel';
+import DurationInput from '@/components/common/DurationInput';
 
 interface UpdateLectureFormProps {
   lecture: any;
@@ -31,6 +32,10 @@ const UpdateLectureForm = ({ lecture, onClose, onSuccess }: UpdateLectureFormPro
     Array.isArray(lecture.materials) ? lecture.materials : []
   );
   const [thumbnailUrl, setThumbnailUrl] = useState(lecture.thumbnailUrl || '');
+  const [recDurationSeconds, setRecDurationSeconds] = useState<number | undefined>(
+    lecture.recDurationSeconds ?? undefined
+  );
+
   const [trackingData, setTrackingData] = useState<TrackingSettingsData>({
     liveAttendanceEnabled: lecture.liveAttendanceEnabled ?? false,
     liveAccessLevel: lecture.liveAccessLevel ?? 'ENROLLED_ONLY',
@@ -39,6 +44,7 @@ const UpdateLectureForm = ({ lecture, onClose, onSuccess }: UpdateLectureFormPro
     recPlatform: lecture.recPlatform ?? 'SYSTEM',
     recAccessLevel: lecture.recAccessLevel ?? 'ENROLLED_ONLY',
     recPaymentId: lecture.recPaymentId,
+    recTrackingDays: lecture.recTrackingDays ?? null,
   });
   const [welcomeData, setWelcomeData] = useState<WelcomeMessageSettingsData>({
     welcomeMessageEnabled: lecture.welcomeMessageEnabled ?? false,
@@ -131,6 +137,8 @@ const UpdateLectureForm = ({ lecture, onClose, onSuccess }: UpdateLectureFormPro
         recPlatform: trackingData.recPlatform,
         recAccessLevel: trackingData.recAccessLevel,
         recPaymentId: trackingData.recPaymentId || null,
+        recTrackingDays: trackingData.recTrackingDays ?? null,
+        recDurationSeconds: recDurationSeconds ?? null,
         welcomeMessageEnabled: welcomeData.welcomeMessageEnabled,
         welcomeMessageText: welcomeData.welcomeMessageText || null,
         welcomeMessageVoiceEnabled: welcomeData.welcomeMessageVoiceEnabled,
@@ -162,8 +170,18 @@ const UpdateLectureForm = ({ lecture, onClose, onSuccess }: UpdateLectureFormPro
     }
   };
 
+  const detectPlatform = (url: string): 'SYSTEM' | 'YOUTUBE' | 'GOOGLE_DRIVE' => {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YOUTUBE';
+    if (url.includes('drive.google.com')) return 'GOOGLE_DRIVE';
+    return 'SYSTEM';
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (field === 'recordingUrl' && typeof value === 'string') {
+      const detected = detectPlatform(value);
+      setTrackingData(prev => ({ ...prev, recPlatform: detected }));
+    }
   };
 
   return (
@@ -321,6 +339,12 @@ const UpdateLectureForm = ({ lecture, onClose, onSuccess }: UpdateLectureFormPro
 
                 </div>
               </div>
+              <DurationInput
+                label="Recording Duration"
+                value={recDurationSeconds}
+                onChange={setRecDurationSeconds}
+                disabled={loading}
+              />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center space-x-2">
                   <input

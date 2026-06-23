@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import AppLoadingScreen from '@/components/AppLoadingScreen';
+import TrackingViewDialog from '@/components/TrackingViewDialog';
 import { User, Video, Info, Lock, Key, Mail, LockIcon, MonitorSmartphone, AlertCircle, PlayCircle } from 'lucide-react';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ export default function LiveLecturePage() {
   // Join state
   const [joinErr, setJoinErr] = useState('');
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
+  const [recDialog, setRecDialog] = useState(false);
   const leaveRef = useRef<(() => void) | null>(null);
   const [pendingJoinAsGuest, setPendingJoinAsGuest] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -500,8 +502,20 @@ export default function LiveLecturePage() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-800 mb-1">Session Ended</h2>
-                  <p className="text-slate-500 text-sm">This lecture has concluded. Check your class for a recording.</p>
+                  <p className="text-slate-500 text-sm">This lecture has concluded.</p>
                 </div>
+                {info?.recAttendanceEnabled && info?.recUrlId ? (
+                  <button
+                    type="button"
+                    onClick={() => setRecDialog(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold text-sm hover:from-blue-700 hover:to-blue-800 transition shadow-lg shadow-blue-500/20"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    Watch Recording
+                  </button>
+                ) : (
+                  <p className="text-slate-400 text-xs">Check your class for a recording.</p>
+                )}
               </div>
             )}
 
@@ -963,6 +977,16 @@ export default function LiveLecturePage() {
         </div>
 
       </div>
+
+      {info?.recAttendanceEnabled && info?.recUrlId && (
+        <TrackingViewDialog
+          open={recDialog}
+          onOpenChange={setRecDialog}
+          mode="recording"
+          urlId={info.recUrlId}
+          title={info.title}
+        />
+      )}
     </div>
   );
 }

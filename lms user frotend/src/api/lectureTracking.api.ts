@@ -37,6 +37,9 @@ export interface LiveAccessInfo {
   welcomeMessageVoiceEnabled?: boolean;
   /** Only present when hasAccess === true */
   meetingLink?: string;
+  /** Present when the lecture has a tracked recording */
+  recUrlId?: string;
+  recAttendanceEnabled?: boolean;
 }
 
 export interface RecordingAccessInfo {

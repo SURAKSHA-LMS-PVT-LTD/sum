@@ -300,7 +300,13 @@ const InstituteUsers = () => {
           .filter((n: any) => typeof n === 'string' && n.trim() !== '')
       )
     ).sort() as string[];
-    if (names.length > 0) setInstituteNameOptions(names);
+    if (names.length === 0) return;
+    // Only update when the set of names actually changed by value — otherwise this
+    // setState fires on every render (allLoadedUsers is a fresh array each render),
+    // causing an infinite update loop (React error #185).
+    setInstituteNameOptions(prev =>
+      prev.length === names.length && prev.every((n, i) => n === names[i]) ? prev : names
+    );
   }, [allLoadedUsers]);
 
   const createUserRequest = useApiRequest(async (userData: any) => {

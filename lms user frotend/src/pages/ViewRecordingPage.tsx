@@ -677,10 +677,20 @@ export default function ViewRecordingPage() {
     continueAfterWelcome();
   }, [continueAfterWelcome]);
 
+  // Derive the correct platform from the recording URL — backend may have stored SYSTEM
+  // even when the URL is a YouTube or Drive link (e.g. when teacher pastes URL into a
+  // plain recordingUrl field that has no platform selector).
+  const resolvedPlatform = (() => {
+    const url = info?.recordingUrl ?? '';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YOUTUBE';
+    if (url.includes('drive.google.com')) return 'GOOGLE_DRIVE';
+    return info?.platform ?? 'SYSTEM';
+  })();
+
   // ── YouTube IFrame API init ──────────────────────────────────────────────
 
   useEffect(() => {
-    if (phase !== 'playing' || info?.platform !== 'YOUTUBE' || !info.recordingUrl) return;
+    if (phase !== 'playing' || resolvedPlatform !== 'YOUTUBE' || !info?.recordingUrl) return;
     const ytId = extractYouTubeId(info.recordingUrl);
     if (!ytId) return;
 
@@ -753,7 +763,7 @@ export default function ViewRecordingPage() {
       ytPlayerRef.current?.destroy?.();
       ytPlayerRef.current = null;
     };
-  }, [phase, info, queueActivity]);
+  }, [phase, info, resolvedPlatform, queueActivity]);
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -909,7 +919,7 @@ export default function ViewRecordingPage() {
             </div>
             <span className="text-sm font-medium truncate">{info.title || 'Recording'}</span>
             <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-white/80">
-              {info.platform}
+              {resolvedPlatform}
             </span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -925,7 +935,7 @@ export default function ViewRecordingPage() {
         <div className="flex-1 flex flex-col sm:flex-row overflow-hidden min-h-0">
           <div className={`flex-1 p-2 sm:p-3 min-h-0 relative ${sidebarOpen ? 'min-h-[30vh]' : ''} sm:min-h-0`}>
             <div className="w-full h-full relative rounded-lg overflow-hidden bg-black flex items-center justify-center">
-              {info.platform === 'SYSTEM' && info.recordingUrl && !videoError && (
+              {resolvedPlatform === 'SYSTEM' && info.recordingUrl && !videoError && (
                 <video
                   ref={videoRef}
                   className="w-full h-full"
@@ -942,7 +952,7 @@ export default function ViewRecordingPage() {
                   onError={() => setVideoError('This video could not be loaded. The recording may have been moved or the link expired. Please refresh, or contact your institute if the problem continues.')}
                 />
               )}
-              {info.platform === 'SYSTEM' && videoError && (
+              {resolvedPlatform === 'SYSTEM' && videoError && (
                 <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-4 px-6">
                   <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
                     <AlertCircle className="w-8 h-8 text-red-400" />
@@ -957,10 +967,10 @@ export default function ViewRecordingPage() {
                   </button>
                 </div>
               )}
-              {info.platform === 'YOUTUBE' && (
+              {resolvedPlatform === 'YOUTUBE' && (
                 <div id="yt-player-container" className="w-full h-full absolute inset-0" />
               )}
-              {info.platform === 'GOOGLE_DRIVE' && info.recordingUrl && (
+              {resolvedPlatform === 'GOOGLE_DRIVE' && info.recordingUrl && (
                 <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-5 px-6">
                   <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
                     <HardDrive className="w-10 h-10 text-blue-400" />

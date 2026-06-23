@@ -25,6 +25,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/PageState';
 import { cachedApiClient } from '@/api/cachedClient';
 import VideoPreviewDialog from '@/components/VideoPreviewDialog';
+import TrackingViewDialog from '@/components/TrackingViewDialog';
 import DeleteConfirmDialog from '@/components/forms/DeleteConfirmDialog';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 import { format } from 'date-fns';
@@ -60,6 +61,7 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoPreviewTitle, setVideoPreviewTitle] = useState<string>('');
   const [videoPreviewLecture, setVideoPreviewLecture] = useState<any>(null);
+  const [trackingDialog, setTrackingDialog] = useState<{ mode: 'recording' | 'live'; urlId: string; title: string } | null>(null);
 
   // Filter states
   const [showFilters, setShowFilters] = useState(false);
@@ -241,12 +243,23 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
       url.includes('drive.google.com');
   };
 
+  const handleJoinLive = (lecture: any) => {
+    const liveAttEnabled = lecture.liveAttendanceEnabled || lecture.live_attendance_enabled;
+    const liveUrlId = lecture.liveUrlId || lecture.live_url_id;
+    if (liveAttEnabled && liveUrlId) {
+      setTrackingDialog({ mode: 'live', urlId: liveUrlId, title: lecture.title || 'Live Lecture' });
+      return;
+    }
+    const link = lecture.meetingLink || lecture.meeting_link;
+    if (link) window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
   const handleRecordingClick = (lecture: any) => {
     const recAttEnabled = lecture.recAttendanceEnabled || lecture.rec_attendance_enabled;
     const recUrlId = lecture.recUrlId || lecture.rec_url_id;
 
     if (recAttEnabled && recUrlId) {
-      window.open(`${window.location.origin}/view-recording/${recUrlId}`, '_blank');
+      setTrackingDialog({ mode: 'recording', urlId: recUrlId, title: lecture.title || 'Recording' });
       return;
     }
 
@@ -297,7 +310,7 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
                     size="sm"
                     variant="default"
                     className="h-8 w-full justify-center bg-green-600 px-2 text-white hover:bg-green-700"
-                    onClick={() => window.open(row.meetingLink, '_blank')}
+                    onClick={() => handleJoinLive(row)}
                   >
                     <ExternalLink className="mr-1 h-3.5 w-3.5" />
                     Join
@@ -684,7 +697,7 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
                               <Button
                                 size="sm"
                                 className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg gap-1"
-                                onClick={(e) => { e.stopPropagation(); window.open(item.meetingLink, '_blank'); }}
+                                onClick={(e) => { e.stopPropagation(); handleJoinLive(item); }}
                               >
                                 <ExternalLink className="h-3 w-3" />Join
                               </Button>
@@ -863,6 +876,14 @@ const Lectures = ({ apiLevel = 'institute' }: LecturesProps) => {
         title={videoPreviewTitle}
         description={videoPreviewLecture?.description}
         materials={videoPreviewLecture?.materials}
+      />
+
+      <TrackingViewDialog
+        open={!!trackingDialog}
+        onOpenChange={(open) => { if (!open) setTrackingDialog(null); }}
+        mode={trackingDialog?.mode ?? 'recording'}
+        urlId={trackingDialog?.urlId ?? ''}
+        title={trackingDialog?.title}
       />
 
       <DeleteConfirmDialog

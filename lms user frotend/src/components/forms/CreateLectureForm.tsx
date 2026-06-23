@@ -15,6 +15,7 @@ import LectureMaterialsSection, { LectureMaterial } from '@/components/common/Le
 import LectureThumbnailUpload from '@/components/common/LectureThumbnailUpload';
 import LectureTrackingSettings, { TrackingSettingsData } from '@/components/common/LectureTrackingSettings';
 import LectureWelcomeMessageSettings, { WelcomeMessageSettingsData } from '@/components/common/LectureWelcomeMessageSettings';
+import DurationInput from '@/components/common/DurationInput';
 
 interface CreateLectureFormProps {
   onClose?: () => void;
@@ -37,6 +38,7 @@ const CreateLectureForm = ({ onClose, onSuccess, courseId }: CreateLectureFormPr
     meetingId: '',
     meetingPassword: ''
   });
+  const [recDurationSeconds, setRecDurationSeconds] = useState<number | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [materials, setMaterials] = useState<LectureMaterial[]>([]);
@@ -59,13 +61,19 @@ const CreateLectureForm = ({ onClose, onSuccess, courseId }: CreateLectureFormPr
 
   const canCreate = instituteRole === 'InstituteAdmin' || instituteRole === 'Teacher';
 
+  const detectPlatform = (url: string): 'SYSTEM' | 'YOUTUBE' | 'GOOGLE_DRIVE' => {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YOUTUBE';
+    if (url.includes('drive.google.com')) return 'GOOGLE_DRIVE';
+    return 'SYSTEM';
+  };
+
   const handleInputChange = (field: string, value: string | boolean | number) => {
     setFieldErrors(prev => ({ ...prev, [field]: '' }));
-
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'recordingUrl' && typeof value === 'string') {
+      const detected = detectPlatform(value);
+      setTrackingData(prev => ({ ...prev, recPlatform: detected }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,6 +138,8 @@ const CreateLectureForm = ({ onClose, onSuccess, courseId }: CreateLectureFormPr
         recPlatform: trackingData.recPlatform,
         recAccessLevel: trackingData.recAccessLevel,
         recPaymentId: trackingData.recPaymentId,
+        recTrackingDays: trackingData.recTrackingDays ?? null,
+        recDurationSeconds: recDurationSeconds ?? undefined,
         welcomeMessageEnabled: welcomeData.welcomeMessageEnabled,
         welcomeMessageText: welcomeData.welcomeMessageText,
         welcomeMessageVoiceEnabled: welcomeData.welcomeMessageVoiceEnabled,
@@ -166,7 +176,8 @@ const CreateLectureForm = ({ onClose, onSuccess, courseId }: CreateLectureFormPr
       });
       setMaterials([]);
       setThumbnailUrl('');
-      setTrackingData({ liveAttendanceEnabled: false, liveAccessLevel: 'ENROLLED_ONLY', recAttendanceEnabled: false, recPlatform: 'SYSTEM', recAccessLevel: 'ENROLLED_ONLY' });
+      setRecDurationSeconds(undefined);
+      setTrackingData({ liveAttendanceEnabled: false, liveAccessLevel: 'ENROLLED_ONLY', recAttendanceEnabled: false, recPlatform: 'SYSTEM', recAccessLevel: 'ENROLLED_ONLY', recTrackingDays: null });
       setWelcomeData({ welcomeMessageEnabled: false, welcomeMessageText: '', welcomeMessageVoiceEnabled: false });
     } catch (error: any) {
       console.error('Error creating lecture:', error);
@@ -370,6 +381,13 @@ const CreateLectureForm = ({ onClose, onSuccess, courseId }: CreateLectureFormPr
                 onChange={(e) => handleInputChange('recordingUrl', e.target.value)}
               />
             </div>
+
+            <DurationInput
+              label="Recording Duration (Optional)"
+              value={recDurationSeconds}
+              onChange={setRecDurationSeconds}
+              disabled={isLoading}
+            />
 
             <LectureThumbnailUpload
               thumbnailUrl={thumbnailUrl}

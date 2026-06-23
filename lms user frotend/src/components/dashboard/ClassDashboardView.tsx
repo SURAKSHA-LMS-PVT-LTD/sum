@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cachedApiClient } from '@/api/cachedClient';
 import VideoPreviewDialog from '@/components/VideoPreviewDialog';
+import TrackingViewDialog from '@/components/TrackingViewDialog';
 import { getImageUrl } from '@/utils/imageUrlHelper';
 
 const ClassDashboardView = () => {
@@ -22,6 +23,7 @@ const ClassDashboardView = () => {
   const [expandedLecture, setExpandedLecture] = useState<string | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoPreviewTitle, setVideoPreviewTitle] = useState('');
+  const [trackingDialog, setTrackingDialog] = useState<{ mode: 'recording' | 'live'; urlId: string; title: string } | null>(null);
 
   const firstName = user?.name?.split(' ')[0] || '';
   const hour = new Date().getHours();
@@ -56,19 +58,28 @@ const ClassDashboardView = () => {
   };
 
   const handleRecording = (lec: any) => {
-    const url = lec.recordingUrl || lec.recording_url;
-    if (!url) return;
     const recAttEnabled = lec.recAttendanceEnabled || lec.rec_attendance_enabled;
     const recUrlId = lec.recUrlId || lec.rec_url_id;
-
     if (recAttEnabled && recUrlId) {
-      window.open(`${window.location.origin}/view-recording/${recUrlId}`, '_blank');
+      setTrackingDialog({ mode: 'recording', urlId: recUrlId, title: lec.title || 'Recording' });
       return;
     }
-
+    const url = lec.recordingUrl || lec.recording_url;
+    if (!url) return;
     if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('drive.google.com')) {
       setVideoPreviewUrl(url); setVideoPreviewTitle(lec.title);
     } else { window.open(url, '_blank'); }
+  };
+
+  const handleJoinLive = (lec: any) => {
+    const liveAttEnabled = lec.liveAttendanceEnabled || lec.live_attendance_enabled;
+    const liveUrlId = lec.liveUrlId || lec.live_url_id;
+    if (liveAttEnabled && liveUrlId) {
+      setTrackingDialog({ mode: 'live', urlId: liveUrlId, title: lec.title || 'Live Lecture' });
+      return;
+    }
+    const meetingLink = lec.meetingLink || lec.meeting_link;
+    if (meetingLink) window.open(meetingLink, '_blank', 'noopener,noreferrer');
   };
 
   const handleBackToInstitute = () => {
@@ -206,7 +217,7 @@ const ClassDashboardView = () => {
                       )}
                       <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/50">
                         {lec.meetingLink && (
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs rounded-lg gap-1" onClick={(e) => { e.stopPropagation(); window.open(lec.meetingLink, '_blank'); }}>
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs rounded-lg gap-1" onClick={(e) => { e.stopPropagation(); handleJoinLive(lec); }}>
                             <ExternalLink className="h-3 w-3" />Join
                           </Button>
                         )}
@@ -273,6 +284,14 @@ const ClassDashboardView = () => {
         onOpenChange={(open) => { if (!open) { setVideoPreviewUrl(null); setVideoPreviewTitle(''); } }}
         url={videoPreviewUrl || ''}
         title={videoPreviewTitle}
+      />
+
+      <TrackingViewDialog
+        open={!!trackingDialog}
+        onOpenChange={(open) => { if (!open) setTrackingDialog(null); }}
+        mode={trackingDialog?.mode ?? 'recording'}
+        urlId={trackingDialog?.urlId ?? ''}
+        title={trackingDialog?.title}
       />
     </div>
   );

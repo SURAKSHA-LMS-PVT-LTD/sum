@@ -401,7 +401,7 @@ export default function LectureAttendanceReportPage() {
                                             <TooltipContent className="text-xs">
                                               {(cell.loginCount ?? 1) > 1 && <div className="font-semibold text-amber-600">{cell.loginCount} logins</div>}
                                               {cell.joinTime && <div>First join: {new Date(cell.joinTime).toLocaleTimeString()}</div>}
-                                              {cell.durationMinutes != null && <div>Total: {cell.durationMinutes}m</div>}
+                                              {cell.durationMinutes != null && <div>Total: {fmtMinutes(cell.durationMinutes)}</div>}
                                             </TooltipContent>
                                           )}
                                         </Tooltip>
@@ -498,7 +498,7 @@ export default function LectureAttendanceReportPage() {
                                         {row.leaveTime ? new Date(row.leaveTime).toLocaleTimeString() : '—'}
                                       </TableCell>
                                       <TableCell className="text-xs text-right">
-                                        {row.durationMinutes != null ? `${row.durationMinutes}m` : '—'}
+                                        {fmtMinutes(row.durationMinutes)}
                                       </TableCell>
                                     </TableRow>
                                     {/* Expand individual visits if multiple logins */}
@@ -515,7 +515,7 @@ export default function LectureAttendanceReportPage() {
                                           {v.leaveTime ? new Date(v.leaveTime).toLocaleTimeString() : '—'}
                                         </TableCell>
                                         <TableCell className="text-[10px] text-muted-foreground text-right">
-                                          {v.durationMinutes != null ? `${v.durationMinutes}m` : '—'}
+                                          {fmtMinutes(v.durationMinutes)}
                                         </TableCell>
                                       </TableRow>
                                     ))}
@@ -560,45 +560,78 @@ export default function LectureAttendanceReportPage() {
                         {recReport[lec.id].length === 0 ? (
                           <p className="text-xs text-muted-foreground">No recording sessions yet.</p>
                         ) : (
-                          recReport[lec.id].map(session => (
-                            <div key={session.sessionId} className="border rounded-md overflow-hidden">
-                              <button
-                                className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 hover:bg-muted/50 text-left"
-                                onClick={() => setExpandedRecSessions(p => ({
-                                  ...p, [session.sessionId]: !p[session.sessionId],
-                                }))}
-                              >
-                                <div className="flex items-center gap-2">
-                                  {expandedRecSessions[session.sessionId]
-                                    ? <ChevronDown className="h-3 w-3" />
-                                    : <ChevronRight className="h-3 w-3" />}
-                                  <span className="text-xs font-medium">{session.name}</span>
-                                  <Badge variant={session.isGuest ? 'outline' : 'secondary'} className="text-[10px] h-4">
-                                    {session.isGuest ? 'Guest' : 'LMS'}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {formatSeconds(session.totalWatchedSeconds)}
-                                  </span>
-                                  <span>{new Date(session.startTime).toLocaleDateString()}</span>
-                                </div>
-                              </button>
-
-                              {expandedRecSessions[session.sessionId] && (
-                                <div className="px-3 py-3 space-y-3">
-                                  <ActivityHeatmap activities={session.activities} />
-                                  <div className="text-xs text-muted-foreground space-y-0.5">
-                                    <div>Started: {new Date(session.startTime).toLocaleString()}</div>
-                                    {session.endTime && <div>Ended: {new Date(session.endTime).toLocaleString()}</div>}
-                                    <div>Total watched: {formatSeconds(session.totalWatchedSeconds)}</div>
-                                    <div>Last position: {formatSeconds(session.lastPositionSeconds)}</div>
-                                  </div>
-                                </div>
+                          <>
+                            {/* Summary row */}
+                            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground pb-2 border-b mb-1">
+                              <span><b className="text-foreground">{recReport[lec.id].length}</b> viewer{recReport[lec.id].length !== 1 ? 's' : ''}</span>
+                              <span>Avg watched: <b className="text-foreground">{formatSeconds(Math.round(recReport[lec.id].reduce((s, r) => s + r.totalWatchedSeconds, 0) / recReport[lec.id].length))}</b></span>
+                              {(lec as any).recDurationSeconds > 0 && (
+                                <span>Avg completion: <b className="text-foreground">{Math.min(100, Math.round(recReport[lec.id].reduce((s, r) => s + r.totalWatchedSeconds, 0) / recReport[lec.id].length / (lec as any).recDurationSeconds * 100))}%</b></span>
                               )}
                             </div>
-                          ))
+                            {recReport[lec.id].map(session => {
+                              const recDur = (lec as any).recDurationSeconds as number | undefined;
+                              const pct = recDur && recDur > 0
+                                ? Math.min(100, Math.round((session.totalWatchedSeconds / recDur) * 100))
+                                : null;
+                              return (
+                                <div key={session.sessionId} className="border rounded-md overflow-hidden">
+                                  <button
+                                    className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 hover:bg-muted/50 text-left"
+                                    onClick={() => setExpandedRecSessions(p => ({
+                                      ...p, [session.sessionId]: !p[session.sessionId],
+                                    }))}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {expandedRecSessions[session.sessionId]
+                                        ? <ChevronDown className="h-3 w-3 shrink-0" />
+                                        : <ChevronRight className="h-3 w-3 shrink-0" />}
+                                      <span className="text-xs font-medium truncate">{session.name}</span>
+                                      <Badge variant={session.isGuest ? 'outline' : 'secondary'} className="text-[10px] h-4 shrink-0">
+                                        {session.isGuest ? 'Guest' : 'LMS'}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-2">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {formatSeconds(session.totalWatchedSeconds)}
+                                        {pct !== null && (
+                                          <span className={`ml-1 font-semibold ${pct >= 80 ? 'text-green-600' : pct >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                                            {pct}%
+                                          </span>
+                                        )}
+                                      </span>
+                                      <span>{new Date(session.startTime).toLocaleDateString()}</span>
+                                    </div>
+                                  </button>
+
+                                  {/* Completion bar */}
+                                  {pct !== null && (
+                                    <div className="h-0.5 bg-muted">
+                                      <div
+                                        className={`h-full transition-all ${pct >= 80 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-400' : 'bg-red-400'}`}
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  )}
+
+                                  {expandedRecSessions[session.sessionId] && (
+                                    <div className="px-3 py-3 space-y-3">
+                                      <ActivityHeatmap activities={session.activities} />
+                                      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                                        <div>Started: <span className="text-foreground">{new Date(session.startTime).toLocaleString()}</span></div>
+                                        {session.endTime && <div>Ended: <span className="text-foreground">{new Date(session.endTime).toLocaleString()}</span></div>}
+                                        <div>Total watched: <span className="text-foreground font-medium">{formatSeconds(session.totalWatchedSeconds)}</span></div>
+                                        <div>Last position: <span className="text-foreground">{formatSeconds(session.lastPositionSeconds)}</span></div>
+                                        {recDur && <div>Video length: <span className="text-foreground">{formatSeconds(recDur)}</span></div>}
+                                        {pct !== null && <div>Completion: <span className={`font-semibold ${pct >= 80 ? 'text-green-600' : pct >= 40 ? 'text-amber-600' : 'text-red-500'}`}>{pct}%</span></div>}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </>
                         )}
                       </CardContent>
                     )}
@@ -704,10 +737,19 @@ function EmptyState({ icon, message }: { icon: React.ReactNode; message: string 
 }
 
 function formatSeconds(s: number): string {
+  if (!s || s < 0) return '0s';
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${String(sec).padStart(2, '0')}s`;
+  const sec = Math.floor(s % 60);
+  if (h > 0) return `${h}h ${m}m ${sec}s`;
+  if (m > 0) return `${m}m ${sec}s`;
   return `${sec}s`;
+}
+
+function fmtMinutes(minutes: number | null | undefined): string {
+  if (minutes == null) return '—';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }

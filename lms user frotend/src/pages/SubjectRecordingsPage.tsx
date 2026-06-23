@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import TrackingViewDialog from '@/components/TrackingViewDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInstituteRole } from '@/hooks/useInstituteRole';
 import { useInstituteLabels } from '@/hooks/useInstituteLabels';
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import LectureTrackingSettings, { TrackingSettingsData } from '@/components/common/LectureTrackingSettings';
+import DurationInput from '@/components/common/DurationInput';
 import LectureWelcomeMessageSettings, { WelcomeMessageSettingsData } from '@/components/common/LectureWelcomeMessageSettings';
 import LectureMaterialsSection, { LectureMaterial } from '@/components/common/LectureMaterialsSection';
 import LectureThumbnailUpload from '@/components/common/LectureThumbnailUpload';
@@ -82,20 +83,11 @@ const RecordingCard: React.FC<{
   onToggleActive: (r: SubjectRecording) => void;
   expanded: boolean;
   onToggleExpand: () => void;
-}> = ({ recording: r, canEdit, canDelete, onEdit, onDelete, onToggleActive, expanded, onToggleExpand }) => {
-  const navigate = useNavigate();
+  onWatch: (r: SubjectRecording, e: React.MouseEvent) => void;
+}> = ({ recording: r, canEdit, canDelete, onEdit, onDelete, onToggleActive, expanded, onToggleExpand, onWatch }) => {
   const AccessIcon = accessLevelIcon[r.recAccessLevel] ?? Lock;
   const sc = statusConfig[r.status] ?? { label: r.status, className: 'bg-muted text-muted-foreground border-border' };
   const thumbSrc = r.thumbnailUrl ? getImageUrl(r.thumbnailUrl) : '';
-
-  const handleWatch = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (r.recAttendanceEnabled && r.recUrlId) {
-      navigate(`/view-recording/${r.recUrlId}?src=subject`);
-    } else if (r.recordingUrl) {
-      window.open(r.recordingUrl, '_blank');
-    }
-  };
 
   return (
     <div className={`relative ${expanded ? 'z-40' : 'z-0'}`}>
@@ -159,7 +151,7 @@ const RecordingCard: React.FC<{
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-1.5 mt-auto pt-2 border-t border-border/50">
             {(r.recUrlId || r.recordingUrl) && (
-              <Button size="sm" variant="outline" className="h-7 text-xs px-2.5 rounded-lg gap-1" onClick={handleWatch}>
+              <Button size="sm" variant="outline" className="h-7 text-xs px-2.5 rounded-lg gap-1" onClick={e => onWatch(r, e)}>
                 <PlayCircle className="h-3 w-3" />Watch
               </Button>
             )}
@@ -261,6 +253,7 @@ const EMPTY_TRACKING: TrackingSettingsData = {
   recAttendanceEnabled: false,
   recPlatform: 'SYSTEM',
   recAccessLevel: 'ENROLLED_ONLY',
+  recTrackingDays: null,
 };
 
 const EMPTY_WELCOME: WelcomeMessageSettingsData = {
@@ -289,6 +282,19 @@ const RecordingFormDialog: React.FC<{
   const [status, setStatus] = useState<RecordingStatus>('draft');
   const [isActive, setIsActive] = useState(true);
   const [tracking, setTracking] = useState<TrackingSettingsData>(EMPTY_TRACKING);
+
+  const detectPlatform = (url: string): RecordingPlatform => {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YOUTUBE';
+    if (url.includes('drive.google.com')) return 'GOOGLE_DRIVE';
+    return 'SYSTEM';
+  };
+
+  const handleRecordingUrlChange = (url: string) => {
+    setRecordingUrl(url);
+    const detected = detectPlatform(url);
+    setPlatform(detected);
+    setTracking(prev => ({ ...prev, recPlatform: detected }));
+  };
   const [welcome, setWelcome] = useState<WelcomeMessageSettingsData>(EMPTY_WELCOME);
   const [materials, setMaterials] = useState<LectureMaterial[]>([]);
   const [thumbnailUrl, setThumbnailUrl] = useState('');
@@ -312,6 +318,7 @@ const RecordingFormDialog: React.FC<{
         recPlatform: 'SYSTEM',
         recAccessLevel: editing.recAccessLevel,
         recPaymentId: editing.recPaymentId,
+        recTrackingDays: (editing as any).recTrackingDays ?? null,
       });
       setWelcome({
         welcomeMessageEnabled: editing.welcomeMessageEnabled,
@@ -350,6 +357,7 @@ const RecordingFormDialog: React.FC<{
         recAttendanceEnabled: tracking.recAttendanceEnabled,
         recAccessLevel: tracking.recAccessLevel,
         recPaymentId: tracking.recPaymentId,
+        recTrackingDays: tracking.recTrackingDays ?? null,
         welcomeMessageEnabled: welcome.welcomeMessageEnabled,
         welcomeMessageText: welcome.welcomeMessageText || undefined,
         welcomeMessageVoiceEnabled: welcome.welcomeMessageVoiceEnabled,
@@ -430,17 +438,15 @@ const RecordingFormDialog: React.FC<{
 
           <div className="space-y-1.5">
             <Label className="text-xs">Recording URL</Label>
-            <Input placeholder="https://..." value={recordingUrl} onChange={e => setRecordingUrl(e.target.value)} />
+            <Input placeholder="https://..." value={recordingUrl} onChange={e => handleRecordingUrlChange(e.target.value)} />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Duration (seconds)</Label>
-            <Input
-              type="number" min={1} placeholder="e.g. 3600"
-              value={durationSeconds ?? ''}
-              onChange={e => setDurationSeconds(e.target.value ? parseInt(e.target.value, 10) : undefined)}
-            />
-          </div>
+          <DurationInput
+            label="Duration"
+            value={durationSeconds}
+            onChange={setDurationSeconds}
+            disabled={saving}
+          />
 
           <div className="flex items-center justify-between">
             <Label className="text-xs font-semibold">Active</Label>
@@ -484,7 +490,6 @@ const RecordingFormDialog: React.FC<{
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 const SubjectRecordingsPage: React.FC = () => {
-  const navigate = useNavigate();
   const { selectedInstitute, selectedClass, selectedSubject } = useAuth();
   const userRole = useInstituteRole();
   const { subjectLabel } = useInstituteLabels();
@@ -513,6 +518,16 @@ const SubjectRecordingsPage: React.FC = () => {
   const [editingRecording, setEditingRecording] = useState<SubjectRecording | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: SubjectRecording | null }>({ open: false, item: null });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [trackingDialog, setTrackingDialog] = useState<{ urlId: string; title: string } | null>(null);
+
+  const handleWatch = (r: SubjectRecording, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (r.recAttendanceEnabled && r.recUrlId) {
+      setTrackingDialog({ urlId: r.recUrlId, title: r.title });
+    } else if (r.recordingUrl) {
+      window.open(r.recordingUrl, '_blank');
+    }
+  };
 
   const load = useCallback(async (forceRefresh = false) => {
     if (!selectedInstitute?.id) return;
@@ -581,10 +596,7 @@ const SubjectRecordingsPage: React.FC = () => {
         <div className="flex flex-wrap gap-1.5 min-w-[200px]">
           {(row.recUrlId || row.recordingUrl) && (
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
-              onClick={() => row.recAttendanceEnabled && row.recUrlId
-                ? navigate(`/view-recording/${row.recUrlId}?src=subject`)
-                : window.open(row.recordingUrl, '_blank')
-              }>
+              onClick={(e) => handleWatch(row, e)}>
               <PlayCircle className="h-3 w-3" />Watch
             </Button>
           )}
@@ -701,6 +713,7 @@ const SubjectRecordingsPage: React.FC = () => {
                   onEdit={rec => { setEditingRecording(rec); setFormOpen(true); }}
                   onDelete={rec => setDeleteDialog({ open: true, item: rec })}
                   onToggleActive={handleToggleActive}
+                  onWatch={handleWatch}
                 />
               ))}
             </div>
@@ -755,6 +768,17 @@ const SubjectRecordingsPage: React.FC = () => {
         onConfirm={confirmDelete}
         isDeleting={isDeleting}
       />
+
+      {trackingDialog && (
+        <TrackingViewDialog
+          open={!!trackingDialog}
+          onOpenChange={open => { if (!open) setTrackingDialog(null); }}
+          mode="recording"
+          urlId={trackingDialog.urlId}
+          title={trackingDialog.title}
+          extraParams={{ src: 'subject' }}
+        />
+      )}
     </PageContainer>
   );
 };

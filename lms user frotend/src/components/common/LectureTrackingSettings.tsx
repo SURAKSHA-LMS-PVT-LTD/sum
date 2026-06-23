@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { subjectPaymentsApi } from '@/api/subjectPayments.api';
 import { Loader2 } from 'lucide-react';
@@ -16,6 +17,12 @@ export interface TrackingSettingsData {
   recPlatform: 'SYSTEM' | 'YOUTUBE' | 'GOOGLE_DRIVE';
   recAccessLevel: 'ANYONE' | 'SURAKSHA_USERS' | 'ENROLLED_ONLY' | 'PAID_ONLY';
   recPaymentId?: string;
+  /**
+   * How many days after publishing the recording to track watch activity.
+   * 0 = only record that the student viewed it (no heartbeats/seek events).
+   * 1-30 = track full activity for that many days. null/undefined = no limit (always track).
+   */
+  recTrackingDays?: number | null;
 }
 
 export interface LectureTrackingSettingsProps {
@@ -285,6 +292,24 @@ const LectureTrackingSettings: React.FC<LectureTrackingSettingsProps> = ({
                     )}
                   </div>
                 )}
+              </div>
+
+              <div className="space-y-2 max-w-xs">
+                <Label>Activity Tracking Duration (days)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={30}
+                  placeholder="e.g. 30"
+                  value={data.recTrackingDays ?? ''}
+                  onChange={e => {
+                    const v = e.target.value === '' ? null : Math.min(30, Math.max(0, parseInt(e.target.value, 10) || 0));
+                    updateField('recTrackingDays', v);
+                  }}
+                />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  0 = record view only (no activity events). 1–30 = track full watch activity for that many days. Leave blank for no time limit.
+                </p>
               </div>
             </CardContent>
           )}
